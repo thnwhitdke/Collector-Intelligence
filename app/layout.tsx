@@ -1,11 +1,8 @@
-cd ~/collector-intelligence
-
-cat > app/layout.tsx <<'EOF'
 import "./globals.css";
 
 export const metadata = {
   title: "Collector Intelligence",
-  description: "Track and analyze your vinyl collection",
+  description: "Manage your collection",
 };
 
 export default function RootLayout({
@@ -19,4 +16,3 @@ export default function RootLayout({
     </html>
   );
 }
-EOF

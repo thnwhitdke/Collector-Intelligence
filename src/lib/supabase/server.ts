@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -12,11 +12,19 @@ export async function createClient() {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        set(name: string, value: string, options: any) {
-          cookieStore.set({ name, value, ...options });
+        set(name: string, value: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch {
+            // Server Components cannot set cookies directly.
+          }
         },
-        remove(name: string, options: any) {
-          cookieStore.set({ name, value: "", ...options, maxAge: 0 });
+        remove(name: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value: "", ...options });
+          } catch {
+            // Server Components cannot set cookies directly.
+          }
         },
       },
     }

@@ -1,12 +1,1 @@
-cd ~/collector-intelligence
-
-cat > app/globals.css <<'EOF'
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-html,
-body {
-  height: 100%;
-}
-EOF
+@import "tailwindcss";
