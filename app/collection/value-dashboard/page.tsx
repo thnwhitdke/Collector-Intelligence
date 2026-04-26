@@ -3,11 +3,12 @@ import { createClient } from "@/src/lib/supabase/server";
 import DiscogsValuePullButton from "./DiscogsValuePullButton";
 
 type PriceHistoryEntry = {
-  date: string;
-  low: number;
-  median: number;
-  high: number;
-  estimated: number;
+  date?: string;
+  pulled_at?: string;
+  low: number | string | null;
+  median: number | string | null;
+  high: number | string | null;
+  estimated: number | string | null;
   source: string;
 };
 
@@ -16,25 +17,50 @@ type ValueRecord = {
   artist: string | null;
   title: string | null;
   format: string | null;
-  purchase_price: number | null;
-  estimated_value: number | null;
-  discogs_low_price: number | null;
-  discogs_median_price: number | null;
-  discogs_high_price: number | null;
+  purchase_price: number | string | null;
+  estimated_value: number | string | null;
+  discogs_low_price: number | string | null;
+  discogs_median_price: number | string | null;
+  discogs_high_price: number | string | null;
   value_source: string | null;
   value_last_updated: string | null;
   price_history: PriceHistoryEntry[] | null;
 };
 
+type NormalizedPriceHistoryEntry = {
+  date: string;
+  low: number;
+  median: number;
+  high: number;
+  estimated: number;
+  source: string;
+};
+
 type EnrichedValueRecord = ValueRecord & {
-  value_delta: number;
+  purchase_price_number: number | null;
+  estimated_value_number: number | null;
+  discogs_median_price_number: number | null;
+  value_delta: number | null;
   roi_percent: number | null;
   trend_direction: "Rising" | "Falling" | "Stable" | "New";
   trend_delta: number | null;
+  price_history: NormalizedPriceHistoryEntry[];
 };
 
+function toNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[$,]/g, "").trim();
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 function currency(value: number | null | undefined) {
-  if (typeof value !== "number") return "—";
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
 
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -43,7 +69,7 @@ function currency(value: number | null | undefined) {
 }
 
 function percent(value: number | null | undefined) {
-  if (typeof value !== "number") return "—";
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
 
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
@@ -60,23 +86,39 @@ function formatDate(value: string | null) {
 
 function normalizePriceHistory(
   value: PriceHistoryEntry[] | null
-): PriceHistoryEntry[] {
+): NormalizedPriceHistoryEntry[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value
+    .map((entry) => {
+      const date = entry.date || entry.pulled_at || "";
+      const estimated = toNumber(entry.estimated);
+      const low = toNumber(entry.low);
+      const median = toNumber(entry.median);
+      const high = toNumber(entry.high);
+
+      if (!date || estimated === null) return null;
+
+      return {
+        date,
+        estimated,
+        low: low ?? estimated,
+        median: median ?? estimated,
+        high: high ?? estimated,
+        source: entry.source || "Discogs",
+      };
+    })
     .filter(
-      (entry) =>
-        typeof entry.date === "string" &&
-        typeof entry.estimated === "number"
+      (entry): entry is NormalizedPriceHistoryEntry => entry !== null
     )
     .sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 }
 
-function getTrendFromHistory(history: PriceHistoryEntry[]) {
+function getTrendFromHistory(history: NormalizedPriceHistoryEntry[]) {
   if (history.length < 2) {
     return {
       trend_direction: "New" as const,
@@ -102,27 +144,42 @@ function getTrendFromHistory(history: PriceHistoryEntry[]) {
 }
 
 function enrichRecord(record: ValueRecord): EnrichedValueRecord {
-  const purchase = record.purchase_price || 0;
-  const estimated = record.estimated_value || 0;
-  const valueDelta = estimated - purchase;
+  const purchase = toNumber(record.purchase_price);
+  const estimated = toNumber(record.estimated_value);
+  const discogsMedian = toNumber(record.discogs_median_price);
   const history = normalizePriceHistory(record.price_history);
   const trend = getTrendFromHistory(history);
 
+  const hasPurchase = typeof purchase === "number" && purchase > 0;
+  const hasEstimated = typeof estimated === "number";
+
+  const valueDelta =
+    hasPurchase && hasEstimated ? Number((estimated - purchase).toFixed(2)) : null;
+
   const roiPercent =
-    purchase > 0 ? Number(((valueDelta / purchase) * 100).toFixed(1)) : null;
+    hasPurchase && typeof valueDelta === "number"
+      ? Number(((valueDelta / purchase) * 100).toFixed(1))
+      : null;
 
   return {
     ...record,
     price_history: history,
-    value_delta: Number(valueDelta.toFixed(2)),
+    purchase_price_number: purchase,
+    estimated_value_number: estimated,
+    discogs_median_price_number: discogsMedian,
+    value_delta: valueDelta,
     roi_percent: roiPercent,
     trend_direction: trend.trend_direction,
     trend_delta: trend.trend_delta,
   };
 }
 
-function Sparkline({ history }: { history: PriceHistoryEntry[] | null }) {
-  const safeHistory = normalizePriceHistory(history);
+function Sparkline({
+  history,
+}: {
+  history: NormalizedPriceHistoryEntry[] | null;
+}) {
+  const safeHistory = Array.isArray(history) ? history : [];
 
   if (safeHistory.length < 2) {
     return <span className="text-xs text-slate-500">No trend yet</span>;
@@ -203,7 +260,8 @@ function MiniRecordCard({
   record: EnrichedValueRecord;
   label: string;
 }) {
-  const positive = record.value_delta >= 0;
+  const positive =
+    typeof record.value_delta === "number" ? record.value_delta >= 0 : true;
 
   return (
     <div className="rounded-3xl border border-slate-700 bg-slate-950/75 p-5 shadow-xl">
@@ -231,7 +289,7 @@ function MiniRecordCard({
             Estimated
           </p>
           <p className="mt-1 font-bold text-amber-200">
-            {currency(record.estimated_value)}
+            {currency(record.estimated_value_number)}
           </p>
         </div>
 
@@ -253,7 +311,7 @@ function MiniRecordCard({
             Purchase
           </p>
           <p className="mt-1 text-slate-300">
-            {currency(record.purchase_price)}
+            {currency(record.purchase_price_number)}
           </p>
         </div>
 
@@ -287,44 +345,56 @@ export default async function ValueDashboardPage() {
 
   const safeRecords = ((records || []) as ValueRecord[]).map(enrichRecord);
 
-  const totalEstimatedValue = safeRecords.reduce(
-    (sum, record) => sum + (record.estimated_value || 0),
+  const recordsWithEstimatedValues = safeRecords.filter(
+    (record) => typeof record.estimated_value_number === "number"
+  );
+
+  const recordsWithPurchaseValues = safeRecords.filter(
+    (record) =>
+      typeof record.purchase_price_number === "number" &&
+      record.purchase_price_number > 0
+  );
+
+  const totalEstimatedValue = recordsWithEstimatedValues.reduce(
+    (sum, record) => sum + (record.estimated_value_number ?? 0),
     0
   );
 
-  const totalPurchaseValue = safeRecords.reduce(
-    (sum, record) => sum + (record.purchase_price || 0),
+  const totalPurchaseValue = recordsWithPurchaseValues.reduce(
+    (sum, record) => sum + (record.purchase_price_number ?? 0),
     0
   );
 
-  const valueDelta = totalEstimatedValue - totalPurchaseValue;
+  const valueDelta =
+    totalPurchaseValue > 0
+      ? Number((totalEstimatedValue - totalPurchaseValue).toFixed(2))
+      : null;
 
   const roiOverall =
-    totalPurchaseValue > 0
+    totalPurchaseValue > 0 && typeof valueDelta === "number"
       ? Number(((valueDelta / totalPurchaseValue) * 100).toFixed(1))
       : null;
 
-  const valuedCount = safeRecords.filter(
-    (record) => typeof record.estimated_value === "number"
-  ).length;
+  const valuedCount = recordsWithEstimatedValues.length;
 
   const needsValueCount = safeRecords.filter(
-    (record) => record.estimated_value === null
+    (record) => record.estimated_value_number === null
   ).length;
 
   const recordsWithPurchaseAndValue = safeRecords.filter(
     (record) =>
-      typeof record.estimated_value === "number" &&
-      typeof record.purchase_price === "number" &&
-      record.purchase_price > 0
+      typeof record.estimated_value_number === "number" &&
+      typeof record.purchase_price_number === "number" &&
+      record.purchase_price_number > 0 &&
+      typeof record.value_delta === "number"
   );
 
   const topGainers = [...recordsWithPurchaseAndValue]
-    .sort((a, b) => b.value_delta - a.value_delta)
+    .sort((a, b) => (b.value_delta ?? 0) - (a.value_delta ?? 0))
     .slice(0, 3);
 
   const topLosers = [...recordsWithPurchaseAndValue]
-    .sort((a, b) => a.value_delta - b.value_delta)
+    .sort((a, b) => (a.value_delta ?? 0) - (b.value_delta ?? 0))
     .slice(0, 3);
 
   const topRoi = [...recordsWithPurchaseAndValue]
@@ -384,7 +454,7 @@ export default async function ValueDashboardPage() {
               Estimated Value
             </p>
             <p className="mt-3 text-3xl font-bold text-slate-50">
-              {currency(totalEstimatedValue)}
+              {valuedCount > 0 ? currency(totalEstimatedValue) : "—"}
             </p>
           </div>
 
@@ -393,7 +463,9 @@ export default async function ValueDashboardPage() {
               Purchase Basis
             </p>
             <p className="mt-3 text-3xl font-bold text-slate-50">
-              {currency(totalPurchaseValue)}
+              {recordsWithPurchaseValues.length > 0
+                ? currency(totalPurchaseValue)
+                : "—"}
             </p>
           </div>
 
@@ -403,7 +475,9 @@ export default async function ValueDashboardPage() {
             </p>
             <p
               className={`mt-3 text-3xl font-bold ${
-                valueDelta >= 0 ? "text-emerald-300" : "text-rose-300"
+                typeof valueDelta === "number" && valueDelta < 0
+                  ? "text-rose-300"
+                  : "text-emerald-300"
               }`}
             >
               {currency(valueDelta)}
@@ -416,7 +490,9 @@ export default async function ValueDashboardPage() {
             </p>
             <p
               className={`mt-3 text-3xl font-bold ${
-                valueDelta >= 0 ? "text-emerald-300" : "text-rose-300"
+                typeof valueDelta === "number" && valueDelta < 0
+                  ? "text-rose-300"
+                  : "text-emerald-300"
               }`}
             >
               {percent(roiOverall)}
@@ -580,73 +656,76 @@ export default async function ValueDashboardPage() {
               </thead>
 
               <tbody className="divide-y divide-slate-800">
-                {safeRecords.map((record) => (
-                  <tr
-                    key={record.id}
-                    className="transition hover:bg-slate-900/80"
-                  >
-                    <td className="px-5 py-4">
-                      <div className="font-semibold text-slate-100">
-                        {record.artist || "Unknown Artist"}
-                      </div>
-                      <div className="text-slate-400">
-                        {record.title || "Untitled"}
-                      </div>
-                    </td>
+                {safeRecords.map((record) => {
+                  const positive =
+                    typeof record.value_delta === "number"
+                      ? record.value_delta >= 0
+                      : true;
 
-                    <td className="px-5 py-4 text-slate-300">
-                      {record.format || "—"}
-                    </td>
-
-                    <td className="px-5 py-4 text-right text-slate-300">
-                      {currency(record.purchase_price)}
-                    </td>
-
-                    <td className="px-5 py-4 text-right text-slate-300">
-                      {currency(record.discogs_median_price)}
-                    </td>
-
-                    <td className="px-5 py-4 text-right font-bold text-amber-200">
-                      {currency(record.estimated_value)}
-                    </td>
-
-                    <td
-                      className={`px-5 py-4 text-right font-bold ${
-                        record.value_delta >= 0
-                          ? "text-emerald-300"
-                          : "text-rose-300"
-                      }`}
+                  return (
+                    <tr
+                      key={record.id}
+                      className="transition hover:bg-slate-900/80"
                     >
-                      {currency(record.value_delta)}
-                    </td>
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-slate-100">
+                          {record.artist || "Unknown Artist"}
+                        </div>
+                        <div className="text-slate-400">
+                          {record.title || "Untitled"}
+                        </div>
+                      </td>
 
-                    <td
-                      className={`px-5 py-4 text-right font-semibold ${
-                        (record.roi_percent || 0) >= 0
-                          ? "text-emerald-300"
-                          : "text-rose-300"
-                      }`}
-                    >
-                      {percent(record.roi_percent)}
-                    </td>
+                      <td className="px-5 py-4 text-slate-300">
+                        {record.format || "—"}
+                      </td>
 
-                    <td className="px-5 py-4 text-right">
-                      <TrendBadge record={record} />
-                    </td>
+                      <td className="px-5 py-4 text-right text-slate-300">
+                        {currency(record.purchase_price_number)}
+                      </td>
 
-                    <td className="px-5 py-4 text-right">
-                      <Sparkline history={record.price_history} />
-                    </td>
+                      <td className="px-5 py-4 text-right text-slate-300">
+                        {currency(record.discogs_median_price_number)}
+                      </td>
 
-                    <td className="px-5 py-4 text-slate-300">
-                      {record.value_source || "—"}
-                    </td>
+                      <td className="px-5 py-4 text-right font-bold text-amber-200">
+                        {currency(record.estimated_value_number)}
+                      </td>
 
-                    <td className="px-5 py-4 text-slate-400">
-                      {formatDate(record.value_last_updated)}
-                    </td>
-                  </tr>
-                ))}
+                      <td
+                        className={`px-5 py-4 text-right font-bold ${
+                          positive ? "text-emerald-300" : "text-rose-300"
+                        }`}
+                      >
+                        {currency(record.value_delta)}
+                      </td>
+
+                      <td
+                        className={`px-5 py-4 text-right font-semibold ${
+                          positive ? "text-emerald-300" : "text-rose-300"
+                        }`}
+                      >
+                        {percent(record.roi_percent)}
+                      </td>
+
+                      <td className="px-5 py-4 text-right">
+                        <TrendBadge record={record} />
+                      </td>
+
+                      <td className="px-5 py-4 text-right">
+                        <Sparkline history={record.price_history} />
+                      </td>
+
+                      <td className="px-5 py-4 text-slate-300">
+                        {record.value_source || "—"}
+                      </td>
+
+                      <td className="px-5 py-4 text-slate-400">
+                        {formatDate(record.value_last_updated)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
