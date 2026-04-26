@@ -289,7 +289,44 @@ export default async function RecordDetailPage({
                     name="ebay_last_sold_price"
                     defaultValue={getValue(record, "ebay_last_sold_price")}
                   />
+
+                  <Field
+                    label="eBay Last Sold Date"
+                    name="ebay_last_sold_date"
+                    defaultValue={getValue(record, "ebay_last_sold_date")}
+                    type="date"
+                  />
+
+                  <Field
+                    label="eBay Comp Count"
+                    name="ebay_sold_comp_count"
+                    defaultValue={getValue(record, "ebay_sold_comp_count")}
+                  />
+
+                  <Field
+                    label="eBay Low Sold"
+                    name="ebay_low_sold_price"
+                    defaultValue={getValue(record, "ebay_low_sold_price")}
+                  />
+
+                  <Field
+                    label="eBay Median Sold"
+                    name="ebay_median_sold_price"
+                    defaultValue={getValue(record, "ebay_median_sold_price")}
+                  />
+
+                  <Field
+                    label="eBay High Sold"
+                    name="ebay_high_sold_price"
+                    defaultValue={getValue(record, "ebay_high_sold_price")}
+                  />
                 </Grid>
+
+                <TextArea
+                  label="eBay Notes / Source"
+                  name="ebay_notes"
+                  defaultValue={getValue(record, "ebay_notes")}
+                />
 
                 <TextArea
                   label="Grading Notes"
@@ -338,6 +375,30 @@ export default async function RecordDetailPage({
                 <Read
                   label="eBay Last Sold"
                   value={money(getValue(record, "ebay_last_sold_price"))}
+                />
+                <Read
+                  label="eBay Last Sold Date"
+                  value={getValue(record, "ebay_last_sold_date")}
+                />
+                <Read
+                  label="eBay Comp Count"
+                  value={getValue(record, "ebay_sold_comp_count")}
+                />
+                <Read
+                  label="eBay Low Sold"
+                  value={money(getValue(record, "ebay_low_sold_price"))}
+                />
+                <Read
+                  label="eBay Median Sold"
+                  value={money(getValue(record, "ebay_median_sold_price"))}
+                />
+                <Read
+                  label="eBay High Sold"
+                  value={money(getValue(record, "ebay_high_sold_price"))}
+                />
+                <Read
+                  label="eBay Notes / Source"
+                  value={getValue(record, "ebay_notes")}
                 />
                 <Read
                   label="Original Median Price"

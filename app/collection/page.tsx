@@ -7,6 +7,7 @@ import CollectionValueBar from "./CollectionValueBar";
 import TopValueRecordsPanel from "./TopValueRecordsPanel";
 import { CollectionUI, type CollectionRecord } from "./ui";
 import ScrollRestorer from "./ScrollRestorer";
+import { calculateValueConfidence } from "../../src/lib/value-confidence";
 
 type CollectionPageProps = {
   searchParams?: Promise<{
@@ -23,7 +24,11 @@ export type SavedViewPreset =
   | "review_queue"
   | "needs_pricing"
   | "needs_year"
-  | "exceptions";
+  | "exceptions"
+  | "high_confidence"
+  | "medium_confidence"
+  | "low_confidence"
+  | "needs_verification";
 
 type SupabaseErrorLike = {
   message?: string | null;
@@ -64,6 +69,10 @@ function normalizePreset(value?: string): SavedViewPreset {
     case "needs_pricing":
     case "needs_year":
     case "exceptions":
+    case "high_confidence":
+    case "medium_confidence":
+    case "low_confidence":
+    case "needs_verification":
       return value;
     default:
       return "all";
@@ -107,6 +116,12 @@ function applyPresetFilter<T>(
           "notes.ilike.%[REVIEW]%",
         ].join(",")
       );
+
+    case "high_confidence":
+    case "medium_confidence":
+    case "low_confidence":
+    case "needs_verification":
+      return query;
 
     case "all":
     default:
@@ -171,6 +186,87 @@ function getSafeErrorMessage(error: unknown) {
     : "Unknown error";
 }
 
+
+function isConfidencePreset(preset: SavedViewPreset) {
+  return (
+    preset === "high_confidence" ||
+    preset === "medium_confidence" ||
+    preset === "low_confidence" ||
+    preset === "needs_verification"
+  );
+}
+
+function getNumericValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return 0;
+  }
+
+  const numeric = Number(String(value).replace(/[$,]/g, ""));
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function getEstimatedValue(record: CollectionRecord) {
+  return (
+    getNumericValue(record.current_value) ||
+    getNumericValue(record.median_price) ||
+    getNumericValue(record.high_price)
+  );
+}
+
+function getRecordValueConfidence(record: CollectionRecord) {
+  const estimatedValue = getEstimatedValue(record);
+  const discogsMedian = getNumericValue(record.median_price);
+  const ebayLastSold = getNumericValue(record.ebay_last_sold_price);
+
+  return calculateValueConfidence({
+    estimated_value: estimatedValue,
+    current_value: getNumericValue(record.current_value),
+    purchase_price: getNumericValue(record.purchase_price),
+    discogs_low_price: getNumericValue(record.low_price),
+    discogs_median_price: discogsMedian,
+    discogs_high_price: getNumericValue(record.high_price),
+    ebay_last_sold_price: ebayLastSold,
+    ebay_sold_comp_count: getNumericValue(record.ebay_sold_comp_count),
+    ebay_low_sold_price: getNumericValue(record.ebay_low_sold_price),
+    ebay_median_sold_price: getNumericValue(record.ebay_median_sold_price),
+    ebay_high_sold_price: getNumericValue(record.ebay_high_sold_price),
+  });
+}
+
+function filterRecordsByConfidencePreset(
+  records: CollectionRecord[],
+  preset: SavedViewPreset
+) {
+  switch (preset) {
+    case "high_confidence":
+      return records.filter((record) => {
+        const confidence = getRecordValueConfidence(record);
+        return confidence.label === "High";
+      });
+
+    case "medium_confidence":
+      return records.filter((record) => {
+        const confidence = getRecordValueConfidence(record);
+        return confidence.label === "Medium";
+      });
+
+    case "low_confidence":
+      return records.filter((record) => {
+        const confidence = getRecordValueConfidence(record);
+        return confidence.label === "Low" || confidence.label === "Unknown";
+      });
+
+    case "needs_verification":
+      return records.filter((record) => {
+        const confidence = getRecordValueConfidence(record);
+        return confidence.score < 40;
+      });
+
+    default:
+      return records;
+  }
+}
+
 async function getPresetCount(
   supabase: Awaited<ReturnType<typeof createClient>>,
   preset: SavedViewPreset
@@ -227,9 +323,28 @@ export default async function CollectionPage({
     const { data, count } = await query.limit(1000);
 
     records = data ?? [];
-    totalCount = count ?? 0;
+
+    if (isConfidencePreset(preset)) {
+      records = filterRecordsByConfidencePreset(records, preset);
+      totalCount = records.length;
+    } else {
+      totalCount = count ?? 0;
+    }
   } catch (error) {
     console.warn("Collection query warning:", getSafeErrorMessage(error));
+  }
+
+  let confidenceCountRecords: CollectionRecord[] = [];
+
+  try {
+    const confidenceCountQuery = supabase
+      .from("records_clean_safe")
+      .select("*") as unknown as SupabaseQueryLike<CollectionRecord>;
+
+    const { data } = await confidenceCountQuery.limit(1000);
+    confidenceCountRecords = data ?? [];
+  } catch (error) {
+    console.warn("Confidence counts warning:", getSafeErrorMessage(error));
   }
 
   const presetCounts = {
@@ -240,6 +355,22 @@ export default async function CollectionPage({
     needs_pricing: await getPresetCount(supabase, "needs_pricing"),
     needs_year: await getPresetCount(supabase, "needs_year"),
     exceptions: await getPresetCount(supabase, "exceptions"),
+    high_confidence: filterRecordsByConfidencePreset(
+      confidenceCountRecords,
+      "high_confidence"
+    ).length,
+    medium_confidence: filterRecordsByConfidencePreset(
+      confidenceCountRecords,
+      "medium_confidence"
+    ).length,
+    low_confidence: filterRecordsByConfidencePreset(
+      confidenceCountRecords,
+      "low_confidence"
+    ).length,
+    needs_verification: filterRecordsByConfidencePreset(
+      confidenceCountRecords,
+      "needs_verification"
+    ).length,
   };
 
   let savedViews: SavedViewRow[] = [];

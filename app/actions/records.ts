@@ -137,6 +137,12 @@ export type CollectorGradingUpdate = {
   purchase_price?: number | null;
   current_value?: number | null;
   ebay_last_sold_price?: number | null;
+  ebay_last_sold_date?: string | null;
+  ebay_sold_comp_count?: number | null;
+  ebay_low_sold_price?: number | null;
+  ebay_median_sold_price?: number | null;
+  ebay_high_sold_price?: number | null;
+  ebay_notes?: string | null;
 };
 
 export type ValueDashboardSummary = {
@@ -189,6 +195,23 @@ export async function addRecord(formData: FormData) {
     formData.get("ebay_last_sold_price")
   );
 
+  const ebay_last_sold_date = normalizeEmpty(
+    formData.get("ebay_last_sold_date")
+  );
+  const ebay_sold_comp_count = normalizeNumber(
+    formData.get("ebay_sold_comp_count")
+  );
+  const ebay_low_sold_price = normalizeNumber(
+    formData.get("ebay_low_sold_price")
+  );
+  const ebay_median_sold_price = normalizeNumber(
+    formData.get("ebay_median_sold_price")
+  );
+  const ebay_high_sold_price = normalizeNumber(
+    formData.get("ebay_high_sold_price")
+  );
+  const ebay_notes = normalizeEmpty(formData.get("ebay_notes"));
+
   const discogs_release_id =
     normalizeEmpty(formData.get("discogs_release_id")) ??
     extractDiscogsReleaseIdFromUrl(discogs_url);
@@ -215,6 +238,12 @@ export async function addRecord(formData: FormData) {
     purchase_price,
     current_value,
     ebay_last_sold_price,
+    ebay_last_sold_date,
+    ebay_sold_comp_count,
+    ebay_low_sold_price,
+    ebay_median_sold_price,
+    ebay_high_sold_price,
+    ebay_notes,
   };
 
   const { data, error } = await supabase
@@ -325,9 +354,26 @@ export async function updateCollectorDetails(formData: FormData) {
   const grading_notes = normalizeEmpty(formData.get("grading_notes"));
   const purchase_price = normalizeNumber(formData.get("purchase_price"));
   const current_value = normalizeNumber(formData.get("current_value"));
+
   const ebay_last_sold_price = normalizeNumber(
     formData.get("ebay_last_sold_price")
   );
+  const ebay_last_sold_date = normalizeEmpty(
+    formData.get("ebay_last_sold_date")
+  );
+  const ebay_sold_comp_count = normalizeNumber(
+    formData.get("ebay_sold_comp_count")
+  );
+  const ebay_low_sold_price = normalizeNumber(
+    formData.get("ebay_low_sold_price")
+  );
+  const ebay_median_sold_price = normalizeNumber(
+    formData.get("ebay_median_sold_price")
+  );
+  const ebay_high_sold_price = normalizeNumber(
+    formData.get("ebay_high_sold_price")
+  );
+  const ebay_notes = normalizeEmpty(formData.get("ebay_notes"));
 
   const { error } = await supabase
     .from("records_clean_safe")
@@ -342,6 +388,12 @@ export async function updateCollectorDetails(formData: FormData) {
       purchase_price,
       current_value,
       ebay_last_sold_price,
+      ebay_last_sold_date,
+      ebay_sold_comp_count,
+      ebay_low_sold_price,
+      ebay_median_sold_price,
+      ebay_high_sold_price,
+      ebay_notes,
     })
     .eq("id", id);
 
@@ -380,6 +432,28 @@ export async function updateCollectorGrading(
       values.ebay_last_sold_price === null
         ? null
         : Number(values.ebay_last_sold_price),
+    ebay_last_sold_date: values.ebay_last_sold_date || null,
+    ebay_sold_comp_count:
+      values.ebay_sold_comp_count === undefined ||
+      values.ebay_sold_comp_count === null
+        ? null
+        : Number(values.ebay_sold_comp_count),
+    ebay_low_sold_price:
+      values.ebay_low_sold_price === undefined ||
+      values.ebay_low_sold_price === null
+        ? null
+        : Number(values.ebay_low_sold_price),
+    ebay_median_sold_price:
+      values.ebay_median_sold_price === undefined ||
+      values.ebay_median_sold_price === null
+        ? null
+        : Number(values.ebay_median_sold_price),
+    ebay_high_sold_price:
+      values.ebay_high_sold_price === undefined ||
+      values.ebay_high_sold_price === null
+        ? null
+        : Number(values.ebay_high_sold_price),
+    ebay_notes: values.ebay_notes || null,
   };
 
   const { error } = await supabase

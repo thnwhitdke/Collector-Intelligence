@@ -21,6 +21,7 @@ import {
   clearLastViewedRecord,
   readLastViewedRecord,
 } from "./lastViewedRecord";
+import { calculateValueConfidence } from "../../src/lib/value-confidence";
 
 export type CollectionRecord = {
   id: number | string | null;
@@ -48,6 +49,10 @@ export type CollectionRecord = {
   low_price?: string | number | null;
   high_price?: string | number | null;
   ebay_last_sold_price?: string | number | null;
+  ebay_sold_comp_count?: string | number | null;
+  ebay_low_sold_price?: string | number | null;
+  ebay_median_sold_price?: string | number | null;
+  ebay_high_sold_price?: string | number | null;
 };
 
 type SortOption = {
@@ -63,6 +68,10 @@ type PresetCounts = {
   needs_pricing: number;
   needs_year: number;
   exceptions: number;
+  high_confidence: number;
+  medium_confidence: number;
+  low_confidence: number;
+  needs_verification: number;
 };
 
 type CollectionUIProps = {
@@ -151,6 +160,26 @@ function getEstimatedValue(record: CollectionRecord) {
     getNumericValue(record.median_price) ||
     getNumericValue(record.high_price)
   );
+}
+
+function getRecordValueConfidence(record: CollectionRecord) {
+  const estimatedValue = getEstimatedValue(record);
+  const discogsMedian = getNumericValue(record.median_price);
+  const ebayLastSold = getNumericValue(record.ebay_last_sold_price);
+
+  return calculateValueConfidence({
+    estimated_value: estimatedValue,
+    current_value: getNumericValue(record.current_value),
+    purchase_price: getNumericValue(record.purchase_price),
+    discogs_low_price: getNumericValue(record.low_price),
+    discogs_median_price: discogsMedian,
+    discogs_high_price: getNumericValue(record.high_price),
+    ebay_last_sold_price: ebayLastSold,
+    ebay_sold_comp_count: getNumericValue(record.ebay_sold_comp_count),
+    ebay_low_sold_price: getNumericValue(record.ebay_low_sold_price),
+    ebay_median_sold_price: getNumericValue(record.ebay_median_sold_price),
+    ebay_high_sold_price: getNumericValue(record.ebay_high_sold_price),
+  });
 }
 
 function getPrimaryGrade(record: CollectionRecord) {
@@ -280,6 +309,10 @@ const SAVED_VIEWS: {
   { value: "needs_pricing", label: "Needs Pricing" },
   { value: "needs_year", label: "Needs Year" },
   { value: "exceptions", label: "Exceptions" },
+  { value: "high_confidence", label: "High Confidence" },
+  { value: "medium_confidence", label: "Medium Confidence" },
+  { value: "low_confidence", label: "Low / Unknown" },
+  { value: "needs_verification", label: "Needs Verification" },
 ];
 
 function filterByPreset(records: CollectionRecord[], preset: SavedViewPreset) {
@@ -329,6 +362,30 @@ function filterByPreset(records: CollectionRecord[], preset: SavedViewPreset) {
           missingPrice ||
           missingYear
         );
+      });
+
+    case "high_confidence":
+      return records.filter((record) => {
+        const confidence = getRecordValueConfidence(record);
+        return confidence.label === "High";
+      });
+
+    case "medium_confidence":
+      return records.filter((record) => {
+        const confidence = getRecordValueConfidence(record);
+        return confidence.label === "Medium";
+      });
+
+    case "low_confidence":
+      return records.filter((record) => {
+        const confidence = getRecordValueConfidence(record);
+        return confidence.label === "Low" || confidence.label === "Unknown";
+      });
+
+    case "needs_verification":
+      return records.filter((record) => {
+        const confidence = getRecordValueConfidence(record);
+        return confidence.score < 40;
       });
 
     case "all":
@@ -541,6 +598,49 @@ export function CollectionUI({
     );
   }, [filteredRecords]);
 
+  const visibleConfidenceRollup = useMemo(() => {
+    if (filteredRecords.length === 0) {
+      return {
+        totalScore: 0,
+        averageScore: 0,
+        highCount: 0,
+        mediumCount: 0,
+        lowOrUnknownCount: 0,
+        confidenceWeightedValue: 0,
+      };
+    }
+
+    return filteredRecords.reduce(
+      (summary, record) => {
+        const confidence = getRecordValueConfidence(record);
+        const estimatedValue = getEstimatedValue(record);
+
+        summary.totalScore += confidence.score;
+        summary.confidenceWeightedValue += estimatedValue * (confidence.score / 100);
+
+        if (confidence.label === "High") {
+          summary.highCount += 1;
+        } else if (confidence.label === "Medium") {
+          summary.mediumCount += 1;
+        } else {
+          summary.lowOrUnknownCount += 1;
+        }
+
+        summary.averageScore = Math.round(summary.totalScore / filteredRecords.length);
+
+        return summary;
+      },
+      {
+        totalScore: 0,
+        averageScore: 0,
+        highCount: 0,
+        mediumCount: 0,
+        lowOrUnknownCount: 0,
+        confidenceWeightedValue: 0,
+      }
+    );
+  }, [filteredRecords]);
+
   return (
     <div className="space-y-8 bg-[#0E0C0A] text-[#F4EFE6]">
       <section className="overflow-hidden rounded-[34px] border border-[#3A3328] bg-[radial-gradient(circle_at_top_left,_rgba(199,164,93,0.16),_transparent_32%),linear-gradient(135deg,_#0E0C0A,_#17130F_58%,_#272017)] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl">
@@ -588,6 +688,20 @@ export function CollectionUI({
                 className="rounded-2xl border border-[#8F6F35]/50 bg-[#C7A45D]/10 px-4 py-3 text-sm font-semibold text-[#F4EFE6] transition hover:bg-[#C7A45D]/18"
               >
                 Import Records
+              </Link>
+
+              <Link
+                href="/collection/value-queue"
+                className="rounded-2xl border border-[#8F6F35]/50 bg-[#C7A45D]/10 px-4 py-3 text-sm font-semibold text-[#F4EFE6] transition hover:bg-[#C7A45D]/18"
+              >
+                Value Queue
+              </Link>
+
+              <Link
+                href="/collection/ebay-sold-comp-helper"
+                className="rounded-2xl border border-emerald-400/45 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/18"
+              >
+                eBay Comp Helper
               </Link>
 
               <div className="flex items-center gap-2 rounded-2xl border border-[#3A3328] bg-[#0E0C0A]/60 px-4 py-3 text-sm text-[#D8CBB8]">
@@ -644,6 +758,30 @@ export function CollectionUI({
           label="Visible Graded Records"
           value={formatStatNumber(gradedVisibleCount)}
           helper="Records with media grade, condition, or extracted grade notes."
+        />
+
+        <ArchiveMetric
+          label="Average Confidence"
+          value={`${visibleConfidenceRollup.averageScore}/100`}
+          helper="Average confidence score across the records visible in the current view."
+        />
+
+        <ArchiveMetric
+          label="High-Confidence Records"
+          value={formatStatNumber(visibleConfidenceRollup.highCount)}
+          helper="Visible records with stronger market support from Discogs, eBay, or app values."
+        />
+
+        <ArchiveMetric
+          label="Low / Unknown Confidence"
+          value={formatStatNumber(visibleConfidenceRollup.lowOrUnknownCount)}
+          helper="Visible records that need stronger pricing support before trusting the valuation."
+        />
+
+        <ArchiveMetric
+          label="Confidence-Weighted Value"
+          value={formatMoney(visibleConfidenceRollup.confidenceWeightedValue)}
+          helper="Estimated visible value discounted by each record's confidence score."
         />
       </section>
 
@@ -828,6 +966,20 @@ export function CollectionUI({
                 className="rounded-2xl border border-[#8F6F35]/50 bg-[#C7A45D]/10 px-5 py-3 text-sm font-semibold text-[#F4EFE6] transition hover:bg-[#C7A45D]/18"
               >
                 Import Records
+              </Link>
+
+              <Link
+                href="/collection/value-queue"
+                className="rounded-2xl border border-[#8F6F35]/50 bg-[#C7A45D]/10 px-5 py-3 text-sm font-semibold text-[#F4EFE6] transition hover:bg-[#C7A45D]/18"
+              >
+                Value Queue
+              </Link>
+
+              <Link
+                href="/collection/ebay-sold-comp-helper"
+                className="rounded-2xl border border-emerald-400/45 bg-emerald-400/10 px-5 py-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/18"
+              >
+                eBay Comp Helper
               </Link>
 
               <Link
@@ -1678,6 +1830,8 @@ function ValuePanel({ record }: { record: CollectionRecord }) {
   const ebayLastSold = getNumericValue(record.ebay_last_sold_price);
   const hasAnyValue = estimatedValue > 0 || discogsMedian > 0 || ebayLastSold > 0;
 
+  const confidence = getRecordValueConfidence(record);
+
   return (
     <div className="rounded-[24px] border border-[#3A3328] bg-[#0E0C0A]/70 p-4">
       <div className="flex items-center justify-between gap-3">
@@ -1686,7 +1840,7 @@ function ValuePanel({ record }: { record: CollectionRecord }) {
         </div>
 
         <span className="rounded-full border border-[#3A3328] bg-[#17130F] px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-[#B8AA96]">
-          Concept
+          Market
         </span>
       </div>
 
@@ -1697,6 +1851,27 @@ function ValuePanel({ record }: { record: CollectionRecord }) {
           value={formatMoney(record.ebay_last_sold_price)}
         />
         <ValueMini label="Estimate" value={formatMoney(estimatedValue)} />
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-[#3A3328] bg-[#17130F]/80 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8E8170]">
+              Confidence
+            </div>
+            <div className="mt-1 text-lg font-bold text-[#F4EFE6]">
+              {confidence.label}
+            </div>
+          </div>
+
+          <div className="rounded-full border border-[#3A3328] bg-[#0E0C0A]/70 px-3 py-1 text-xs font-bold text-[#F4EFE6]">
+            {confidence.score}/100
+          </div>
+        </div>
+
+        <div className="mt-2 text-xs leading-5 text-[#B8AA96]">
+          {confidence.sourceSummary}
+        </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-[#3A3328] bg-[#17130F]/80 p-3">
