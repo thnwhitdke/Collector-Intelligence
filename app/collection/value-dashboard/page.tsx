@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/src/lib/supabase/server";
+import MarketSnapshotButton from "@/app/components/MarketSnapshotButton";
 import DiscogsValuePullButton from "./DiscogsValuePullButton";
 
 type PriceHistoryEntry = {

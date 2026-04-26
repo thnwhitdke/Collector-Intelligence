@@ -1,3 +1,4 @@
+import { pullSingleDiscogsValue } from "../../actions/pull-single-discogs";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -67,7 +68,7 @@ function getNumber(record: RecordDetail, key: string) {
   }
 
   if (typeof value === "string") {
-    const parsed = Number(value);
+    const parsed = Number(value.replace(/[$,]/g, ""));
     return Number.isFinite(parsed) ? parsed : null;
   }
 
@@ -85,7 +86,8 @@ function money(value: string | number | boolean | null | undefined) {
     return "—";
   }
 
-  const parsed = typeof value === "number" ? value : Number(value);
+  const parsed =
+    typeof value === "number" ? value : Number(String(value).replace(/[$,]/g, ""));
 
   if (!Number.isFinite(parsed)) return displayValue(value);
 
@@ -93,6 +95,59 @@ function money(value: string | number | boolean | null | undefined) {
     style: "currency",
     currency: "USD",
   }).format(parsed);
+}
+
+function formatDate(value: string | number | boolean | null | undefined) {
+  if (!value || typeof value === "boolean") return "Not available from Discogs API";
+
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return "Not available from Discogs API";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
+function getMarketSignal(forSale: number | null) {
+  if (forSale === null) {
+    return {
+      label: "Market Status Unknown",
+      description: "Current Discogs supply has not been pulled for this record yet.",
+      className: "border-slate-500/30 bg-slate-500/10 text-slate-200",
+    };
+  }
+
+  if (forSale <= 2) {
+    return {
+      label: "Thin Market",
+      description: "Very few copies are currently listed. Scarcity may matter here.",
+      className: "border-amber-400/30 bg-amber-400/10 text-amber-100",
+    };
+  }
+
+  if (forSale >= 30) {
+    return {
+      label: "Saturated Market",
+      description: "Many copies are listed. Pricing may need to be competitive.",
+      className: "border-slate-400/30 bg-slate-400/10 text-slate-100",
+    };
+  }
+
+  if (forSale >= 10) {
+    return {
+      label: "Active Supply",
+      description: "There is meaningful marketplace activity around this release.",
+      className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
+    };
+  }
+
+  return {
+    label: "Balanced Market",
+    description: "Supply is present but not crowded.",
+    className: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
+  };
 }
 
 export default async function RecordDetailPage({
@@ -116,6 +171,8 @@ export default async function RecordDetailPage({
   const coverUrl = getText(record, "cover_url");
   const title = getText(record, "title") || "Untitled";
   const artist = getText(record, "artist") || "Unknown Artist";
+  const forSale = getNumber(record, "discogs_for_sale");
+  const marketSignal = getMarketSignal(forSale);
 
   return (
     <main className="min-h-screen bg-[#11100E] px-6 py-10 text-[#F4EFE6]">
@@ -130,7 +187,7 @@ export default async function RecordDetailPage({
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link
               href={returnTo || "/collection"}
               className="rounded-xl border border-[#3A3328] px-4 py-2 text-sm hover:bg-[#1A1815]"
@@ -143,6 +200,13 @@ export default async function RecordDetailPage({
               className="rounded-xl border border-[#8F6F35] px-4 py-2 text-sm text-[#C7A45D] hover:bg-[#221F1A]"
             >
               Full Collection
+            </Link>
+
+            <Link
+              href="/collection/market-intelligence"
+              className="rounded-xl border border-fuchsia-300/40 bg-fuchsia-300/10 px-4 py-2 text-sm text-fuchsia-100 hover:bg-fuchsia-300/20"
+            >
+              Market Intelligence
             </Link>
           </div>
         </div>
@@ -184,6 +248,73 @@ export default async function RecordDetailPage({
           </div>
 
           <div className="space-y-6">
+          <Section title="Market Intelligence">
+              <form action={pullSingleDiscogsValue} className="mb-4">
+                <input
+                  type="hidden"
+                  name="id"
+                  value={String(getValue(record, "id"))}
+                />
+                <input
+                  type="hidden"
+                  name="releaseId"
+                  value={getText(record, "discogs_release_id")}
+                />
+
+                <button type="submit" className="rounded-xl bg-fuchsia-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-400">
+                  Pull Market Data (This Record)
+                </button>
+              </form>
+
+              <div className="space-y-5">
+                <div className={`rounded-2xl border px-5 py-4 ${marketSignal.className}`}>
+                  <div className="text-sm font-bold">{marketSignal.label}</div>
+                  <div className="mt-1 text-xs opacity-80">
+                    {marketSignal.description}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Read
+                    label="Estimated Value"
+                    value={money(getValue(record, "estimated_value"))}
+                  />
+                  <Read
+                    label="Discogs Median"
+                    value={money(getValue(record, "discogs_median_price"))}
+                  />
+                  <Read
+                    label="Copies for Sale"
+                    value={forSale === null ? "Not pulled yet" : forSale}
+                  />
+                  <Read
+                    label="Discogs Low"
+                    value={money(getValue(record, "discogs_low_price"))}
+                  />
+                  <Read
+                    label="Discogs High"
+                    value={money(getValue(record, "discogs_high_price"))}
+                  />
+                  <Read
+                    label="Last Sold"
+                    value={formatDate(getValue(record, "discogs_last_sold_date"))}
+                  />
+                  <Read
+                    label="Value Source"
+                    value={getValue(record, "value_source")}
+                  />
+                  <Read
+                    label="Last Refreshed"
+                    value={formatDate(getValue(record, "value_last_updated"))}
+                  />
+                  <Read
+                    label="Discogs Release ID"
+                    value={getValue(record, "discogs_release_id")}
+                  />
+                </div>
+              </div>
+            </Section>
+
             <ValueIntelligencePanel
               recordId={String(getValue(record, "id"))}
               discogsReleaseId={getText(record, "discogs_release_id") || null}
@@ -371,6 +502,14 @@ export default async function RecordDetailPage({
                 <Read
                   label="Discogs High"
                   value={money(getValue(record, "discogs_high_price"))}
+                />
+                <Read
+                  label="Discogs Copies for Sale"
+                  value={forSale === null ? "Not pulled yet" : forSale}
+                />
+                <Read
+                  label="Discogs Last Sold"
+                  value={formatDate(getValue(record, "discogs_last_sold_date"))}
                 />
                 <Read
                   label="eBay Last Sold"

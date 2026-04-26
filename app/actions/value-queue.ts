@@ -10,6 +10,18 @@ type DiscogsPriceSuggestion = {
 
 type DiscogsPriceSuggestionsResponse = Record<string, DiscogsPriceSuggestion>;
 
+type DiscogsStatsResponse = {
+  num_for_sale?: number;
+  last_sold_date?: string | null;
+};
+
+type ValuePullStatus =
+  | "needs_pull"
+  | "pulled_successfully"
+  | "no_discogs_value_available"
+  | "discogs_error"
+  | "missing_release_id";
+
 type QueueRecord = {
   id: string;
   artist: string | null;
@@ -22,6 +34,9 @@ type QueueRecord = {
   value_source: string | null;
   cover_url: string | null;
   purchase_price?: number | string | null;
+  value_pull_status?: ValuePullStatus | string | null;
+  value_pull_note?: string | null;
+  value_pull_last_attempted_at?: string | null;
 };
 
 type PulledRecord = {
@@ -32,6 +47,8 @@ type PulledRecord = {
   low: number | null;
   median: number | null;
   high: number | null;
+  forSale: number | null;
+  lastSoldDate: string | null;
 };
 
 function toNumber(value: unknown): number | null {
@@ -83,6 +100,10 @@ function getQueuePriority(record: QueueRecord): number {
   const hasEstimatedValue =
     typeof estimatedValue === "number" && estimatedValue > 0;
 
+  if (record.value_pull_status === "no_discogs_value_available") return 99;
+  if (record.value_pull_status === "missing_release_id") return 98;
+  if (record.value_pull_status === "discogs_error") return 50;
+
   if (hasPurchasePrice && !hasEstimatedValue) return 1;
   if (!hasEstimatedValue) return 2;
   if (!record.value_last_updated) return 3;
@@ -90,30 +111,11 @@ function getQueuePriority(record: QueueRecord): number {
   return 4;
 }
 
-function getQueueReason(record: QueueRecord): string {
-  const priority = getQueuePriority(record);
-
-  if (priority === 1) {
-    return "High priority: purchase price exists but estimated value is missing.";
-  }
-
-  if (priority === 2) {
-    return "Needs value: Discogs release ID exists but estimated value is missing.";
-  }
-
-  if (priority === 3) {
-    return "Needs refresh: value exists but last updated date is missing.";
-  }
-
-  return "Lower priority: existing value already present.";
-}
-
 function sortQueueRecords(records: QueueRecord[]) {
   return records
     .map((record) => ({
       ...record,
       queue_priority: getQueuePriority(record),
-      queue_reason: getQueueReason(record),
     }))
     .sort((a, b) => {
       if (a.queue_priority !== b.queue_priority) {
@@ -130,6 +132,23 @@ function sortQueueRecords(records: QueueRecord[]) {
 
       return aTime - bTime;
     });
+}
+
+async function markPullStatus(
+  id: string,
+  status: ValuePullStatus,
+  note: string
+) {
+  const supabase = await createClient();
+
+  await supabase
+    .from("records_clean_safe")
+    .update({
+      value_pull_status: status,
+      value_pull_note: note,
+      value_pull_last_attempted_at: new Date().toISOString(),
+    })
+    .eq("id", id);
 }
 
 export async function getValueQueue() {
@@ -149,10 +168,14 @@ export async function getValueQueue() {
       value_last_updated,
       value_source,
       cover_url,
-      purchase_price
+      purchase_price,
+      value_pull_status,
+      value_pull_note,
+      value_pull_last_attempted_at
     `
     )
     .not("discogs_release_id", "is", null)
+    .neq("value_pull_status", "no_discogs_value_available")
     .limit(250);
 
   if (error) {
@@ -172,54 +195,38 @@ export async function pullBatchDiscogsValues(limit = 10) {
   if (!token) {
     return {
       ok: false,
-      message:
-        "Missing DISCOGS_TOKEN in .env.local or Vercel Environment Variables.",
+      message: "Missing DISCOGS_TOKEN",
       updated: 0,
       skipped: 0,
       failed: 0,
       pulledRecords: [] as PulledRecord[],
-      diagnostic: {
-        attempted: 0,
-        noReleaseId: 0,
-        discogsHttpError: 0,
-        emptySuggestions: 0,
-        noUsableValues: 0,
-        noMedian: 0,
-        updateErrors: 0,
-      },
     };
   }
 
-  const fullQueue = await getValueQueue();
-  const queue = fullQueue.slice(0, limit);
+  const queue = (await getValueQueue()).slice(0, limit);
 
   let updated = 0;
   let skipped = 0;
   let failed = 0;
+  let markedUnavailable = 0;
 
   const pulledRecords: PulledRecord[] = [];
-
-  const diagnostic = {
-    attempted: queue.length,
-    noReleaseId: 0,
-    discogsHttpError: 0,
-    emptySuggestions: 0,
-    noUsableValues: 0,
-    noMedian: 0,
-    updateErrors: 0,
-  };
 
   for (const record of queue) {
     try {
       const releaseId = String(record.discogs_release_id || "").trim();
 
       if (!releaseId) {
-        diagnostic.noReleaseId += 1;
-        skipped += 1;
+        await markPullStatus(
+          record.id,
+          "missing_release_id",
+          "No Discogs release ID is stored for this record."
+        );
+        skipped++;
         continue;
       }
 
-      const response = await fetch(
+      const priceRes = await fetch(
         `https://api.discogs.com/marketplace/price_suggestions/${releaseId}`,
         {
           headers: {
@@ -230,20 +237,29 @@ export async function pullBatchDiscogsValues(limit = 10) {
         }
       );
 
-      if (!response.ok) {
-        diagnostic.discogsHttpError += 1;
-        skipped += 1;
+      if (!priceRes.ok) {
+        await markPullStatus(
+          record.id,
+          "discogs_error",
+          `Discogs price suggestion request failed with HTTP ${priceRes.status}.`
+        );
+        skipped++;
         continue;
       }
 
       const suggestions =
-        (await response.json()) as DiscogsPriceSuggestionsResponse;
+        (await priceRes.json()) as DiscogsPriceSuggestionsResponse;
 
       const suggestionEntries = Object.entries(suggestions);
 
       if (suggestionEntries.length === 0) {
-        diagnostic.emptySuggestions += 1;
-        skipped += 1;
+        await markPullStatus(
+          record.id,
+          "no_discogs_value_available",
+          "Discogs returned no price suggestions for this release."
+        );
+        markedUnavailable++;
+        skipped++;
         continue;
       }
 
@@ -253,8 +269,13 @@ export async function pullBatchDiscogsValues(limit = 10) {
         .sort((a, b) => a - b);
 
       if (values.length === 0) {
-        diagnostic.noUsableValues += 1;
-        skipped += 1;
+        await markPullStatus(
+          record.id,
+          "no_discogs_value_available",
+          "Discogs returned price suggestions, but none contained usable numeric values."
+        );
+        markedUnavailable++;
+        skipped++;
         continue;
       }
 
@@ -263,9 +284,43 @@ export async function pullBatchDiscogsValues(limit = 10) {
       const median = getMedianEstimate(suggestions);
 
       if (median === null) {
-        diagnostic.noMedian += 1;
-        skipped += 1;
+        await markPullStatus(
+          record.id,
+          "no_discogs_value_available",
+          "Discogs returned values, but no median estimate could be calculated."
+        );
+        markedUnavailable++;
+        skipped++;
         continue;
+      }
+
+      let forSale: number | null = null;
+      let lastSoldDate: string | null = null;
+
+      try {
+        const statsRes = await fetch(
+          `https://api.discogs.com/marketplace/stats/${releaseId}`,
+          {
+            headers: {
+              Authorization: `Discogs token=${token}`,
+              "User-Agent": userAgent,
+            },
+            cache: "no-store",
+          }
+        );
+
+        if (statsRes.ok) {
+          const stats = (await statsRes.json()) as DiscogsStatsResponse;
+
+          forSale =
+            typeof stats.num_for_sale === "number"
+              ? stats.num_for_sale
+              : null;
+
+          lastSoldDate = stats.last_sold_date ?? null;
+        }
+      } catch {
+        // Stats are helpful but not required for a successful value pull.
       }
 
       const now = new Date().toISOString();
@@ -277,54 +332,61 @@ export async function pullBatchDiscogsValues(limit = 10) {
           discogs_median_price: median,
           discogs_high_price: high,
           estimated_value: median,
-          value_source: "Discogs price suggestions",
+          value_source: "Discogs",
           value_last_updated: now,
+          discogs_for_sale: forSale,
+          discogs_last_sold_date: lastSoldDate,
+          value_pull_status: "pulled_successfully",
+          value_pull_note: "Discogs value pull completed successfully.",
+          value_pull_last_attempted_at: now,
         })
         .eq("id", record.id);
 
       if (updateError) {
-        diagnostic.updateErrors += 1;
-        failed += 1;
+        await markPullStatus(
+          record.id,
+          "discogs_error",
+          `Database update failed: ${updateError.message}`
+        );
+        failed++;
       } else {
-        updated += 1;
+        updated++;
         pulledRecords.push({
           id: record.id,
-          artist: record.artist || "Unknown Artist",
+          artist: record.artist || "Unknown",
           title: record.title || "Untitled",
           releaseId,
           low,
           median,
           high,
+          forSale,
+          lastSoldDate,
         });
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await new Promise((r) => setTimeout(r, 1200));
     } catch {
-      failed += 1;
+      await markPullStatus(
+        record.id,
+        "discogs_error",
+        "Unexpected error during Discogs value pull."
+      );
+      failed++;
     }
   }
 
-  revalidatePath("/collection/value-queue");
-  revalidatePath("/collection/value-dashboard");
   revalidatePath("/collection");
-
-  const details = [
-    `attempted ${diagnostic.attempted}`,
-    `no release ID ${diagnostic.noReleaseId}`,
-    `Discogs HTTP/API errors ${diagnostic.discogsHttpError}`,
-    `empty suggestions ${diagnostic.emptySuggestions}`,
-    `no usable price values ${diagnostic.noUsableValues}`,
-    `no median ${diagnostic.noMedian}`,
-    `database update errors ${diagnostic.updateErrors}`,
-  ].join(", ");
+  revalidatePath("/collection/value-dashboard");
+  revalidatePath("/collection/value-queue");
+  revalidatePath("/collection/market-intelligence");
 
   return {
     ok: true,
-    message: `Diagnostic Discogs pull complete. Updated ${updated}, skipped ${skipped}, failed ${failed}. Details: ${details}.`,
+    message: `Updated ${updated}, marked unavailable ${markedUnavailable}, skipped ${skipped}, failed ${failed}.`,
     updated,
     skipped,
     failed,
+    markedUnavailable,
     pulledRecords,
-    diagnostic,
   };
 }

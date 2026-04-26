@@ -698,6 +698,13 @@ export function CollectionUI({
               </Link>
 
               <Link
+                href="/collection/market-intelligence"
+                className="rounded-2xl border border-fuchsia-300/45 bg-fuchsia-300/10 px-4 py-3 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-300/18"
+              >
+                Market Intelligence
+              </Link>
+
+              <Link
                 href="/collection/value-queue"
                 className="rounded-2xl border border-[#8F6F35]/50 bg-[#C7A45D]/10 px-4 py-3 text-sm font-semibold text-[#F4EFE6] transition hover:bg-[#C7A45D]/18"
               >
@@ -980,6 +987,13 @@ export function CollectionUI({
                 className="rounded-2xl border border-sky-300/45 bg-sky-300/10 px-5 py-3 text-sm font-semibold text-sky-100 transition hover:bg-sky-300/18"
               >
                 Value Dashboard
+              </Link>
+
+              <Link
+                href="/collection/market-intelligence"
+                className="rounded-2xl border border-fuchsia-300/45 bg-fuchsia-300/10 px-5 py-3 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-300/18"
+              >
+                Market Intelligence
               </Link>
 
               <Link
