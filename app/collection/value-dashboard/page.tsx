@@ -2,6 +2,15 @@ import Link from "next/link";
 import { createClient } from "@/src/lib/supabase/server";
 import DiscogsValuePullButton from "./DiscogsValuePullButton";
 
+type PriceHistoryEntry = {
+  date: string;
+  low: number;
+  median: number;
+  high: number;
+  estimated: number;
+  source: string;
+};
+
 type ValueRecord = {
   id: string;
   artist: string | null;
@@ -14,11 +23,14 @@ type ValueRecord = {
   discogs_high_price: number | null;
   value_source: string | null;
   value_last_updated: string | null;
+  price_history: PriceHistoryEntry[] | null;
 };
 
 type EnrichedValueRecord = ValueRecord & {
   value_delta: number;
   roi_percent: number | null;
+  trend_direction: "Rising" | "Falling" | "Stable" | "New";
+  trend_delta: number | null;
 };
 
 function currency(value: number | null | undefined) {
@@ -46,19 +58,142 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function normalizePriceHistory(
+  value: PriceHistoryEntry[] | null
+): PriceHistoryEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(
+      (entry) =>
+        typeof entry.date === "string" &&
+        typeof entry.estimated === "number"
+    )
+    .sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+}
+
+function getTrendFromHistory(history: PriceHistoryEntry[]) {
+  if (history.length < 2) {
+    return {
+      trend_direction: "New" as const,
+      trend_delta: null,
+    };
+  }
+
+  const first = history[0].estimated;
+  const last = history[history.length - 1].estimated;
+  const delta = Number((last - first).toFixed(2));
+
+  if (Math.abs(delta) < 0.5) {
+    return {
+      trend_direction: "Stable" as const,
+      trend_delta: delta,
+    };
+  }
+
+  return {
+    trend_direction: delta > 0 ? ("Rising" as const) : ("Falling" as const),
+    trend_delta: delta,
+  };
+}
+
 function enrichRecord(record: ValueRecord): EnrichedValueRecord {
   const purchase = record.purchase_price || 0;
   const estimated = record.estimated_value || 0;
   const valueDelta = estimated - purchase;
+  const history = normalizePriceHistory(record.price_history);
+  const trend = getTrendFromHistory(history);
 
   const roiPercent =
     purchase > 0 ? Number(((valueDelta / purchase) * 100).toFixed(1)) : null;
 
   return {
     ...record,
+    price_history: history,
     value_delta: Number(valueDelta.toFixed(2)),
     roi_percent: roiPercent,
+    trend_direction: trend.trend_direction,
+    trend_delta: trend.trend_delta,
   };
+}
+
+function Sparkline({ history }: { history: PriceHistoryEntry[] | null }) {
+  const safeHistory = normalizePriceHistory(history);
+
+  if (safeHistory.length < 2) {
+    return <span className="text-xs text-slate-500">No trend yet</span>;
+  }
+
+  const values = safeHistory.map((entry) => entry.estimated);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  const points = values
+    .map((value, index) => {
+      const x =
+        safeHistory.length === 1
+          ? 0
+          : (index / (safeHistory.length - 1)) * 120;
+      const y = 36 - ((value - min) / range) * 32;
+
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+
+  const lastValue = values[values.length - 1];
+  const firstValue = values[0];
+  const positive = lastValue >= firstValue;
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <svg
+        width="120"
+        height="40"
+        viewBox="0 0 120 40"
+        role="img"
+        aria-label="Price trend sparkline"
+        className="overflow-visible"
+      >
+        <polyline
+          points={points}
+          fill="none"
+          stroke={positive ? "#6ee7b7" : "#fda4af"}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+
+      <span className="text-xs text-slate-500">
+        {safeHistory.length} value points
+      </span>
+    </div>
+  );
+}
+
+function TrendBadge({ record }: { record: EnrichedValueRecord }) {
+  const styles = {
+    Rising: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+    Falling: "border-rose-400/40 bg-rose-400/10 text-rose-300",
+    Stable: "border-slate-400/40 bg-slate-400/10 text-slate-300",
+    New: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+  };
+
+  return (
+    <div
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${styles[record.trend_direction]}`}
+    >
+      {record.trend_direction}
+      {typeof record.trend_delta === "number"
+        ? ` ${currency(record.trend_delta)}`
+        : ""}
+    </div>
+  );
 }
 
 function MiniRecordCard({
@@ -83,6 +218,11 @@ function MiniRecordCard({
         <p className="line-clamp-1 text-sm text-slate-400">
           {record.title || "Untitled"}
         </p>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <TrendBadge record={record} />
+        <Sparkline history={record.price_history} />
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
@@ -140,7 +280,7 @@ export default async function ValueDashboardPage() {
   const { data: records } = await supabase
     .from("records_clean_safe")
     .select(
-      "id, artist, title, format, purchase_price, estimated_value, discogs_low_price, discogs_median_price, discogs_high_price, value_source, value_last_updated"
+      "id, artist, title, format, purchase_price, estimated_value, discogs_low_price, discogs_median_price, discogs_high_price, value_source, value_last_updated, price_history"
     )
     .order("estimated_value", { ascending: false, nullsFirst: false })
     .limit(150);
@@ -192,6 +332,18 @@ export default async function ValueDashboardPage() {
     .sort((a, b) => (b.roi_percent || 0) - (a.roi_percent || 0))
     .slice(0, 3);
 
+  const risingCount = safeRecords.filter(
+    (record) => record.trend_direction === "Rising"
+  ).length;
+
+  const fallingCount = safeRecords.filter(
+    (record) => record.trend_direction === "Falling"
+  ).length;
+
+  const stableCount = safeRecords.filter(
+    (record) => record.trend_direction === "Stable"
+  ).length;
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.18),_transparent_35%),linear-gradient(135deg,_#020617,_#0f172a_45%,_#111827)] px-6 py-8 text-slate-100">
       <div className="mx-auto max-w-7xl space-y-8">
@@ -205,7 +357,7 @@ export default async function ValueDashboardPage() {
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 md:text-base">
               Track estimated collection value, purchase basis, Discogs-derived
-              pricing, profit/loss movement, and valuation opportunities.
+              pricing, profit/loss movement, ROI, and price trend history.
             </p>
           </div>
 
@@ -284,6 +436,35 @@ export default async function ValueDashboardPage() {
           </div>
         </section>
 
+        <section className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5 shadow-xl">
+            <p className="text-xs uppercase tracking-[0.25em] text-emerald-300">
+              Rising
+            </p>
+            <p className="mt-3 text-3xl font-bold text-emerald-200">
+              {risingCount}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-rose-400/20 bg-rose-400/10 p-5 shadow-xl">
+            <p className="text-xs uppercase tracking-[0.25em] text-rose-300">
+              Falling
+            </p>
+            <p className="mt-3 text-3xl font-bold text-rose-200">
+              {fallingCount}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-500/30 bg-slate-800/40 p-5 shadow-xl">
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-300">
+              Stable
+            </p>
+            <p className="mt-3 text-3xl font-bold text-slate-100">
+              {stableCount}
+            </p>
+          </div>
+        </section>
+
         <DiscogsValuePullButton />
 
         <section className="rounded-3xl border border-slate-700 bg-slate-950/70 p-6 shadow-2xl">
@@ -292,12 +473,12 @@ export default async function ValueDashboardPage() {
               Value Intelligence
             </p>
             <h2 className="mt-2 text-2xl font-bold text-slate-50">
-              Profit, Loss, and ROI Signals
+              Profit, Loss, ROI, and Trend Signals
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
               These cards compare purchase price against current estimated
-              value. This gives you a collector-grade view of which records are
-              gaining value, lagging behind, or producing the strongest return.
+              value and now include sparkline movement from stored price
+              history.
             </p>
           </div>
 
@@ -387,12 +568,12 @@ export default async function ValueDashboardPage() {
                   <th className="px-5 py-4 text-left">Record</th>
                   <th className="px-5 py-4 text-left">Format</th>
                   <th className="px-5 py-4 text-right">Purchase</th>
-                  <th className="px-5 py-4 text-right">Low</th>
                   <th className="px-5 py-4 text-right">Median</th>
-                  <th className="px-5 py-4 text-right">High</th>
                   <th className="px-5 py-4 text-right">Estimated</th>
                   <th className="px-5 py-4 text-right">Delta</th>
                   <th className="px-5 py-4 text-right">ROI</th>
+                  <th className="px-5 py-4 text-right">Trend</th>
+                  <th className="px-5 py-4 text-right">Sparkline</th>
                   <th className="px-5 py-4 text-left">Source</th>
                   <th className="px-5 py-4 text-left">Updated</th>
                 </tr>
@@ -422,15 +603,7 @@ export default async function ValueDashboardPage() {
                     </td>
 
                     <td className="px-5 py-4 text-right text-slate-300">
-                      {currency(record.discogs_low_price)}
-                    </td>
-
-                    <td className="px-5 py-4 text-right text-slate-300">
                       {currency(record.discogs_median_price)}
-                    </td>
-
-                    <td className="px-5 py-4 text-right text-slate-300">
-                      {currency(record.discogs_high_price)}
                     </td>
 
                     <td className="px-5 py-4 text-right font-bold text-amber-200">
@@ -455,6 +628,14 @@ export default async function ValueDashboardPage() {
                       }`}
                     >
                       {percent(record.roi_percent)}
+                    </td>
+
+                    <td className="px-5 py-4 text-right">
+                      <TrendBadge record={record} />
+                    </td>
+
+                    <td className="px-5 py-4 text-right">
+                      <Sparkline history={record.price_history} />
                     </td>
 
                     <td className="px-5 py-4 text-slate-300">

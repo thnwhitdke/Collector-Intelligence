@@ -5,8 +5,21 @@ import { createClient } from "@/src/lib/supabase/server";
 
 type DiscogsPriceResponse = {
   lowest_price?: number | null;
-  num_for_sale?: number | null;
-  blocked_from_sale?: boolean;
+};
+
+type PriceHistoryEntry = {
+  date: string;
+  low: number;
+  median: number;
+  high: number;
+  estimated: number;
+  source: "Discogs";
+};
+
+type RecordForValuePull = {
+  id: string;
+  discogs_release_id: string | number | null;
+  price_history: PriceHistoryEntry[] | null;
 };
 
 type PullResult = {
@@ -30,7 +43,26 @@ function getDiscogsUserAgent() {
   return process.env.DISCOGS_USER_AGENT || "CollectorIntelligence/1.0";
 }
 
-async function fetchDiscogsLowestPrice(releaseId: string): Promise<number | null> {
+function normalizePriceHistory(
+  value: PriceHistoryEntry[] | null
+): PriceHistoryEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(
+    (entry) =>
+      typeof entry.date === "string" &&
+      typeof entry.estimated === "number" &&
+      typeof entry.low === "number" &&
+      typeof entry.median === "number" &&
+      typeof entry.high === "number"
+  );
+}
+
+async function fetchDiscogsMedianPrice(
+  releaseId: string
+): Promise<number | null> {
   const token = getDiscogsToken();
 
   const response = await fetch(
@@ -53,21 +85,22 @@ async function fetchDiscogsLowestPrice(releaseId: string): Promise<number | null
     DiscogsPriceResponse | undefined
   >;
 
-  const values = Object.values(data)
+  const prices = Object.values(data)
     .map((entry) => entry?.lowest_price)
     .filter((price): price is number => typeof price === "number");
 
-  if (values.length === 0) {
+  if (prices.length === 0) {
     return null;
   }
 
-  values.sort((a, b) => a - b);
+  prices.sort((a, b) => a - b);
 
-  const middle = Math.floor(values.length / 2);
+  const middle = Math.floor(prices.length / 2);
+
   const median =
-    values.length % 2 === 0
-      ? (values[middle - 1] + values[middle]) / 2
-      : values[middle];
+    prices.length % 2 === 0
+      ? (prices[middle - 1] + prices[middle]) / 2
+      : prices[middle];
 
   return Number(median.toFixed(2));
 }
@@ -77,9 +110,8 @@ export async function pullDiscogsValuesBatch(): Promise<PullResult> {
 
   const { data: records, error } = await supabase
     .from("records_clean_safe")
-    .select("id, discogs_release_id, purchase_price")
+    .select("id, discogs_release_id, price_history")
     .not("discogs_release_id", "is", null)
-    .or("estimated_value.is.null,value_last_updated.is.null")
     .limit(10);
 
   if (error) {
@@ -91,12 +123,14 @@ export async function pullDiscogsValuesBatch(): Promise<PullResult> {
     };
   }
 
-  if (!records || records.length === 0) {
+  const safeRecords = (records || []) as RecordForValuePull[];
+
+  if (safeRecords.length === 0) {
     return {
       updated: 0,
       skipped: 0,
       failed: 0,
-      message: "No records currently need Discogs value updates.",
+      message: "No Discogs-linked records were found for value updates.",
     };
   }
 
@@ -104,7 +138,7 @@ export async function pullDiscogsValuesBatch(): Promise<PullResult> {
   let skipped = 0;
   let failed = 0;
 
-  for (const record of records) {
+  for (const record of safeRecords) {
     const releaseId = String(record.discogs_release_id || "").trim();
 
     if (!releaseId) {
@@ -113,7 +147,7 @@ export async function pullDiscogsValuesBatch(): Promise<PullResult> {
     }
 
     try {
-      const medianPrice = await fetchDiscogsLowestPrice(releaseId);
+      const medianPrice = await fetchDiscogsMedianPrice(releaseId);
 
       if (medianPrice === null) {
         skipped += 1;
@@ -122,6 +156,18 @@ export async function pullDiscogsValuesBatch(): Promise<PullResult> {
 
       const lowPrice = Number((medianPrice * 0.75).toFixed(2));
       const highPrice = Number((medianPrice * 1.35).toFixed(2));
+
+      const newHistoryEntry: PriceHistoryEntry = {
+        date: new Date().toISOString(),
+        low: lowPrice,
+        median: medianPrice,
+        high: highPrice,
+        estimated: medianPrice,
+        source: "Discogs",
+      };
+
+      const existingHistory = normalizePriceHistory(record.price_history);
+      const nextHistory = [...existingHistory, newHistoryEntry].slice(-24);
 
       const { error: updateError } = await supabase
         .from("records_clean_safe")
@@ -132,6 +178,7 @@ export async function pullDiscogsValuesBatch(): Promise<PullResult> {
           estimated_value: medianPrice,
           value_source: "Discogs",
           value_last_updated: new Date().toISOString(),
+          price_history: nextHistory,
         })
         .eq("id", record.id);
 
@@ -154,6 +201,6 @@ export async function pullDiscogsValuesBatch(): Promise<PullResult> {
     updated,
     skipped,
     failed,
-    message: `Discogs value pull complete. Updated ${updated}, skipped ${skipped}, failed ${failed}.`,
+    message: `Discogs trend pull complete. Updated ${updated}, skipped ${skipped}, failed ${failed}.`,
   };
 }
