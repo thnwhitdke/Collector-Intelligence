@@ -21,14 +21,31 @@ type RecordRow = {
   country: string | null;
   format: string | null;
   discogs_release_id: string | number | null;
-  ebay_sold_price: string | number | null;
-  ebay_sold_date: string | null;
-  ebay_sold_url: string | null;
-  ebay_confidence: string | null;
+  ebay_sold_comp_count: string | number | null;
+  ebay_low_sold_price: string | number | null;
+  ebay_median_sold_price: string | number | null;
+  ebay_high_sold_price: string | number | null;
+  ebay_last_sold_price: string | number | null;
+  value_source: string | null;
+  value_last_updated: string | null;
 };
 
 function cleanText(value: string | number | null | undefined): string {
   return String(value ?? "").trim();
+}
+
+function formatMoney(value: string | number | null | undefined): string {
+  const text = cleanText(value);
+  if (!text) return "—";
+
+  const numeric = Number(text.replace(/[$,]/g, ""));
+  if (!Number.isFinite(numeric)) return text;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(numeric);
 }
 
 function buildSearchText(record: RecordRow): string {
@@ -71,31 +88,31 @@ async function saveEbayComp(formData: FormData) {
 
   const supabase = await createClient();
 
-  const id = cleanText(formData.get("id")?.toString());
+  const recordId = cleanText(formData.get("record_id")?.toString());
   const returnTo = cleanText(formData.get("returnTo")?.toString());
-  const priceRaw = cleanText(formData.get("ebay_sold_price")?.toString());
-  const dateRaw = cleanText(formData.get("ebay_sold_date")?.toString());
-  const urlRaw = cleanText(formData.get("ebay_sold_url")?.toString());
-  const confidenceRaw = cleanText(formData.get("ebay_confidence")?.toString());
+  const priceRaw = cleanText(formData.get("sold_price")?.toString());
+  const dateRaw = cleanText(formData.get("sold_date")?.toString());
+  const urlRaw = cleanText(formData.get("sold_url")?.toString());
+  const confidenceRaw = cleanText(formData.get("confidence")?.toString());
+  const notesRaw = cleanText(formData.get("notes")?.toString());
 
   const priceNumber = priceRaw ? Number(priceRaw) : null;
 
-  if (!id) {
+  if (!recordId) {
     redirect("/collection/ebay-sold-comp-helper");
   }
 
-  await supabase
-    .from("records_clean_safe")
-    .update({
-      ebay_sold_price: Number.isFinite(priceNumber) ? priceNumber : null,
-      ebay_sold_date: dateRaw || null,
-      ebay_sold_url: urlRaw || null,
-      ebay_confidence: confidenceRaw || null,
-    })
-    .eq("id", id);
+  await supabase.from("record_ebay_comps").insert({
+    record_id: Number(recordId),
+    sold_price: Number.isFinite(priceNumber) ? priceNumber : null,
+    sold_date: dateRaw || null,
+    sold_url: urlRaw || null,
+    confidence: confidenceRaw || null,
+    notes: notesRaw || null,
+  });
 
   revalidatePath("/collection");
-  revalidatePath(`/collection/${id}`);
+  revalidatePath(`/collection/${recordId}`);
   revalidatePath("/collection/ebay-sold-comp-helper");
 
   const safeReturnTo = returnTo.startsWith("/collection/ebay-sold-comp-helper")
@@ -104,7 +121,7 @@ async function saveEbayComp(formData: FormData) {
 
   const separator = safeReturnTo.includes("?") ? "&" : "?";
 
-  redirect(`${safeReturnTo}${separator}saved=${id}`);
+  redirect(`${safeReturnTo}${separator}saved=${recordId}`);
 }
 
 export default async function Page({ searchParams }: PageProps) {
@@ -125,7 +142,7 @@ export default async function Page({ searchParams }: PageProps) {
   let query = supabase
     .from("records_clean_safe")
     .select(
-      "id, artist, title, year_released, label, catalogue_number, country, format, discogs_release_id, ebay_sold_price, ebay_sold_date, ebay_sold_url, ebay_confidence",
+      "id, artist, title, year_released, label, catalogue_number, country, format, discogs_release_id, ebay_sold_comp_count, ebay_low_sold_price, ebay_median_sold_price, ebay_high_sold_price, ebay_last_sold_price, value_source, value_last_updated",
     )
     .order("artist", { ascending: true })
     .limit(75);
@@ -137,7 +154,9 @@ export default async function Page({ searchParams }: PageProps) {
   }
 
   if (missingOnly) {
-    query = query.is("ebay_sold_price", null).is("ebay_sold_url", null);
+    query = query.or(
+      "ebay_sold_comp_count.is.null,ebay_sold_comp_count.eq.0",
+    );
   }
 
   const { data, error } = await query;
@@ -152,18 +171,36 @@ export default async function Page({ searchParams }: PageProps) {
           </p>
 
           <h1 className="text-3xl font-black">
-            eBay Sold-Comp Search Helper
+            eBay Multi-Comp Value Helper
           </h1>
 
           <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-300">
-            Open prebuilt eBay sold searches, review the sold listing, then save
-            the price, date, listing URL, and confidence directly to Supabase.
+            Open prebuilt eBay sold searches, capture multiple sold comps per
+            record, and let Supabase calculate low, median, high, last sold,
+            comp count, and estimated value.
           </p>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href="/collection"
+              className="rounded-xl border border-stone-600 px-4 py-2 text-sm font-bold text-stone-100 transition hover:border-amber-300 hover:text-amber-200"
+            >
+              Back to Collection
+            </Link>
+
+            <Link
+              href="/collection/value-queue"
+              className="rounded-xl border border-amber-400/50 bg-amber-300 px-4 py-2 text-sm font-black text-stone-950 transition hover:bg-amber-200"
+            >
+              Value Queue
+            </Link>
+          </div>
         </header>
 
         {saved ? (
           <section className="rounded-2xl border border-emerald-400/40 bg-emerald-400/10 p-5 text-sm font-bold text-emerald-200">
-            eBay sold comp saved successfully.
+            eBay comp saved. The record summary should now update through the
+            multi-comp trigger.
           </section>
         ) : null}
 
@@ -181,7 +218,7 @@ export default async function Page({ searchParams }: PageProps) {
               defaultValue={missingOnly ? "true" : "false"}
               className="rounded-xl border border-stone-700 bg-[#0f1411] px-4 py-3 text-sm text-stone-100 outline-none"
             >
-              <option value="true">Needs eBay comp only</option>
+              <option value="true">Needs eBay comps only</option>
               <option value="false">Show all records</option>
             </select>
 
@@ -203,34 +240,37 @@ export default async function Page({ searchParams }: PageProps) {
         <section className="grid gap-5">
           {records.map((record) => {
             const url = buildEbaySoldUrl(record);
-            const hasComp = Boolean(record.ebay_sold_price || record.ebay_sold_url);
+            const compCount = Number(cleanText(record.ebay_sold_comp_count) || 0);
+            const hasComps = compCount > 0;
 
             return (
               <article
                 key={record.id}
                 className="rounded-2xl border border-stone-700 bg-[#171b17] p-5"
               >
-                <div className="grid gap-5 xl:grid-cols-[1fr_420px]">
+                <div className="grid gap-5 xl:grid-cols-[1fr_430px]">
                   <div>
                     <div className="mb-3 flex flex-wrap gap-2">
                       <span
                         className={
-                          hasComp
+                          hasComps
                             ? "rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-200"
                             : "rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-amber-200"
                         }
                       >
-                        {hasComp ? "Comp entered" : "Needs comp"}
+                        {hasComps ? `${compCount} comp(s)` : "Needs comps"}
                       </span>
 
-                      {record.ebay_confidence ? (
+                      {record.value_source ? (
                         <span className="rounded-full border border-stone-600 px-3 py-1 text-xs font-bold text-stone-300">
-                          Confidence: {record.ebay_confidence}
+                          Source: {record.value_source}
                         </span>
                       ) : null}
                     </div>
 
-                    <h2 className="text-lg font-bold">{displayTitle(record)}</h2>
+                    <h2 className="text-xl font-black text-stone-50">
+                      {displayTitle(record)}
+                    </h2>
 
                     <p className="mt-2 text-sm text-stone-400">
                       {[
@@ -246,44 +286,47 @@ export default async function Page({ searchParams }: PageProps) {
                         .join(" · ")}
                     </p>
 
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <ValueBox
+                        label="Low"
+                        value={formatMoney(record.ebay_low_sold_price)}
+                      />
+                      <ValueBox
+                        label="Median"
+                        value={formatMoney(record.ebay_median_sold_price)}
+                      />
+                      <ValueBox
+                        label="High"
+                        value={formatMoney(record.ebay_high_sold_price)}
+                      />
+                      <ValueBox
+                        label="Last Sold"
+                        value={formatMoney(record.ebay_last_sold_price)}
+                      />
+                    </div>
+
                     <div className="mt-4 flex flex-wrap gap-3">
                       <a
                         href={url}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded bg-amber-300 px-4 py-2 font-bold text-black"
+                        className="rounded-xl bg-amber-300 px-4 py-2 text-sm font-black text-black"
                       >
-                        Search eBay Sold
+                        Open eBay Sold Search
                       </a>
 
                       <Link
                         href={`/collection/${record.id}`}
-                        className="rounded border border-stone-600 px-4 py-2 font-bold text-stone-100"
+                        className="rounded-xl border border-stone-600 px-4 py-2 text-sm font-bold text-stone-100"
                       >
                         Open Record
                       </Link>
-
-                      {record.ebay_sold_url ? (
-                        <a
-                          href={record.ebay_sold_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded border border-emerald-400/50 px-4 py-2 font-bold text-emerald-200"
-                        >
-                          Open Saved Comp
-                        </a>
-                      ) : null}
                     </div>
 
-                    {hasComp ? (
-                      <p className="mt-4 text-sm font-bold text-emerald-200">
-                        Current comp:{" "}
-                        {record.ebay_sold_price
-                          ? `$${record.ebay_sold_price}`
-                          : "Price not entered"}
-                        {record.ebay_sold_date
-                          ? ` · Sold date: ${record.ebay_sold_date}`
-                          : ""}
+                    {record.value_last_updated ? (
+                      <p className="mt-4 text-xs text-stone-500">
+                        Value last updated:{" "}
+                        {new Date(record.value_last_updated).toLocaleString()}
                       </p>
                     ) : null}
                   </div>
@@ -292,22 +335,21 @@ export default async function Page({ searchParams }: PageProps) {
                     action={saveEbayComp}
                     className="rounded-2xl border border-stone-700 bg-[#0f1411] p-4"
                   >
-                    <input type="hidden" name="id" value={record.id} />
+                    <input type="hidden" name="record_id" value={record.id} />
                     <input type="hidden" name="returnTo" value={returnTo} />
 
                     <h3 className="mb-4 text-sm font-black uppercase tracking-[0.2em] text-amber-300">
-                      Save eBay Comp
+                      Add New eBay Comp
                     </h3>
 
                     <div className="grid gap-3">
                       <label className="grid gap-1 text-xs font-bold text-stone-300">
                         Sold Price
                         <input
-                          name="ebay_sold_price"
+                          name="sold_price"
                           type="number"
                           step="0.01"
                           min="0"
-                          defaultValue={cleanText(record.ebay_sold_price)}
                           placeholder="Example: 24.99"
                           className="rounded-xl border border-stone-700 bg-[#171b17] px-3 py-2 text-sm text-stone-100 outline-none"
                         />
@@ -316,9 +358,8 @@ export default async function Page({ searchParams }: PageProps) {
                       <label className="grid gap-1 text-xs font-bold text-stone-300">
                         Sold Date
                         <input
-                          name="ebay_sold_date"
+                          name="sold_date"
                           type="date"
-                          defaultValue={cleanText(record.ebay_sold_date)}
                           className="rounded-xl border border-stone-700 bg-[#171b17] px-3 py-2 text-sm text-stone-100 outline-none"
                         />
                       </label>
@@ -326,9 +367,8 @@ export default async function Page({ searchParams }: PageProps) {
                       <label className="grid gap-1 text-xs font-bold text-stone-300">
                         Sold Listing URL
                         <input
-                          name="ebay_sold_url"
+                          name="sold_url"
                           type="url"
-                          defaultValue={cleanText(record.ebay_sold_url)}
                           placeholder="Paste eBay sold listing URL"
                           className="rounded-xl border border-stone-700 bg-[#171b17] px-3 py-2 text-sm text-stone-100 outline-none"
                         />
@@ -337,8 +377,7 @@ export default async function Page({ searchParams }: PageProps) {
                       <label className="grid gap-1 text-xs font-bold text-stone-300">
                         Confidence
                         <select
-                          name="ebay_confidence"
-                          defaultValue={cleanText(record.ebay_confidence)}
+                          name="confidence"
                           className="rounded-xl border border-stone-700 bg-[#171b17] px-3 py-2 text-sm text-stone-100 outline-none"
                         >
                           <option value="">Select confidence</option>
@@ -348,11 +387,21 @@ export default async function Page({ searchParams }: PageProps) {
                         </select>
                       </label>
 
+                      <label className="grid gap-1 text-xs font-bold text-stone-300">
+                        Notes
+                        <textarea
+                          name="notes"
+                          rows={3}
+                          placeholder="Example: same pressing, close condition, sealed mismatch, etc."
+                          className="rounded-xl border border-stone-700 bg-[#171b17] px-3 py-2 text-sm text-stone-100 outline-none"
+                        />
+                      </label>
+
                       <button
                         type="submit"
                         className="mt-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-black text-stone-950"
                       >
-                        Save Comp to Supabase
+                        Save Multi-Comp
                       </button>
                     </div>
                   </form>
@@ -373,5 +422,17 @@ export default async function Page({ searchParams }: PageProps) {
         ) : null}
       </div>
     </main>
+  );
+}
+
+function ValueBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-stone-700 bg-[#0f1411] p-3">
+      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500">
+        {label}
+      </div>
+
+      <div className="mt-1 text-lg font-black text-stone-50">{value}</div>
+    </div>
   );
 }
