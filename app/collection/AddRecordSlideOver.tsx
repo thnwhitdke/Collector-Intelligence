@@ -50,10 +50,10 @@ export default function AddRecordSlideOver({
             type="button"
             aria-label="Close"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
           />
 
-          <aside className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l border-[#3A3328] bg-[#11100E] text-[#F4EFE6] shadow-2xl">
+          <aside className="absolute right-0 top-0 h-screen w-full max-w-5xl overflow-y-auto border-l border-[#3A3328] bg-[#11100E] text-[#F4EFE6] shadow-2xl">
             <div className="sticky top-0 z-10 border-b border-[#3A3328] bg-[#11100E]/95 px-6 py-5 backdrop-blur">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -75,10 +75,8 @@ export default function AddRecordSlideOver({
               </div>
             </div>
 
-            <div className="p-6">
-              <div className="rounded-[28px] border border-[#3A3328] bg-[#1A1815] p-4">
-                <AddRecordForm onSuccess={() => setOpen(false)} />
-              </div>
+            <div className="mx-auto w-full max-w-5xl p-6">
+              <AddRecordForm onSuccess={() => setOpen(false)} />
             </div>
           </aside>
         </div>
