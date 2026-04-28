@@ -1,5 +1,10 @@
 "use client";
 
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+} from "react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addRecord } from "../actions/records";
@@ -77,8 +82,8 @@ export default function AddRecordForm({ onSuccess }: Props) {
   );
 
   return (
-    <section className="rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,_rgba(15,23,42,0.92),_rgba(17,24,39,0.9))] p-4 shadow-2xl backdrop-blur-xl sm:p-6">
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+    <section className="w-full max-w-full overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,_rgba(15,23,42,0.92),_rgba(17,24,39,0.9))] p-4 shadow-2xl backdrop-blur-xl sm:p-6">
+      <div className="grid min-w-0 grid-cols-1 gap-6">
         <form
           action={async (formData) => {
             setError(null);
@@ -91,14 +96,14 @@ export default function AddRecordForm({ onSuccess }: Props) {
               setPreview(INITIAL_PREVIEW);
             } catch (e: unknown) {
               const message =
-  e instanceof Error ? e.message : "Failed to add record.";
+                e instanceof Error ? e.message : "Failed to add record.";
 
-setError(message);
+              setError(message);
             } finally {
               setIsSubmitting(false);
             }
           }}
-          className="rounded-[26px] border border-white/10 bg-black/20 p-5 shadow-xl sm:p-6"
+          className="min-w-0 rounded-[26px] border border-white/10 bg-black/20 p-5 shadow-xl sm:p-6"
         >
           <div className="mb-6">
             <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-200">
@@ -116,7 +121,7 @@ setError(message);
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
             <Field>
               <Label htmlFor="artist">Artist</Label>
               <Input
@@ -302,14 +307,14 @@ setError(message);
           </div>
         </form>
 
-        <aside className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,_rgba(15,23,42,0.84),_rgba(30,41,59,0.82))] p-5 shadow-xl">
+        <aside className="min-w-0 rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,_rgba(15,23,42,0.84),_rgba(30,41,59,0.82))] p-5 shadow-xl">
           <div className="inline-flex rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-fuchsia-200">
             Live Preview
           </div>
 
           <div className="mt-4 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950/20 shadow-2xl">
             <div className="border-b border-white/10 p-5">
-              <div className="flex items-start gap-4">
+              <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
                 <div className="flex h-28 w-28 flex-shrink-0 items-center justify-center rounded-[22px] border border-white/10 bg-gradient-to-br from-slate-800 to-slate-900 text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
                   Cover
                   <br />
@@ -322,10 +327,10 @@ setError(message);
                     <StatusPill tone="violet" label={previewYear} />
                   </div>
 
-                  <div className="mt-4 text-xl font-semibold leading-tight text-white">
+                  <div className="mt-4 truncate text-xl font-semibold leading-tight text-white">
                     {previewTitle}
                   </div>
-                  <div className="mt-1 text-sm text-slate-300">
+                  <div className="mt-1 truncate text-sm text-slate-300">
                     {previewArtist}
                   </div>
                 </div>
@@ -338,11 +343,17 @@ setError(message);
                 items={[
                   {
                     label: "Purchase Price",
-                    value: displayOrFallback(preview.purchase_price, "Not entered"),
+                    value: displayOrFallback(
+                      preview.purchase_price,
+                      "Not entered"
+                    ),
                   },
                   {
                     label: "Estimated Value",
-                    value: displayOrFallback(preview.estimated_value, "Not entered"),
+                    value: displayOrFallback(
+                      preview.estimated_value,
+                      "Not entered"
+                    ),
                   },
                   {
                     label: "Media",
@@ -367,7 +378,10 @@ setError(message);
                   },
                   {
                     label: "Purchase Date",
-                    value: displayOrFallback(preview.purchase_date, "Not entered"),
+                    value: displayOrFallback(
+                      preview.purchase_date,
+                      "Not entered"
+                    ),
                   },
                 ]}
               />
@@ -378,9 +392,17 @@ setError(message);
                 </div>
 
                 <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">
-                  <li>Use Discogs Release ID when known for the cleanest cover workflow.</li>
-                  <li>Condition plus value fields make later review and pricing easier.</li>
-                  <li>Think of this panel as your intake checkpoint before saving.</li>
+                  <li>
+                    Use Discogs Release ID when known for the cleanest cover
+                    workflow.
+                  </li>
+                  <li>
+                    Condition plus value fields make later review and pricing
+                    easier.
+                  </li>
+                  <li>
+                    Think of this panel as your intake checkpoint before saving.
+                  </li>
                 </ul>
               </div>
             </div>
@@ -391,8 +413,8 @@ setError(message);
   );
 }
 
-function Field({ children }: { children: React.ReactNode }) {
-  return <div>{children}</div>;
+function Field({ children }: { children: ReactNode }) {
+  return <div className="min-w-0">{children}</div>;
 }
 
 function Label({
@@ -400,7 +422,7 @@ function Label({
   children,
 }: {
   htmlFor: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label
@@ -412,24 +434,20 @@ function Label({
   );
 }
 
-function Input(
-  props: React.InputHTMLAttributes<HTMLInputElement>
-) {
+function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/35"
+      className="w-full min-w-0 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/35"
     />
   );
 }
 
-function Select(
-  props: React.SelectHTMLAttributes<HTMLSelectElement>
-) {
+function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/35"
+      className="w-full min-w-0 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/35"
     />
   );
 }
@@ -448,7 +466,7 @@ function StatusPill({
 
   return (
     <span
-      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${styles}`}
+      className={`max-w-full truncate rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${styles}`}
     >
       {label}
     </span>
@@ -463,7 +481,7 @@ function PreviewPanel({
   items: { label: string; value: string }[];
 }) {
   return (
-    <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+    <div className="min-w-0 rounded-[22px] border border-white/10 bg-black/20 p-4">
       <div className="text-[11px] font-semibold uppercase tracking-[0.25em] text-cyan-300">
         {title}
       </div>
@@ -472,10 +490,10 @@ function PreviewPanel({
         {items.map((item) => (
           <div
             key={item.label}
-            className="flex items-start justify-between gap-4 border-b border-white/5 pb-2 text-sm last:border-b-0 last:pb-0"
+            className="flex min-w-0 items-start justify-between gap-4 border-b border-white/5 pb-2 text-sm last:border-b-0 last:pb-0"
           >
-            <span className="text-slate-400">{item.label}</span>
-            <span className="text-right font-medium text-slate-100">
+            <span className="shrink-0 text-slate-400">{item.label}</span>
+            <span className="min-w-0 truncate text-right font-medium text-slate-100">
               {item.value}
             </span>
           </div>
