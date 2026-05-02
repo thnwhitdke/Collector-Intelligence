@@ -12,13 +12,14 @@ export type ValueRankingRecord = {
   estimated_value: number | null;
   purchase_price: number | null;
   value_last_updated: string | null;
+  discogs_sale_blocked: boolean | null;
 };
 
 function toNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
 
   if (typeof value === "string") {
-    const parsed = Number(value);
+    const parsed = Number(value.replace(/[$,]/g, ""));
     return Number.isFinite(parsed) ? parsed : null;
   }
 
@@ -35,6 +36,10 @@ function normalizeRecord(row: Record<string, unknown>): ValueRankingRecord {
     purchase_price: toNumber(row.purchase_price),
     value_last_updated:
       typeof row.value_last_updated === "string" ? row.value_last_updated : null,
+    discogs_sale_blocked:
+      typeof row.discogs_sale_blocked === "boolean"
+        ? row.discogs_sale_blocked
+        : null,
   };
 }
 
@@ -47,11 +52,24 @@ export type ValueRankings = {
 export async function getValueRankings(): Promise<ValueRankings> {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      topEstimated: [],
+      biggestGainers: [],
+      needsValuePull: [],
+    };
+  }
+
   const { data, error } = await supabase
     .from("records_clean_safe")
     .select(
-      "id, artist, title, cover_url, estimated_value, purchase_price, value_last_updated",
+      "id, artist, title, cover_url, estimated_value, purchase_price, value_last_updated, discogs_sale_blocked",
     )
+    .eq("user_id", user.id)
     .limit(1000);
 
   if (error || !data) {
@@ -82,7 +100,10 @@ export async function getValueRankings(): Promise<ValueRankings> {
     .slice(0, 5);
 
   const needsValuePull = [...records]
-    .filter((record) => record.estimated_value === null)
+    .filter((record) => {
+      if (record.discogs_sale_blocked === true) return false;
+      return record.estimated_value === null;
+    })
     .slice(0, 5);
 
   return {
