@@ -100,11 +100,18 @@ function statusTone(status: string | null | undefined) {
   return "border-[#C7A45D]/45 bg-[#C7A45D]/15 text-[#F4EFE6]";
 }
 
+function buildReturnPath(showPullNotice: boolean) {
+  return showPullNotice
+    ? "/collection/value-queue?pulled=1"
+    : "/collection/value-queue";
+}
+
 export default async function ValueQueuePage({
   searchParams,
 }: ValueQueuePageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const showPullNotice = resolvedSearchParams.pulled === "1";
+  const returnPath = buildReturnPath(showPullNotice);
 
   async function pullNextTenAction() {
     "use server";
@@ -142,7 +149,9 @@ export default async function ValueQueuePage({
   ).length;
 
   const totalQueueValue = queue.reduce((sum, record) => {
-    const numeric = Number(String(record.estimated_value ?? 0).replace(/[$,]/g, ""));
+    const numeric = Number(
+      String(record.estimated_value ?? 0).replace(/[$,]/g, ""),
+    );
     return sum + (Number.isFinite(numeric) ? numeric : 0);
   }, 0);
 
@@ -281,9 +290,9 @@ export default async function ValueQueuePage({
               const recordHref =
                 record.id !== null && record.id !== undefined
                   ? `/collection/${record.id}?returnTo=${encodeURIComponent(
-                      "/collection/value-queue",
+                      returnPath,
                     )}`
-                  : "/collection/value-queue";
+                  : returnPath;
 
               return (
                 <article
