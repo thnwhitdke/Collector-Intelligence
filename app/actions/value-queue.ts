@@ -42,6 +42,8 @@ export type ValueQueueRecord = {
   value_pull_status?: ValuePullStatus | string | null;
   value_pull_note?: string | null;
   value_pull_last_attempted_at?: string | null;
+  discogs_sale_blocked?: boolean | null;
+  discogs_sale_blocked_reason?: string | null;
   queue_priority: number;
 };
 
@@ -110,6 +112,8 @@ function getQueuePriority(record: RawQueueRecord): number {
     typeof estimatedValue === "number" && estimatedValue > 0;
   const hasDiscogsMedian = typeof discogsMedian === "number" && discogsMedian > 0;
 
+  if (record.discogs_sale_blocked === true) return 100;
+  if (record.value_pull_status === "pulled_successfully") return 100;
   if (record.value_pull_status === "no_discogs_value_available") return 99;
   if (record.value_pull_status === "missing_release_id") return 98;
   if (record.value_pull_status === "discogs_error") return 50;
@@ -145,12 +149,28 @@ function sortQueueRecords(records: RawQueueRecord[]): ValueQueueRecord[] {
     });
 }
 
+async function getCurrentUserId() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    throw new Error("User not authenticated.");
+  }
+
+  return user.id;
+}
+
 async function markPullStatus(
   id: string,
   status: ValuePullStatus,
   note: string,
 ) {
   const supabase = await createClient();
+  const userId = await getCurrentUserId();
 
   await supabase
     .from("records_clean_safe")
@@ -159,11 +179,13 @@ async function markPullStatus(
       value_pull_note: note,
       value_pull_last_attempted_at: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 }
 
 export async function getValueQueue() {
   const supabase = await createClient();
+  const userId = await getCurrentUserId();
 
   const { data, error } = await supabase
     .from("records_clean_safe")
@@ -187,22 +209,46 @@ export async function getValueQueue() {
       purchase_price,
       value_pull_status,
       value_pull_note,
-      value_pull_last_attempted_at
+      value_pull_last_attempted_at,
+      discogs_sale_blocked,
+      discogs_sale_blocked_reason
     `,
     )
+    .eq("user_id", userId)
     .not("discogs_release_id", "is", null)
-    .or("value_pull_status.is.null,value_pull_status.neq.no_discogs_value_available")
+    .or("discogs_sale_blocked.is.null,discogs_sale_blocked.eq.false")
+    .or(
+      [
+        "value_pull_status.is.null",
+        "value_pull_status.eq.needs_pull",
+        "value_pull_status.eq.discogs_error",
+        "value_pull_status.eq.missing_release_id",
+        "discogs_median_price.is.null",
+        "estimated_value.is.null",
+      ].join(","),
+    )
     .limit(250);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return sortQueueRecords((data ?? []) as RawQueueRecord[]).slice(0, 50);
+  const cleanQueue = (data ?? []).filter((record) => {
+    const raw = record as RawQueueRecord;
+
+    if (raw.discogs_sale_blocked === true) return false;
+    if (raw.value_pull_status === "pulled_successfully") return false;
+    if (raw.value_pull_status === "no_discogs_value_available") return false;
+
+    return true;
+  });
+
+  return sortQueueRecords(cleanQueue as RawQueueRecord[]).slice(0, 50);
 }
 
 export async function pullBatchDiscogsValues(limit = 10) {
   const supabase = await createClient();
+  const userId = await getCurrentUserId();
 
   const token = process.env.DISCOGS_TOKEN;
   const userAgent =
@@ -231,6 +277,11 @@ export async function pullBatchDiscogsValues(limit = 10) {
 
   for (const record of queue) {
     try {
+      if (record.discogs_sale_blocked === true) {
+        skipped++;
+        continue;
+      }
+
       const releaseId = String(record.discogs_release_id || "").trim();
 
       if (!releaseId) {
@@ -357,7 +408,8 @@ export async function pullBatchDiscogsValues(limit = 10) {
           value_pull_note: "Discogs value pull completed successfully.",
           value_pull_last_attempted_at: now,
         })
-        .eq("id", record.id);
+        .eq("id", record.id)
+        .eq("user_id", userId);
 
       if (updateError) {
         await markPullStatus(
