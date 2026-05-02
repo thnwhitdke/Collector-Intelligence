@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Collector Intelligence</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+      background:
+        radial-gradient(circle at top left, rgba(190, 142, 70, 0.18), transparent 35%),
+        linear-gradient(135deg, #0d1117 0%, #151922 45%, #090b10 100%);
+      color: #f4efe6;
+      min-height: 100vh;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 28px 8%;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .logo {
+      font-size: 1.4rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #d8b36a;
+      font-weight: bold;
+    }
+
+    nav a {
+      color: #d8d2c4;
+      text-decoration: none;
+      margin-left: 28px;
+      font-size: 0.95rem;
+    }
+
+    nav a:hover {
+      color: #d8b36a;
+    }
+
+    .hero {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 60px;
+      align-items: center;
+      padding: 80px 8%;
+    }
+
+    .eyebrow {
+      color: #d8b36a;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.8rem;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      font-size: clamp(3rem, 6vw, 6.5rem);
+      line-height: 0.95;
+      max-width: 850px;
+      margin-bottom: 28px;
+    }
+
+    .hero p {
+      font-family: Arial, sans-serif;
+      font-size: 1.15rem;
+      line-height: 1.7;
+      color: #cfc8ba;
+      max-width: 640px;
+      margin-bottom: 36px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      font-family: Arial, sans-serif;
+      padding: 15px 26px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.25s ease;
+    }
+
+    .btn-primary {
+      background: #d8b36a;
+      color: #0d1117;
+      box-shadow: 0 16px 40px rgba(216, 179, 106, 0.25);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      background: #e6c579;
+    }
+
+    .btn-secondary {
+      border: 1px solid rgba(216, 179, 106, 0.55);
+      color: #f4efe6;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(216, 179, 106, 0.12);
+    }
+
+    .feature-card {
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 28px;
+      padding: 34px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(18px);
+    }
+
+    .record-circle {
+      width: 280px;
+      height: 280px;
+      margin: 0 auto 32px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, #d8b36a 0 6%, #10131a 7% 14%, #050608 15% 100%);
+      border: 12px solid #050608;
+      box-shadow:
+        inset 0 0 0 12px rgba(255,255,255,0.04),
+        inset 0 0 0 34px #11151d,
+        inset 0 0 0 36px rgba(216,179,106,0.3),
+        0 20px 70px rgba(0,0,0,0.55);
+    }
+
+    .feature-card h2 {
+      font-size: 2rem;
+      margin-bottom: 14px;
+      color: #f5e6c8;
+    }
+
+    .feature-card p {
+      font-family: Arial, sans-serif;
+      color: #bbb2a2;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .stat {
+      background: rgba(0, 0, 0, 0.22);
+      border-radius: 18px;
+      padding: 18px;
+      text-align: center;
+      font-family: Arial, sans-serif;
+    }
+
+    .stat strong {
+      display: block;
+      color: #d8b36a;
+      font-size: 1.4rem;
+      margin-bottom: 4px;
+    }
+
+    .stat span {
+      font-size: 0.78rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+      padding: 0 8% 70px;
+    }
+
+    .mini-card {
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 22px;
+      padding: 26px;
+      font-family: Arial, sans-serif;
+    }
+
+    .mini-card h3 {
+      color: #d8b36a;
+      margin-bottom: 10px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.3rem;
+    }
+
+    .mini-card p {
+      color: #c8c0b3;
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    footer {
+      padding: 26px 8%;
+      font-family: Arial, sans-serif;
+      color: #8f887d;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 900px) {
+      header {
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      nav a {
+        margin: 0 10px;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        padding-top: 50px;
+      }
+
+      .features {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .record-circle {
+        width: 220px;
+        height: 220px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+
+    <header>
+      <div class="logo">Collector Intelligence</div>
+      <nav>
+        <a href="/auth/login">Login</a>
+        <a href="/auth/signup">Register</a>
+        <a href="/collection">Collection</a>
+      </nav>
+    </header>
+
+    <main class="hero">
+      <section>
+        <div class="eyebrow">For serious record collectors</div>
+
+        <h1>Know what you own. Know what it’s worth.</h1>
+
+        <p>
+          Collector Intelligence helps you catalog, organize, value, and understand
+          your vinyl collection with the precision of an archive and the feel of a
+          private collector’s room.
+        </p>
+
+        <div class="buttons">
+          <a class="btn btn-primary" href="/auth/signup">Start Your Collection</a>
+          <a class="btn btn-secondary" href="/auth/login">I Already Have an Account</a>
+        </div>
+      </section>
+
+      <aside class="feature-card">
+        <div class="record-circle"></div>
+
+        <h2>Your collection, finally organized.</h2>
+
+        <p>
+          Track records, grading, purchase price, estimated value, cover art,
+          Discogs data, and future price intelligence in one elegant workspace.
+        </p>
+
+        <div class="stats">
+          <div class="stat">
+            <strong>3,500+</strong>
+            <span>Records Ready</span>
+          </div>
+          <div class="stat">
+            <strong>Discogs</strong>
+            <span>Value Pulls</span>
+          </div>
+          <div class="stat">
+            <strong>Archive</strong>
+            <span>Collector View</span>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <section class="features">
+      <div class="mini-card">
+        <h3>Catalog Everything</h3>
+        <p>
+          Store artist, title, label, country, year, format, condition, notes,
+          and collector-specific details.
+        </p>
+      </div>
+
+      <div class="mini-card">
+        <h3>Track Value</h3>
+        <p>
+          Compare purchase price, current estimated value, Discogs pricing,
+          and future market intelligence.
+        </p>
+      </div>
+
+      <div class="mini-card">
+        <h3>Build an Archive</h3>
+        <p>
+          Move beyond a list. Create a serious, searchable, visual archive of
+          the collection you have built over time.
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      Collector Intelligence — built for collectors who want more than a spreadsheet.
+    </footer>
+
+  </div>
+</body>
+</html>

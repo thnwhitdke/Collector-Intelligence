@@ -31,6 +31,7 @@ type FieldProps = {
   name: string;
   defaultValue?: string | number | boolean | null;
   type?: string;
+  helpText?: string;
 };
 
 type TextAreaProps = {
@@ -171,6 +172,9 @@ export default async function RecordDetailPage({
   const coverUrl = getText(record, "cover_url");
   const title = getText(record, "title") || "Untitled";
   const artist = getText(record, "artist") || "Unknown Artist";
+  const discogsReleaseId = getText(record, "discogs_release_id");
+  const discogsSaleBlocked = Boolean(getValue(record, "discogs_sale_blocked"));
+  const discogsSaleBlockedReason = getText(record, "discogs_sale_blocked_reason");
   const forSale = getNumber(record, "discogs_for_sale");
   const marketSignal = getMarketSignal(forSale);
 
@@ -248,7 +252,28 @@ export default async function RecordDetailPage({
           </div>
 
           <div className="space-y-6">
-          <Section title="Market Intelligence">
+            <Section title="Market Intelligence">
+              {discogsSaleBlocked ? (
+                <div className="mb-4 rounded-2xl border border-blue-400/40 bg-blue-400/10 px-5 py-4 text-sm text-blue-100">
+                  <div className="font-semibold">
+                    Discogs market data is intentionally unavailable for this release.
+                  </div>
+                  <div className="mt-1 text-xs opacity-80">
+                    This record is marked as not sold or blocked from Discogs marketplace data.
+                  </div>
+                  {discogsSaleBlockedReason ? (
+                    <div className="mt-2 text-xs opacity-90">
+                      Reason: {discogsSaleBlockedReason}
+                    </div>
+                  ) : null}
+                </div>
+              ) : !discogsReleaseId ? (
+                <div className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
+                  This record does not currently have a Discogs Release ID.
+                  Add one in Release Details, save, then pull market data.
+                </div>
+              ) : null}
+
               <form action={pullSingleDiscogsValue} className="mb-4">
                 <input
                   type="hidden"
@@ -258,11 +283,17 @@ export default async function RecordDetailPage({
                 <input
                   type="hidden"
                   name="releaseId"
-                  value={getText(record, "discogs_release_id")}
+                  value={discogsReleaseId}
                 />
 
-                <button type="submit" className="rounded-xl bg-fuchsia-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-400">
-                  Pull Market Data (This Record)
+                <button
+                  type="submit"
+                  disabled={!discogsReleaseId || discogsSaleBlocked}
+                  className="rounded-xl bg-fuchsia-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:bg-neutral-600 disabled:text-neutral-300"
+                >
+                  {discogsSaleBlocked
+                    ? "Market Data Blocked"
+                    : "Pull Market Data (This Record)"}
                 </button>
               </form>
 
@@ -315,16 +346,30 @@ export default async function RecordDetailPage({
               </div>
             </Section>
 
-            <ValueIntelligencePanel
-              recordId={String(getValue(record, "id"))}
-              discogsReleaseId={getText(record, "discogs_release_id") || null}
-              purchasePrice={getNumber(record, "purchase_price")}
-              estimatedValue={getNumber(record, "estimated_value")}
-              lowPrice={getNumber(record, "discogs_low_price")}
-              medianPrice={getNumber(record, "discogs_median_price")}
-              highPrice={getNumber(record, "discogs_high_price")}
-              valueLastUpdated={getText(record, "value_last_updated") || null}
-            />
+            {discogsSaleBlocked ? (
+              <Section title="Discogs Market Estimate">
+                <div className="rounded-2xl border border-blue-400/35 bg-blue-400/10 px-5 py-4 text-sm text-blue-100">
+                  <div className="font-semibold">
+                    Market estimate intentionally suppressed.
+                  </div>
+                  <div className="mt-1 text-xs leading-5 opacity-80">
+                    This item is marked as not sold or blocked from Discogs marketplace data,
+                    so Collector Intelligence will not treat missing Discogs pricing as an error.
+                  </div>
+                </div>
+              </Section>
+            ) : (
+              <ValueIntelligencePanel
+                recordId={String(getValue(record, "id"))}
+                discogsReleaseId={discogsReleaseId || null}
+                purchasePrice={getNumber(record, "purchase_price")}
+                estimatedValue={getNumber(record, "estimated_value")}
+                lowPrice={getNumber(record, "discogs_low_price")}
+                medianPrice={getNumber(record, "discogs_median_price")}
+                highPrice={getNumber(record, "discogs_high_price")}
+                valueLastUpdated={getText(record, "value_last_updated") || null}
+              />
+            )}
 
             <Section title="Release Details">
               <form action={updateReleaseDetails} className="space-y-4">
@@ -370,7 +415,59 @@ export default async function RecordDetailPage({
                     name="country"
                     defaultValue={getValue(record, "country")}
                   />
+
+                  <Field
+                    label="Discogs Release ID"
+                    name="discogs_release_id"
+                    defaultValue={getValue(record, "discogs_release_id")}
+                    helpText="Required before pulling Discogs market value."
+                  />
+
+                  <Field
+                    label="Discogs Master ID"
+                    name="discogs_master_id"
+                    defaultValue={getValue(record, "discogs_master_id")}
+                  />
+
+                  <Field
+                    label="Discogs URL"
+                    name="discogs_url"
+                    defaultValue={getValue(record, "discogs_url")}
+                  />
                 </Grid>
+
+                <div className="rounded-2xl border border-[#3A3328] bg-[#11100E] p-4">
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      name="discogs_sale_blocked"
+                      defaultChecked={discogsSaleBlocked}
+                      className="mt-1 h-4 w-4"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-[#F4EFE6]">
+                        Not sold / blocked from Discogs marketplace
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-[#B8AA96]">
+                        Use this when Discogs pricing is intentionally unavailable,
+                        so the system does not treat missing market data as a problem.
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="mt-4 block">
+                    <div className="mb-1 text-xs uppercase tracking-wide text-[#8E8170]">
+                      Discogs Blocked Reason
+                    </div>
+                    <input
+                      type="text"
+                      name="discogs_sale_blocked_reason"
+                      defaultValue={discogsSaleBlockedReason}
+                      placeholder="Optional: blocked from sale, promo-only, no sales history, marketplace unavailable..."
+                      className="w-full rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2 text-sm text-[#F4EFE6]"
+                    />
+                  </label>
+                </div>
 
                 <TextArea
                   label="Notes"
@@ -548,6 +645,22 @@ export default async function RecordDetailPage({
                   value={getValue(record, "discogs_release_id")}
                 />
                 <Read
+                  label="Discogs Master ID"
+                  value={getValue(record, "discogs_master_id")}
+                />
+                <Read
+                  label="Discogs URL"
+                  value={getValue(record, "discogs_url")}
+                />
+                <Read
+                  label="Discogs Sale Blocked"
+                  value={discogsSaleBlocked ? "Yes" : "No"}
+                />
+                <Read
+                  label="Discogs Blocked Reason"
+                  value={discogsSaleBlockedReason}
+                />
+                <Read
                   label="Value Source"
                   value={getValue(record, "value_source")}
                 />
@@ -573,7 +686,7 @@ function Grid({ children }: GridProps) {
   return <div className="grid gap-4 md:grid-cols-2">{children}</div>;
 }
 
-function Field({ label, name, defaultValue, type = "text" }: FieldProps) {
+function Field({ label, name, defaultValue, type = "text", helpText }: FieldProps) {
   return (
     <label>
       <div className="mb-1 text-xs uppercase tracking-wide text-[#8E8170]">
@@ -585,6 +698,9 @@ function Field({ label, name, defaultValue, type = "text" }: FieldProps) {
         defaultValue={defaultValue == null ? "" : String(defaultValue)}
         className="w-full rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2 text-sm text-[#F4EFE6]"
       />
+      {helpText ? (
+        <div className="mt-1 text-xs text-[#B8AA96]">{helpText}</div>
+      ) : null}
     </label>
   );
 }
@@ -640,7 +756,7 @@ function TextArea({ label, name, defaultValue }: TextAreaProps) {
 
 function SaveButton() {
   return (
-    <button className="rounded-xl bg-[#C7A45D] px-4 py-2 text-sm font-semibold text-black">
+    <button className="rounded-xl bg-[#C7A45D] px-4 py-2 text-sm font-semibold text-black hover:bg-[#D8B86A]">
       Save Changes
     </button>
   );
@@ -648,9 +764,13 @@ function SaveButton() {
 
 function Read({ label, value }: ReadProps) {
   return (
-    <div className="rounded-xl border border-[#3A3328] bg-[#11100E] p-3">
-      <div className="text-xs uppercase text-[#8E8170]">{label}</div>
-      <div className="text-sm">{displayValue(value)}</div>
+    <div className="flex min-h-[82px] flex-col justify-between rounded-xl border border-[#3A3328] bg-[#11100E] p-4">
+      <div className="text-[10px] uppercase leading-tight tracking-wide text-[#8E8170]">
+        {label}
+      </div>
+      <div className="mt-2 break-words text-sm leading-relaxed">
+        {displayValue(value)}
+      </div>
     </div>
   );
 }

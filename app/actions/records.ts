@@ -292,6 +292,10 @@ export async function updateReleaseDetails(formData: FormData) {
     extractDiscogsReleaseIdFromUrl(discogs_url);
 
   const discogs_master_id = normalizeEmpty(formData.get("discogs_master_id"));
+  const discogs_sale_blocked = formData.get("discogs_sale_blocked") === "on";
+  const discogs_sale_blocked_reason = normalizeEmpty(
+    formData.get("discogs_sale_blocked_reason")
+  );
 
   const { error } = await supabase
     .from("records_clean_safe")
@@ -308,6 +312,8 @@ export async function updateReleaseDetails(formData: FormData) {
       discogs_url,
       discogs_release_id,
       discogs_master_id,
+      discogs_sale_blocked,
+      discogs_sale_blocked_reason,
     })
     .eq("id", id);
 
