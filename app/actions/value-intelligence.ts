@@ -26,7 +26,7 @@ export async function pullAndSaveDiscogsValue(
   const supabase = await createClient();
 
   const { data: record, error: fetchError } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select(
       "id, discogs_release_id, price_history, purchase_price, estimated_value",
     )
@@ -67,7 +67,7 @@ export async function pullAndSaveDiscogsValue(
     ];
 
     const { error: updateError } = await supabase
-      .from("records_clean_safe")
+      .from("records_clean")
       .update({
         value_source: pulled.source,
         discogs_low_price: pulled.lowPrice,

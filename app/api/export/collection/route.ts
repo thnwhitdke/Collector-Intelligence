@@ -5,7 +5,7 @@ export async function GET() {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select("*")
     .order("artist", { ascending: true });
 

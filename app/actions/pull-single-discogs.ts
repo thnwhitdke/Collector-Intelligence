@@ -47,7 +47,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
   }
 
   const { data: record, error: recordError } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select("id, discogs_release_id")
     .eq("id", id)
     .single();
@@ -60,7 +60,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
 
   if (!releaseId) {
     await supabase
-      .from("records_clean_safe")
+      .from("records_clean")
       .update({
         value_pull_status: "missing_release_id",
         value_pull_note: "No Discogs release ID is stored for this record.",
@@ -84,7 +84,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
 
   if (!priceRes.ok) {
     await supabase
-      .from("records_clean_safe")
+      .from("records_clean")
       .update({
         value_pull_status: "discogs_error",
         value_pull_note: `Discogs price suggestion request failed with HTTP ${priceRes.status}.`,
@@ -104,7 +104,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
 
   if (entries.length === 0) {
     await supabase
-      .from("records_clean_safe")
+      .from("records_clean")
       .update({
         value_pull_status: "no_discogs_value_available",
         value_pull_note: "Discogs returned no price suggestions for this release.",
@@ -122,7 +122,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
 
   if (values.length === 0) {
     await supabase
-      .from("records_clean_safe")
+      .from("records_clean")
       .update({
         value_pull_status: "no_discogs_value_available",
         value_pull_note:
@@ -169,7 +169,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
   const now = new Date().toISOString();
 
   const { error: updateError } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .update({
       discogs_low_price: low,
       discogs_median_price: median,
@@ -187,7 +187,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
 
   if (updateError) {
     await supabase
-      .from("records_clean_safe")
+      .from("records_clean")
       .update({
         value_pull_status: "discogs_error",
         value_pull_note: `Database update failed: ${updateError.message}`,

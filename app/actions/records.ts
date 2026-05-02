@@ -130,7 +130,7 @@ async function tryBackfillCoverForRecord(
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("records_clean_safe")
+      .from("records_clean")
       .update({
         cover_url: coverUrl,
         discogs_release_id: discogsReleaseId,
@@ -266,7 +266,7 @@ export async function addRecord(formData: FormData) {
   };
 
   const { data, error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .insert(insertPayload)
     .select("id")
     .single();
@@ -318,7 +318,7 @@ export async function updateReleaseDetails(formData: FormData) {
   );
 
   const { error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .update({
       artist,
       title,
@@ -407,7 +407,7 @@ export async function updateCollectorDetails(formData: FormData) {
   const ebay_notes = normalizeEmpty(formData.get("ebay_notes"));
 
   const { error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .update({
       condition,
       price,
@@ -490,7 +490,7 @@ export async function updateCollectorGrading(
   };
 
   const { error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .update(cleanedValues)
     .eq("id", recordId)
     .eq("user_id", userId);
@@ -510,7 +510,7 @@ export async function getValueDashboardSummary(): Promise<ValueDashboardSummary>
   const userId = await getAuthenticatedUserId(supabase);
 
   const { data, error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select(
       `
       id,
@@ -611,7 +611,7 @@ export async function refreshCoverFromDiscogs(formData: FormData) {
   }
 
   const { data: record, error: readError } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select("id, discogs_release_id, discogs_url, cover_url")
     .eq("id", id)
     .single();
@@ -641,7 +641,7 @@ export async function refreshCoverFromDiscogs(formData: FormData) {
   }
 
   const { error: updateError } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .update({
       cover_url: coverUrl,
       discogs_release_id: String(releaseId),
@@ -690,7 +690,7 @@ export async function fixCover(recordId: number, discogsReleaseId: string) {
   }
 
   const { error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .update({
       cover_url: coverUrl,
       cover_present: "Yes",
@@ -717,7 +717,7 @@ export async function bulkFixMissingCovers(limit = 25) {
     Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 100) : 25;
 
   const { data: candidates, error: readError } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select("id, cover_url, cover_present, discogs_release_id, discogs_url")
     .eq("user_id", userId)
     .limit(500);
@@ -764,7 +764,7 @@ export async function bulkFixMissingCovers(limit = 25) {
       }
 
       const { error: updateError } = await supabase
-        .from("records_clean_safe")
+        .from("records_clean")
         .update({
           cover_url: coverUrl,
           cover_present: "Yes",
@@ -881,7 +881,7 @@ export async function saveDiscogsMatch(
   }
 
   const { error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .update(updatePayload)
     .eq("id", recordId)
     .eq("user_id", userId);
@@ -906,7 +906,7 @@ export async function setReviewFlag(
   const userId = await getAuthenticatedUserId(supabase);
 
   const { data: record, error: readError } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select("id, notes")
     .eq("id", recordId)
     .single();
@@ -918,7 +918,7 @@ export async function setReviewFlag(
   const nextNotes = addReviewTagToNotes(record.notes, reason);
 
   const { error: updateError } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .update({ notes: nextNotes })
     .eq("id", recordId)
     .eq("user_id", userId);
@@ -938,7 +938,7 @@ export async function clearReviewFlag(recordId: number) {
   const userId = await getAuthenticatedUserId(supabase);
 
   const { data: record, error: readError } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select("id, notes")
     .eq("id", recordId)
     .single();
@@ -950,7 +950,7 @@ export async function clearReviewFlag(recordId: number) {
   const nextNotes = removeReviewTagFromNotes(record.notes);
 
   const { error: updateError } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .update({ notes: nextNotes })
     .eq("id", recordId)
     .eq("user_id", userId);
@@ -1053,7 +1053,7 @@ export async function importRecords(rows: ImportRecordRow[]) {
     throw new Error("No valid rows to import.");
   }
 
-  const { error } = await supabase.from("records_clean_safe").insert(cleaned);
+  const { error } = await supabase.from("records_clean").insert(cleaned);
 
   if (error) {
     console.error("Import records failed:", error);

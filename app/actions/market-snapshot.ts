@@ -10,7 +10,7 @@ export async function pullDiscogsMarketSnapshot(batchSize: number = 10): Promise
   const supabase = await createClient();
 
   const { data: records, error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select("id, discogs_release_id")
     .not("discogs_release_id", "is", null)
     .limit(batchSize);
@@ -67,7 +67,7 @@ export async function pullDiscogsMarketSnapshot(batchSize: number = 10): Promise
       }
 
       await supabase
-        .from("records_clean_safe")
+        .from("records_clean")
         .update({
           discogs_num_for_sale: numForSale,
           discogs_lowest_price: lowestPrice,

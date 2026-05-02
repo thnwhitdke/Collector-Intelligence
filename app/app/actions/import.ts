@@ -29,7 +29,7 @@ export async function importRecords(rows: ImportRow[]) {
     const normTitle = normalize(row.title);
 
     const { data: existing } = await supabase
-      .from("records_clean_safe")
+      .from("records_clean")
       .select("id, artist, title")
       .ilike("artist", `%${row.artist}%`)
       .ilike("title", `%${row.title}%`)
@@ -51,7 +51,7 @@ export async function importRecords(rows: ImportRow[]) {
 
     if (isDuplicate) flagged++;
 
-    await supabase.from("records_clean_safe").insert({
+    await supabase.from("records_clean").insert({
       artist: row.artist,
       title: row.title,
       year_released: row.year || null,

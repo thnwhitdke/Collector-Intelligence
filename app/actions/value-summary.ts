@@ -16,7 +16,7 @@ export async function getCollectionValueSummary(): Promise<CollectionValueSummar
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select(
       "estimated_value, purchase_price",
     );

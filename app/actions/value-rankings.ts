@@ -65,7 +65,7 @@ export async function getValueRankings(): Promise<ValueRankings> {
   }
 
   const { data, error } = await supabase
-    .from("records_clean_safe")
+    .from("records_clean")
     .select(
       "id, artist, title, cover_url, estimated_value, purchase_price, value_last_updated, discogs_sale_blocked",
     )
