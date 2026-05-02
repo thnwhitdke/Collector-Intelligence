@@ -70,7 +70,7 @@ export async function getValueRankings(): Promise<ValueRankings> {
       "id, artist, title, cover_url, estimated_value, purchase_price, value_last_updated, discogs_sale_blocked",
     )
     .eq("user_id", user.id)
-    .limit(1000);
+    .limit(5000);
 
   if (error || !data) {
     return {

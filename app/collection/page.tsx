@@ -469,7 +469,7 @@ export default async function CollectionPage({
 
     query = applySort(query, sort);
 
-    const { data, count } = await query.limit(1000);
+    const { data, count } = await query.limit(5000);
 
     records = data ?? [];
 
@@ -491,7 +491,7 @@ export default async function CollectionPage({
       .select("*")
       .eq("user_id", userId) as unknown as SupabaseQueryLike<CollectionRecord>;
 
-    const { data } = await confidenceCountQuery.limit(1000);
+    const { data } = await confidenceCountQuery.limit(5000);
     confidenceCountRecords = data ?? [];
   } catch (error) {
     console.warn("Confidence counts warning:", getSafeErrorMessage(error));
