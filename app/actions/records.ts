@@ -100,9 +100,25 @@ function numberOrZero(value: number | string | null | undefined) {
   return 0;
 }
 
+async function getAuthenticatedUserId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    throw new Error("Not authenticated.");
+  }
+
+  return user.id;
+}
+
 async function tryBackfillCoverForRecord(
   id: number,
-  discogsReleaseId: string | null
+  discogsReleaseId: string | null,
+  userId: string,
 ) {
   if (!discogsReleaseId) return;
 
@@ -120,7 +136,8 @@ async function tryBackfillCoverForRecord(
         discogs_release_id: discogsReleaseId,
         cover_present: "Yes",
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", userId);
 
     if (error) {
       console.error("Cover backfill update failed:", error.message);
@@ -158,6 +175,7 @@ export type ValueDashboardSummary = {
 
 export async function addRecord(formData: FormData) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const artist = normalizeEmpty(formData.get("artist"));
   const title = normalizeEmpty(formData.get("title"));
@@ -217,6 +235,7 @@ export async function addRecord(formData: FormData) {
     extractDiscogsReleaseIdFromUrl(discogs_url);
 
   const insertPayload = {
+    user_id: userId,
     artist,
     title,
     format,
@@ -257,7 +276,7 @@ export async function addRecord(formData: FormData) {
   }
 
   if (data?.id != null) {
-    await tryBackfillCoverForRecord(Number(data.id), discogs_release_id);
+    await tryBackfillCoverForRecord(Number(data.id), discogs_release_id, userId);
   }
 
   revalidatePath("/collection");
@@ -265,6 +284,7 @@ export async function addRecord(formData: FormData) {
 
 export async function updateReleaseDetails(formData: FormData) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const idRaw = normalizeEmpty(formData.get("id"));
   if (!idRaw) {
@@ -315,14 +335,15 @@ export async function updateReleaseDetails(formData: FormData) {
       discogs_sale_blocked,
       discogs_sale_blocked_reason,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) {
     throw new Error(`Failed to update release details: ${error.message}`);
   }
 
   if (discogs_release_id) {
-    await tryBackfillCoverForRecord(id, discogs_release_id);
+    await tryBackfillCoverForRecord(id, discogs_release_id, userId);
   }
 
   revalidatePath("/collection");
@@ -331,6 +352,7 @@ export async function updateReleaseDetails(formData: FormData) {
 
 export async function updateCollectorDetails(formData: FormData) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const idRaw = normalizeEmpty(formData.get("id"));
   if (!idRaw) {
@@ -404,7 +426,8 @@ export async function updateCollectorDetails(formData: FormData) {
       ebay_high_sold_price,
       ebay_notes,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) {
     throw new Error(`Failed to update collector details: ${error.message}`);
@@ -419,6 +442,7 @@ export async function updateCollectorGrading(
   values: CollectorGradingUpdate
 ) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   if (!recordId || Number.isNaN(recordId)) {
     throw new Error("Invalid record ID.");
@@ -468,7 +492,8 @@ export async function updateCollectorGrading(
   const { error } = await supabase
     .from("records_clean_safe")
     .update(cleanedValues)
-    .eq("id", recordId);
+    .eq("id", recordId)
+    .eq("user_id", userId);
 
   if (error) {
     throw new Error(`Failed to update grading fields: ${error.message}`);
@@ -482,6 +507,7 @@ export async function updateCollectorGrading(
 
 export async function getValueDashboardSummary(): Promise<ValueDashboardSummary> {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const { data, error } = await supabase
     .from("records_clean_safe")
@@ -495,7 +521,8 @@ export async function getValueDashboardSummary(): Promise<ValueDashboardSummary>
       current_value,
       value_last_updated
     `
-    );
+    )
+    .eq("user_id", userId);
 
   if (error) {
     console.error("Error loading value dashboard summary:", error.message);
@@ -571,6 +598,7 @@ export async function getValueDashboardSummary(): Promise<ValueDashboardSummary>
 
 export async function refreshCoverFromDiscogs(formData: FormData) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const idRaw = normalizeEmpty(formData.get("id"));
   if (!idRaw) {
@@ -619,7 +647,8 @@ export async function refreshCoverFromDiscogs(formData: FormData) {
       discogs_release_id: String(releaseId),
       cover_present: "Yes",
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (updateError) {
     throw new Error(`Failed to save cover URL: ${updateError.message}`);
@@ -631,6 +660,7 @@ export async function refreshCoverFromDiscogs(formData: FormData) {
 
 export async function fixCover(recordId: number, discogsReleaseId: string) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   if (!discogsReleaseId) {
     throw new Error("Missing Discogs Release ID");
@@ -666,7 +696,8 @@ export async function fixCover(recordId: number, discogsReleaseId: string) {
       cover_present: "Yes",
       discogs_release_id: discogsReleaseId,
     })
-    .eq("id", recordId);
+    .eq("id", recordId)
+    .eq("user_id", userId);
 
   if (error) {
     throw new Error(`Failed to save cover: ${error.message}`);
@@ -680,6 +711,7 @@ export async function fixCover(recordId: number, discogsReleaseId: string) {
 
 export async function bulkFixMissingCovers(limit = 25) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const safeLimit =
     Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 100) : 25;
@@ -687,6 +719,7 @@ export async function bulkFixMissingCovers(limit = 25) {
   const { data: candidates, error: readError } = await supabase
     .from("records_clean_safe")
     .select("id, cover_url, cover_present, discogs_release_id, discogs_url")
+    .eq("user_id", userId)
     .limit(500);
 
   if (readError) {
@@ -826,6 +859,7 @@ export async function saveDiscogsMatch(
   discogsUrl?: string | null
 ) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   if (!recordId || Number.isNaN(recordId)) {
     throw new Error("Invalid record ID.");
@@ -849,13 +883,14 @@ export async function saveDiscogsMatch(
   const { error } = await supabase
     .from("records_clean_safe")
     .update(updatePayload)
-    .eq("id", recordId);
+    .eq("id", recordId)
+    .eq("user_id", userId);
 
   if (error) {
     throw new Error(`Failed to save Discogs match: ${error.message}`);
   }
 
-  await tryBackfillCoverForRecord(recordId, String(discogsReleaseId));
+  await tryBackfillCoverForRecord(recordId, String(discogsReleaseId), userId);
 
   revalidatePath("/collection");
   revalidatePath(`/collection/${recordId}`);
@@ -868,6 +903,7 @@ export async function setReviewFlag(
   reason?: string | null
 ) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const { data: record, error: readError } = await supabase
     .from("records_clean_safe")
@@ -884,7 +920,8 @@ export async function setReviewFlag(
   const { error: updateError } = await supabase
     .from("records_clean_safe")
     .update({ notes: nextNotes })
-    .eq("id", recordId);
+    .eq("id", recordId)
+    .eq("user_id", userId);
 
   if (updateError) {
     throw new Error(`Failed to mark record for review: ${updateError.message}`);
@@ -898,6 +935,7 @@ export async function setReviewFlag(
 
 export async function clearReviewFlag(recordId: number) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const { data: record, error: readError } = await supabase
     .from("records_clean_safe")
@@ -914,7 +952,8 @@ export async function clearReviewFlag(recordId: number) {
   const { error: updateError } = await supabase
     .from("records_clean_safe")
     .update({ notes: nextNotes })
-    .eq("id", recordId);
+    .eq("id", recordId)
+    .eq("user_id", userId);
 
   if (updateError) {
     throw new Error(`Failed to clear review flag: ${updateError.message}`);
@@ -937,10 +976,12 @@ export type SavedViewRow = {
 
 export async function getSavedViews(): Promise<SavedViewRow[]> {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const { data, error } = await supabase
     .from("saved_views")
     .select("id, name, preset, sort, search_query, created_at")
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -958,6 +999,7 @@ export async function createSavedView(input: {
   searchQuery: string;
 }): Promise<{ success: true }> {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const name = input.name.trim();
   const preset = input.preset.trim() || "all";
@@ -969,6 +1011,7 @@ export async function createSavedView(input: {
   }
 
   const { error } = await supabase.from("saved_views").insert({
+    user_id: userId,
     name,
     preset,
     sort,
@@ -987,10 +1030,12 @@ export async function createSavedView(input: {
 
 export async function importRecords(rows: ImportRecordRow[]) {
   const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const cleaned = rows
     .filter((row) => row.artist && row.title)
     .map((row) => ({
+      user_id: userId,
       artist: row.artist?.trim() || null,
       title: row.title?.trim() || null,
       format: row.format?.trim() || null,

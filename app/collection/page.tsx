@@ -42,6 +42,7 @@ type SupabaseQueryResult<T> = {
 };
 
 type SupabaseQueryLike<T> = PromiseLike<SupabaseQueryResult<T>> & {
+  eq: (column: string, value: string) => SupabaseQueryLike<T>;
   or: (filters: string) => SupabaseQueryLike<T>;
   ilike: (column: string, pattern: string) => SupabaseQueryLike<T>;
   order: (
@@ -270,11 +271,13 @@ function filterRecordsByConfidencePreset(
 async function getPresetCount(
   supabase: Awaited<ReturnType<typeof createClient>>,
   preset: SavedViewPreset,
+  userId: string,
 ) {
   try {
     let query = supabase
       .from("records_clean_safe")
-      .select("*", { count: "exact", head: true }) as unknown as SupabaseQueryLike<CollectionRecord>;
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId) as unknown as SupabaseQueryLike<CollectionRecord>;
 
     query = applyPresetFilter(query, preset);
 
@@ -413,13 +416,42 @@ export default async function CollectionPage({
 
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-[#0E0C0A] px-6 py-10 text-[#F4EFE6]">
+        <div className="mx-auto max-w-3xl rounded-[28px] border border-[#3A3328] bg-[#17130F] p-8 text-center shadow-xl shadow-black/30">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Please sign in to view your collection
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[#B8AA96]">
+            Collector Intelligence keeps each user collection separate. Sign in
+            to load your personal archive.
+          </p>
+          <Link
+            href="/login"
+            className="mt-6 inline-flex rounded-2xl bg-[#C7A45D] px-5 py-3 text-sm font-bold text-[#11100E] transition hover:bg-[#D8B86A]"
+          >
+            Go to Sign In
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const userId = user.id;
+
   let records: CollectionRecord[] = [];
   let totalCount = 0;
 
   try {
     let query = supabase
       .from("records_clean_safe")
-      .select("*", { count: "exact" }) as unknown as SupabaseQueryLike<CollectionRecord>;
+      .select("*", { count: "exact" })
+      .eq("user_id", userId) as unknown as SupabaseQueryLike<CollectionRecord>;
 
     query = applyPresetFilter(query, preset);
 
@@ -456,7 +488,8 @@ export default async function CollectionPage({
   try {
     const confidenceCountQuery = supabase
       .from("records_clean_safe")
-      .select("*") as unknown as SupabaseQueryLike<CollectionRecord>;
+      .select("*")
+      .eq("user_id", userId) as unknown as SupabaseQueryLike<CollectionRecord>;
 
     const { data } = await confidenceCountQuery.limit(1000);
     confidenceCountRecords = data ?? [];
@@ -465,13 +498,13 @@ export default async function CollectionPage({
   }
 
   const presetCounts = {
-    all: await getPresetCount(supabase, "all"),
-    missing_covers: await getPresetCount(supabase, "missing_covers"),
-    missing_discogs: await getPresetCount(supabase, "missing_discogs"),
-    review_queue: await getPresetCount(supabase, "review_queue"),
-    needs_pricing: await getPresetCount(supabase, "needs_pricing"),
-    needs_year: await getPresetCount(supabase, "needs_year"),
-    exceptions: await getPresetCount(supabase, "exceptions"),
+    all: await getPresetCount(supabase, "all", userId),
+    missing_covers: await getPresetCount(supabase, "missing_covers", userId),
+    missing_discogs: await getPresetCount(supabase, "missing_discogs", userId),
+    review_queue: await getPresetCount(supabase, "review_queue", userId),
+    needs_pricing: await getPresetCount(supabase, "needs_pricing", userId),
+    needs_year: await getPresetCount(supabase, "needs_year", userId),
+    exceptions: await getPresetCount(supabase, "exceptions", userId),
     high_confidence: filterRecordsByConfidencePreset(
       confidenceCountRecords,
       "high_confidence",
