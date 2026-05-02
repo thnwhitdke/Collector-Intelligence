@@ -119,21 +119,23 @@ export function CollectionUI({
               className="overflow-hidden rounded-[28px] border border-[#3A3328] bg-[linear-gradient(145deg,_#282218,_#0E0C0A_48%,_#1B1712)] shadow-2xl shadow-black/40"
             >
               <div className="p-5">
-                <div className="h-56 overflow-hidden rounded-[24px] border border-[#3A3328] bg-black">
-                  {record.cover_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={record.cover_url}
-                      alt={`${record.artist ?? "Unknown Artist"} - ${
-                        record.title ?? "Untitled"
-                      }`}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-[#8E8170]">
-                      No Cover
-                    </div>
-                  )}
+                <div className="flex justify-center">
+                  <div className="h-48 w-48 overflow-hidden rounded-[22px] border border-[#3A3328] bg-black shadow-xl shadow-black/35">
+                    {record.cover_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={record.cover_url}
+                        alt={`${record.artist ?? "Unknown Artist"} - ${
+                          record.title ?? "Untitled"
+                        }`}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-sm text-[#8E8170]">
+                        No Cover
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-5">
