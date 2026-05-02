@@ -15,21 +15,26 @@ type DiscogsStatsResponse = {
   last_sold_date?: string | null;
 };
 
-type ValuePullStatus =
+export type ValuePullStatus =
   | "needs_pull"
   | "pulled_successfully"
   | "no_discogs_value_available"
   | "discogs_error"
   | "missing_release_id";
 
-type QueueRecord = {
+export type ValueQueueRecord = {
   id: string;
   artist: string | null;
   title: string | null;
   format: string | null;
   year_released: string | number | null;
+  label: string | null;
+  catalogue_number: string | null;
   discogs_release_id: string | number | null;
   estimated_value: number | string | null;
+  discogs_low_price: number | string | null;
+  discogs_median_price: number | string | null;
+  discogs_high_price: number | string | null;
   value_last_updated: string | null;
   value_source: string | null;
   cover_url: string | null;
@@ -37,7 +42,10 @@ type QueueRecord = {
   value_pull_status?: ValuePullStatus | string | null;
   value_pull_note?: string | null;
   value_pull_last_attempted_at?: string | null;
+  queue_priority: number;
 };
+
+type RawQueueRecord = Omit<ValueQueueRecord, "queue_priority">;
 
 type PulledRecord = {
   id: string;
@@ -92,26 +100,29 @@ function getMedianEstimate(data: DiscogsPriceSuggestionsResponse): number | null
   return Number(median.toFixed(2));
 }
 
-function getQueuePriority(record: QueueRecord): number {
+function getQueuePriority(record: RawQueueRecord): number {
   const purchasePrice = toNumber(record.purchase_price);
   const estimatedValue = toNumber(record.estimated_value);
+  const discogsMedian = toNumber(record.discogs_median_price);
 
   const hasPurchasePrice = typeof purchasePrice === "number" && purchasePrice > 0;
   const hasEstimatedValue =
     typeof estimatedValue === "number" && estimatedValue > 0;
+  const hasDiscogsMedian = typeof discogsMedian === "number" && discogsMedian > 0;
 
   if (record.value_pull_status === "no_discogs_value_available") return 99;
   if (record.value_pull_status === "missing_release_id") return 98;
   if (record.value_pull_status === "discogs_error") return 50;
 
   if (hasPurchasePrice && !hasEstimatedValue) return 1;
-  if (!hasEstimatedValue) return 2;
-  if (!record.value_last_updated) return 3;
+  if (!hasDiscogsMedian) return 2;
+  if (!hasEstimatedValue) return 3;
+  if (!record.value_last_updated) return 4;
 
-  return 4;
+  return 5;
 }
 
-function sortQueueRecords(records: QueueRecord[]) {
+function sortQueueRecords(records: RawQueueRecord[]): ValueQueueRecord[] {
   return records
     .map((record) => ({
       ...record,
@@ -137,7 +148,7 @@ function sortQueueRecords(records: QueueRecord[]) {
 async function markPullStatus(
   id: string,
   status: ValuePullStatus,
-  note: string
+  note: string,
 ) {
   const supabase = await createClient();
 
@@ -163,8 +174,13 @@ export async function getValueQueue() {
       title,
       format,
       year_released,
+      label,
+      catalogue_number,
       discogs_release_id,
       estimated_value,
+      discogs_low_price,
+      discogs_median_price,
+      discogs_high_price,
       value_last_updated,
       value_source,
       cover_url,
@@ -172,17 +188,17 @@ export async function getValueQueue() {
       value_pull_status,
       value_pull_note,
       value_pull_last_attempted_at
-    `
+    `,
     )
     .not("discogs_release_id", "is", null)
-    .neq("value_pull_status", "no_discogs_value_available")
+    .or("value_pull_status.is.null,value_pull_status.neq.no_discogs_value_available")
     .limit(250);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return sortQueueRecords((data ?? []) as QueueRecord[]).slice(0, 50);
+  return sortQueueRecords((data ?? []) as RawQueueRecord[]).slice(0, 50);
 }
 
 export async function pullBatchDiscogsValues(limit = 10) {
@@ -199,6 +215,7 @@ export async function pullBatchDiscogsValues(limit = 10) {
       updated: 0,
       skipped: 0,
       failed: 0,
+      markedUnavailable: 0,
       pulledRecords: [] as PulledRecord[],
     };
   }
@@ -220,7 +237,7 @@ export async function pullBatchDiscogsValues(limit = 10) {
         await markPullStatus(
           record.id,
           "missing_release_id",
-          "No Discogs release ID is stored for this record."
+          "No Discogs release ID is stored for this record.",
         );
         skipped++;
         continue;
@@ -234,14 +251,14 @@ export async function pullBatchDiscogsValues(limit = 10) {
             "User-Agent": userAgent,
           },
           cache: "no-store",
-        }
+        },
       );
 
       if (!priceRes.ok) {
         await markPullStatus(
           record.id,
           "discogs_error",
-          `Discogs price suggestion request failed with HTTP ${priceRes.status}.`
+          `Discogs price suggestion request failed with HTTP ${priceRes.status}.`,
         );
         skipped++;
         continue;
@@ -256,7 +273,7 @@ export async function pullBatchDiscogsValues(limit = 10) {
         await markPullStatus(
           record.id,
           "no_discogs_value_available",
-          "Discogs returned no price suggestions for this release."
+          "Discogs returned no price suggestions for this release.",
         );
         markedUnavailable++;
         skipped++;
@@ -272,7 +289,7 @@ export async function pullBatchDiscogsValues(limit = 10) {
         await markPullStatus(
           record.id,
           "no_discogs_value_available",
-          "Discogs returned price suggestions, but none contained usable numeric values."
+          "Discogs returned price suggestions, but none contained usable numeric values.",
         );
         markedUnavailable++;
         skipped++;
@@ -287,7 +304,7 @@ export async function pullBatchDiscogsValues(limit = 10) {
         await markPullStatus(
           record.id,
           "no_discogs_value_available",
-          "Discogs returned values, but no median estimate could be calculated."
+          "Discogs returned values, but no median estimate could be calculated.",
         );
         markedUnavailable++;
         skipped++;
@@ -306,7 +323,7 @@ export async function pullBatchDiscogsValues(limit = 10) {
               "User-Agent": userAgent,
             },
             cache: "no-store",
-          }
+          },
         );
 
         if (statsRes.ok) {
@@ -320,7 +337,7 @@ export async function pullBatchDiscogsValues(limit = 10) {
           lastSoldDate = stats.last_sold_date ?? null;
         }
       } catch {
-        // Stats are helpful but not required for a successful value pull.
+        // Stats are helpful but not required.
       }
 
       const now = new Date().toISOString();
@@ -346,7 +363,7 @@ export async function pullBatchDiscogsValues(limit = 10) {
         await markPullStatus(
           record.id,
           "discogs_error",
-          `Database update failed: ${updateError.message}`
+          `Database update failed: ${updateError.message}`,
         );
         failed++;
       } else {
@@ -364,12 +381,12 @@ export async function pullBatchDiscogsValues(limit = 10) {
         });
       }
 
-      await new Promise((r) => setTimeout(r, 1200));
+      await new Promise((resolve) => setTimeout(resolve, 1200));
     } catch {
       await markPullStatus(
         record.id,
         "discogs_error",
-        "Unexpected error during Discogs value pull."
+        "Unexpected error during Discogs value pull.",
       );
       failed++;
     }

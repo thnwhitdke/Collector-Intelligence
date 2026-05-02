@@ -1,21 +1,9 @@
 import Link from "next/link";
-import { createClient } from "../../../src/lib/supabase/server";
-import { calculateValueConfidence } from "../../../src/lib/value-confidence";
-import type { CollectionRecord } from "../ui";
-
-type QueueRecord = {
-  record: CollectionRecord;
-  estimatedValue: number;
-  confidenceScore: number;
-  confidenceLabel: string;
-  sourceSummary: string;
-  missingEbayData: boolean;
-  missingDiscogsValue: boolean;
-  highValueLowConfidence: boolean;
-  priorityScore: number;
-  priorityLabel: "Critical" | "High" | "Medium" | "Low";
-  reasons: string[];
-};
+import {
+  getValueQueue,
+  pullBatchDiscogsValues,
+  type ValueQueueRecord,
+} from "../../actions/value-queue";
 
 function formatMoney(value: string | number | null | undefined) {
   if (value === null || value === undefined || String(value).trim() === "") {
@@ -39,218 +27,107 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
-function getNumericValue(value: string | number | null | undefined) {
-  if (value === null || value === undefined || String(value).trim() === "") {
-    return 0;
-  }
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Never";
 
-  const numeric = Number(String(value).replace(/[$,]/g, ""));
-  return Number.isFinite(numeric) ? numeric : 0;
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "Never";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
 }
 
-function getEstimatedValue(record: CollectionRecord) {
-  return (
-    getNumericValue(record.current_value) ||
-    getNumericValue(record.median_price) ||
-    getNumericValue(record.high_price) ||
-    getNumericValue(record.ebay_median_sold_price) ||
-    getNumericValue(record.ebay_last_sold_price)
-  );
+function priorityLabel(priority: number) {
+  if (priority === 1) return "Purchase / No Value";
+  if (priority === 2) return "Missing Discogs";
+  if (priority === 3) return "Missing Estimate";
+  if (priority === 4) return "Never Updated";
+  if (priority === 50) return "Discogs Error";
+  if (priority === 98) return "Missing Release ID";
+  if (priority === 99) return "Unavailable";
+  return "Routine Refresh";
 }
 
-function getRecordConfidence(record: CollectionRecord) {
-  const estimatedValue = getEstimatedValue(record);
-  const discogsMedian = getNumericValue(record.median_price);
-  const ebayLastSold = getNumericValue(record.ebay_last_sold_price);
+function priorityTone(priority: number) {
+  if (priority === 1) {
+    return "border-red-400/40 bg-red-400/10 text-red-100";
+  }
 
-  return calculateValueConfidence({
-    estimated_value: estimatedValue,
-    current_value: getNumericValue(record.current_value),
-    purchase_price: getNumericValue(record.purchase_price),
+  if (priority === 2 || priority === 3) {
+    return "border-orange-300/40 bg-orange-300/10 text-orange-100";
+  }
 
-    discogs_low_price: getNumericValue(record.low_price),
-    discogs_median_price: discogsMedian,
-    discogs_high_price: getNumericValue(record.high_price),
+  if (priority === 4 || priority === 50) {
+    return "border-yellow-300/40 bg-yellow-300/10 text-yellow-100";
+  }
 
-    ebay_last_sold_price: ebayLastSold,
-    ebay_sold_comp_count: getNumericValue(record.ebay_sold_comp_count),
-    ebay_low_sold_price: getNumericValue(record.ebay_low_sold_price),
-    ebay_median_sold_price: getNumericValue(record.ebay_median_sold_price),
-    ebay_high_sold_price: getNumericValue(record.ebay_high_sold_price),
-  });
+  return "border-[#3A3328] bg-[#17130F] text-[#D8CBB8]";
 }
 
-function buildQueueRecord(record: CollectionRecord): QueueRecord {
-  const confidence = getRecordConfidence(record);
-  const estimatedValue = getEstimatedValue(record);
+function statusLabel(status: string | null | undefined) {
+  if (!status) return "Needs Pull";
 
-  const ebayLastSold = getNumericValue(record.ebay_last_sold_price);
-  const ebayMedian = getNumericValue(record.ebay_median_sold_price);
-  const ebayLow = getNumericValue(record.ebay_low_sold_price);
-  const ebayHigh = getNumericValue(record.ebay_high_sold_price);
-  const ebayCompCount = getNumericValue(record.ebay_sold_comp_count);
-
-  const discogsMedian = getNumericValue(record.median_price);
-  const discogsLow = getNumericValue(record.low_price);
-  const discogsHigh = getNumericValue(record.high_price);
-
-  const missingEbayData =
-    ebayLastSold === 0 &&
-    ebayMedian === 0 &&
-    ebayLow === 0 &&
-    ebayHigh === 0 &&
-    ebayCompCount === 0;
-
-  const missingDiscogsValue =
-    discogsMedian === 0 && discogsLow === 0 && discogsHigh === 0;
-
-  const highValueLowConfidence = estimatedValue >= 75 && confidence.score < 60;
-
-  const reasons: string[] = [];
-
-  if (confidence.score < 40) {
-    reasons.push("Very low value confidence");
-  } else if (confidence.score < 60) {
-    reasons.push("Moderate-to-low confidence");
-  }
-
-  if (missingEbayData) {
-    reasons.push("Missing eBay sold-comp data");
-  }
-
-  if (missingDiscogsValue) {
-    reasons.push("Missing Discogs value support");
-  }
-
-  if (highValueLowConfidence) {
-    reasons.push("Potentially valuable record needs verification");
-  }
-
-  if (estimatedValue === 0) {
-    reasons.push("No usable value estimate yet");
-  }
-
-  let priorityScore = 0;
-
-  priorityScore += 100 - confidence.score;
-
-  if (missingEbayData) {
-    priorityScore += 30;
-  }
-
-  if (missingDiscogsValue) {
-    priorityScore += 20;
-  }
-
-  if (highValueLowConfidence) {
-    priorityScore += 35;
-  }
-
-  if (estimatedValue === 0) {
-    priorityScore += 25;
-  }
-
-  if (estimatedValue >= 150) {
-    priorityScore += 20;
-  } else if (estimatedValue >= 75) {
-    priorityScore += 10;
-  }
-
-  let priorityLabel: QueueRecord["priorityLabel"] = "Low";
-
-  if (priorityScore >= 125) {
-    priorityLabel = "Critical";
-  } else if (priorityScore >= 95) {
-    priorityLabel = "High";
-  } else if (priorityScore >= 65) {
-    priorityLabel = "Medium";
-  }
-
-  return {
-    record,
-    estimatedValue,
-    confidenceScore: confidence.score,
-    confidenceLabel: confidence.label,
-    sourceSummary: confidence.sourceSummary,
-    missingEbayData,
-    missingDiscogsValue,
-    highValueLowConfidence,
-    priorityScore,
-    priorityLabel,
-    reasons,
-  };
+  return status
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
-function shouldAppearInQueue(item: QueueRecord) {
-  return (
-    item.confidenceScore < 75 ||
-    item.missingEbayData ||
-    item.missingDiscogsValue ||
-    item.highValueLowConfidence
-  );
-}
-
-function priorityTone(priority: QueueRecord["priorityLabel"]) {
-  switch (priority) {
-    case "Critical":
-      return "border-red-400/40 bg-red-400/10 text-red-100";
-    case "High":
-      return "border-orange-300/40 bg-orange-300/10 text-orange-100";
-    case "Medium":
-      return "border-yellow-300/40 bg-yellow-300/10 text-yellow-100";
-    case "Low":
-    default:
-      return "border-[#3A3328] bg-[#17130F] text-[#D8CBB8]";
+function statusTone(status: string | null | undefined) {
+  if (status === "pulled_successfully") {
+    return "border-[#7FA36B]/45 bg-[#7FA36B]/15 text-[#F4EFE6]";
   }
-}
 
-function confidenceTone(label: string) {
-  switch (label) {
-    case "High":
-      return "border-[#7FA36B]/45 bg-[#7FA36B]/15 text-[#F4EFE6]";
-    case "Medium":
-      return "border-[#C7A45D]/45 bg-[#C7A45D]/15 text-[#F4EFE6]";
-    case "Low":
-      return "border-[#C28A43]/45 bg-[#C28A43]/15 text-[#F4EFE6]";
-    case "Unknown":
-    default:
-      return "border-[#A85D4F]/45 bg-[#A85D4F]/15 text-[#F4EFE6]";
+  if (status === "discogs_error") {
+    return "border-red-400/40 bg-red-400/10 text-red-100";
   }
+
+  if (status === "no_discogs_value_available") {
+    return "border-[#8E8170]/40 bg-[#8E8170]/10 text-[#D8CBB8]";
+  }
+
+  return "border-[#C7A45D]/45 bg-[#C7A45D]/15 text-[#F4EFE6]";
 }
 
 export default async function ValueQueuePage() {
-  const supabase = await createClient();
+  const pullTen = pullBatchDiscogsValues.bind(null, 10);
 
-  const { data, error } = await supabase
-    .from("records_clean_safe")
-    .select("*")
-    .order("id", { ascending: false })
-    .limit(1000);
+  let queue: ValueQueueRecord[] = [];
+  let loadError: string | null = null;
 
-  const records = (data ?? []) as CollectionRecord[];
+  try {
+    queue = await getValueQueue();
+  } catch (error) {
+    loadError =
+      error instanceof Error
+        ? error.message
+        : "Unknown error while loading value queue.";
+  }
 
-  const queue = records
-    .map(buildQueueRecord)
-    .filter(shouldAppearInQueue)
-    .sort((a, b) => b.priorityScore - a.priorityScore)
-    .slice(0, 250);
-
-  const criticalCount = queue.filter(
-    (item) => item.priorityLabel === "Critical",
+  const missingDiscogsCount = queue.filter(
+    (record) =>
+      !record.discogs_median_price ||
+      Number(String(record.discogs_median_price).replace(/[$,]/g, "")) <= 0,
   ).length;
 
-  const highCount = queue.filter((item) => item.priorityLabel === "High").length;
-
-  const missingEbayCount = queue.filter((item) => item.missingEbayData).length;
-
-  const highValueLowConfidenceCount = queue.filter(
-    (item) => item.highValueLowConfidence,
+  const missingEstimateCount = queue.filter(
+    (record) =>
+      !record.estimated_value ||
+      Number(String(record.estimated_value).replace(/[$,]/g, "")) <= 0,
   ).length;
 
-  const totalQueueValue = queue.reduce(
-    (sum, item) => sum + item.estimatedValue,
-    0,
-  );
+  const errorCount = queue.filter(
+    (record) => record.value_pull_status === "discogs_error",
+  ).length;
+
+  const totalQueueValue = queue.reduce((sum, record) => {
+    const numeric = Number(String(record.estimated_value ?? 0).replace(/[$,]/g, ""));
+    return sum + (Number.isFinite(numeric) ? numeric : 0);
+  }, 0);
 
   return (
     <main className="min-h-screen bg-[#0E0C0A] px-6 py-8 text-[#F4EFE6]">
@@ -259,23 +136,23 @@ export default async function ValueQueuePage() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="inline-flex rounded-full border border-[#8F6F35]/45 bg-[#C7A45D]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
-                Value Pull Queue
+                Discogs Value Pull Queue
               </div>
 
               <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-                Records Needing Market Verification
+                Records Ready for Value Intelligence
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#B8AA96]">
-                This queue automatically prioritizes records with weak valuation
-                confidence, missing eBay sold-comp data, missing Discogs value
-                support, or potentially valuable records that need stronger
-                market confirmation.
+                This queue is now connected directly to the Discogs value pull
+                action. It prioritizes records with a Discogs release ID that
+                need estimated value, median price support, or a refreshed value
+                timestamp.
               </p>
 
-              {error && (
+              {loadError && (
                 <p className="mt-4 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">
-                  Supabase warning: {error.message}
+                  Supabase warning: {loadError}
                 </p>
               )}
             </div>
@@ -289,11 +166,20 @@ export default async function ValueQueuePage() {
               </Link>
 
               <Link
-                href="/collection?preset=needs_verification"
-                className="rounded-2xl bg-gradient-to-r from-[#C7A45D] to-[#8F6F35] px-5 py-3 text-sm font-semibold text-[#11100E] transition hover:opacity-90"
+                href="/collection/value-dashboard"
+                className="rounded-2xl border border-[#8F6F35]/50 bg-[#C7A45D]/10 px-5 py-3 text-sm font-semibold text-[#F4EFE6] transition hover:bg-[#C7A45D]/18"
               >
-                Needs Verification View
+                Value Dashboard
               </Link>
+
+              <form action={pullTen}>
+                <button
+                  type="submit"
+                  className="rounded-2xl bg-gradient-to-r from-[#C7A45D] to-[#8F6F35] px-5 py-3 text-sm font-semibold text-[#11100E] transition hover:opacity-90"
+                >
+                  Pull Next 10
+                </button>
+              </form>
             </div>
           </div>
         </section>
@@ -302,31 +188,31 @@ export default async function ValueQueuePage() {
           <QueueMetric
             label="Queue Records"
             value={formatNumber(queue.length)}
-            helper="Records currently needing value work."
+            helper="Records currently eligible for value pull."
           />
 
           <QueueMetric
-            label="Critical Priority"
-            value={formatNumber(criticalCount)}
-            helper="Highest urgency value verification items."
+            label="Missing Discogs"
+            value={formatNumber(missingDiscogsCount)}
+            helper="Records without Discogs median support."
           />
 
           <QueueMetric
-            label="High Priority"
-            value={formatNumber(highCount)}
-            helper="Important records needing stronger support."
+            label="Missing Estimate"
+            value={formatNumber(missingEstimateCount)}
+            helper="Records without a usable estimated value."
           />
 
           <QueueMetric
-            label="Missing eBay Data"
-            value={formatNumber(missingEbayCount)}
-            helper="Records without sold-comp support yet."
+            label="Discogs Errors"
+            value={formatNumber(errorCount)}
+            helper="Records that need another pull attempt later."
           />
 
           <QueueMetric
             label="Queue Value"
             value={formatMoney(totalQueueValue)}
-            helper="Estimated value represented in this work queue."
+            helper="Current estimated value represented in queue."
           />
         </section>
 
@@ -334,19 +220,19 @@ export default async function ValueQueuePage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.32em] text-[#B8AA96]">
-                Queue Logic
+                Corrected Queue Logic
               </div>
 
               <p className="mt-2 text-sm leading-6 text-[#D8CBB8]">
-                The app ranks records by confidence score, missing market data,
-                and estimated value risk. High-value records with low confidence
-                are pushed upward so you can verify the most important items
-                first.
+                This page no longer calculates a separate confidence queue. It
+                now uses the same server action that pulls Discogs values, so
+                the page and the pull button are finally working from the same
+                logic.
               </p>
             </div>
 
             <div className="rounded-2xl border border-[#C7A45D]/35 bg-[#C7A45D]/10 px-4 py-3 text-sm font-semibold text-[#F4EFE6]">
-              {formatNumber(highValueLowConfidenceCount)} high-value / low-confidence
+              Single source of truth
             </div>
           </div>
         </section>
@@ -359,20 +245,18 @@ export default async function ValueQueuePage() {
               </div>
 
               <h2 className="mt-5 text-2xl font-semibold tracking-tight">
-                No records need value verification right now
+                No records are currently waiting for Discogs value pull
               </h2>
 
               <p className="mt-3 text-sm leading-7 text-[#D8CBB8]">
-                Your visible dataset currently has enough market support based
-                on the queue rules.
+                Either the visible records already have value data, or no
+                eligible Discogs release IDs are currently available.
               </p>
             </div>
           </section>
         ) : (
           <section className="space-y-4">
-            {queue.map((item) => {
-              const record = item.record;
-
+            {queue.map((record) => {
               const recordHref =
                 record.id !== null && record.id !== undefined
                   ? `/collection/${record.id}?returnTo=${encodeURIComponent(
@@ -407,29 +291,23 @@ export default async function ValueQueuePage() {
                       <div className="flex flex-wrap gap-2">
                         <span
                           className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${priorityTone(
-                            item.priorityLabel,
+                            record.queue_priority,
                           )}`}
                         >
-                          {item.priorityLabel} Priority
+                          {priorityLabel(record.queue_priority)}
                         </span>
 
                         <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${confidenceTone(
-                            item.confidenceLabel,
+                          className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${statusTone(
+                            record.value_pull_status,
                           )}`}
                         >
-                          {item.confidenceLabel} Confidence
+                          {statusLabel(record.value_pull_status)}
                         </span>
 
-                        {item.missingEbayData && (
-                          <span className="rounded-full border border-[#A85D4F]/45 bg-[#A85D4F]/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#F4EFE6]">
-                            Missing eBay
-                          </span>
-                        )}
-
-                        {item.highValueLowConfidence && (
-                          <span className="rounded-full border border-[#C7A45D]/45 bg-[#C7A45D]/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#F4EFE6]">
-                            Value Risk
+                        {record.discogs_release_id && (
+                          <span className="rounded-full border border-[#3A3328] bg-[#17130F]/80 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#D8CBB8]">
+                            Discogs #{record.discogs_release_id}
                           </span>
                         )}
                       </div>
@@ -449,52 +327,58 @@ export default async function ValueQueuePage() {
                       </p>
 
                       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                        <QueueMini label="Estimate" value={formatMoney(item.estimatedValue)} />
-                        <QueueMini label="Discogs" value={formatMoney(record.median_price)} />
                         <QueueMini
-                          label="eBay Last"
-                          value={formatMoney(record.ebay_last_sold_price)}
+                          label="Estimate"
+                          value={formatMoney(record.estimated_value)}
                         />
+
                         <QueueMini
-                          label="eBay Median"
-                          value={formatMoney(record.ebay_median_sold_price)}
+                          label="Discogs Low"
+                          value={formatMoney(record.discogs_low_price)}
+                        />
+
+                        <QueueMini
+                          label="Discogs Median"
+                          value={formatMoney(record.discogs_median_price)}
+                        />
+
+                        <QueueMini
+                          label="Discogs High"
+                          value={formatMoney(record.discogs_high_price)}
                         />
                       </div>
 
-                      {item.reasons.length > 0 && (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {item.reasons.map((reason) => (
-                            <span
-                              key={reason}
-                              className="rounded-full border border-[#3A3328] bg-[#17130F]/80 px-3 py-1 text-xs text-[#D8CBB8]"
-                            >
-                              {reason}
-                            </span>
-                          ))}
-                        </div>
+                      {record.value_pull_note && (
+                        <p className="mt-4 rounded-2xl border border-[#3A3328] bg-[#17130F]/80 px-4 py-3 text-xs leading-5 text-[#D8CBB8]">
+                          {record.value_pull_note}
+                        </p>
                       )}
                     </div>
 
                     <div className="rounded-[24px] border border-[#3A3328] bg-[#0E0C0A]/70 p-4">
                       <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#8E8170]">
-                        Priority Score
+                        Queue Priority
                       </div>
 
                       <div className="mt-2 text-4xl font-bold text-[#F4EFE6]">
-                        {item.priorityScore}
+                        {record.queue_priority}
                       </div>
 
                       <div className="mt-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#8E8170]">
-                        Confidence
+                        Last Value Update
                       </div>
 
                       <div className="mt-2 text-xl font-bold text-[#F4EFE6]">
-                        {item.confidenceScore}/100
+                        {formatDate(record.value_last_updated)}
                       </div>
 
-                      <p className="mt-3 text-xs leading-5 text-[#B8AA96]">
-                        {item.sourceSummary}
-                      </p>
+                      <div className="mt-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#8E8170]">
+                        Last Pull Attempt
+                      </div>
+
+                      <div className="mt-2 text-sm font-bold text-[#F4EFE6]">
+                        {formatDate(record.value_pull_last_attempted_at)}
+                      </div>
 
                       <div className="mt-5 flex flex-col gap-2">
                         <Link
@@ -510,7 +394,7 @@ export default async function ValueQueuePage() {
                           )}`}
                           className="rounded-xl border border-[#8F6F35]/50 bg-[#C7A45D]/12 px-4 py-2.5 text-center text-xs font-bold text-[#F4EFE6] transition hover:bg-[#C7A45D]/20"
                         >
-                          Search in Collection
+                          Search Collection
                         </Link>
                       </div>
                     </div>
