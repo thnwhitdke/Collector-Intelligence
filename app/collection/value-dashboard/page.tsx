@@ -337,7 +337,7 @@ export default async function ValueDashboardPage() {
   const supabase = await createClient();
 
   const { data: records } = await supabase
-    .from("records_clean")
+    .from("records_clean_safe")
     .select(
       "id, artist, title, format, purchase_price, estimated_value, discogs_low_price, discogs_median_price, discogs_high_price, value_source, value_last_updated, price_history"
     )

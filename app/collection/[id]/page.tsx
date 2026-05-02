@@ -161,7 +161,7 @@ export default async function RecordDetailPage({
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("records_clean")
+    .from("records_clean_safe")
     .select("*")
     .eq("id", id)
     .single();

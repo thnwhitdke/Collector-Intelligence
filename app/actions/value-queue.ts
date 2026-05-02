@@ -173,7 +173,7 @@ async function markPullStatus(
   const userId = await getCurrentUserId();
 
   await supabase
-    .from("records_clean")
+    .from("records_clean_safe")
     .update({
       value_pull_status: status,
       value_pull_note: note,
@@ -188,7 +188,7 @@ export async function getValueQueue() {
   const userId = await getCurrentUserId();
 
   const { data, error } = await supabase
-    .from("records_clean")
+    .from("records_clean_safe")
     .select(
       `
       id,
@@ -397,7 +397,7 @@ export async function pullBatchDiscogsValues(limit = 10) {
       const now = new Date().toISOString();
 
       const { error: updateError } = await supabase
-        .from("records_clean")
+        .from("records_clean_safe")
         .update({
           discogs_low_price: low,
           discogs_median_price: median,

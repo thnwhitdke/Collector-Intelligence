@@ -275,7 +275,7 @@ async function getPresetCount(
 ) {
   try {
     let query = supabase
-      .from("records_clean")
+      .from("records_clean_safe")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId) as unknown as SupabaseQueryLike<CollectionRecord>;
 
@@ -449,7 +449,7 @@ export default async function CollectionPage({
 
   try {
     let query = supabase
-      .from("records_clean")
+      .from("records_clean_safe")
       .select("*", { count: "exact" })
       .eq("user_id", userId) as unknown as SupabaseQueryLike<CollectionRecord>;
 
@@ -487,7 +487,7 @@ export default async function CollectionPage({
 
   try {
     const confidenceCountQuery = supabase
-      .from("records_clean")
+      .from("records_clean_safe")
       .select("*")
       .eq("user_id", userId) as unknown as SupabaseQueryLike<CollectionRecord>;
 

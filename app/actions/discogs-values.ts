@@ -109,7 +109,7 @@ export async function pullDiscogsValuesBatch(): Promise<PullResult> {
   const supabase = await createClient();
 
   const { data: records, error } = await supabase
-    .from("records_clean")
+    .from("records_clean_safe")
     .select("id, discogs_release_id, price_history")
     .not("discogs_release_id", "is", null)
     .limit(10);
@@ -170,7 +170,7 @@ export async function pullDiscogsValuesBatch(): Promise<PullResult> {
       const nextHistory = [...existingHistory, newHistoryEntry].slice(-24);
 
       const { error: updateError } = await supabase
-        .from("records_clean")
+        .from("records_clean_safe")
         .update({
           discogs_low_price: lowPrice,
           discogs_median_price: medianPrice,

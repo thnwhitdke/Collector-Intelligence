@@ -101,7 +101,7 @@ export default async function MarketIntelligencePage() {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("records_clean")
+    .from("records_clean_safe")
     .select(
       `
       id,

@@ -140,7 +140,7 @@ export default async function Page({ searchParams }: PageProps) {
   const supabase = await createClient();
 
   let query = supabase
-    .from("records_clean")
+    .from("records_clean_safe")
     .select(
       "id, artist, title, year_released, label, catalogue_number, country, format, discogs_release_id, ebay_sold_comp_count, ebay_low_sold_price, ebay_median_sold_price, ebay_high_sold_price, ebay_last_sold_price, value_source, value_last_updated",
     )
