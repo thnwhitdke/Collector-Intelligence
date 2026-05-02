@@ -291,6 +291,11 @@ export async function updateReleaseDetails(formData: FormData) {
     normalizeEmpty(formData.get("discogs_release_id")) ??
     extractDiscogsReleaseIdFromUrl(discogs_url);
 
+  // 🔥 THIS IS THE MISSING LINE
+  const discogs_master_id = normalizeEmpty(
+    formData.get("discogs_master_id")
+  );
+
   const { error } = await supabase
     .from("records_clean_safe")
     .update({
@@ -305,6 +310,7 @@ export async function updateReleaseDetails(formData: FormData) {
       sealed_status,
       discogs_url,
       discogs_release_id,
+      discogs_master_id, // ✅ NOW SAVES
     })
     .eq("id", id);
 
