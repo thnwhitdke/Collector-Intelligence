@@ -1,9 +1,16 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   getValueQueue,
   pullBatchDiscogsValues,
   type ValueQueueRecord,
 } from "../../actions/value-queue";
+
+type ValueQueuePageProps = {
+  searchParams?: Promise<{
+    pulled?: string;
+  }>;
+};
 
 function formatMoney(value: string | number | null | undefined) {
   if (value === null || value === undefined || String(value).trim() === "") {
@@ -93,8 +100,18 @@ function statusTone(status: string | null | undefined) {
   return "border-[#C7A45D]/45 bg-[#C7A45D]/15 text-[#F4EFE6]";
 }
 
-export default async function ValueQueuePage() {
-  const pullTen = pullBatchDiscogsValues.bind(null, 10);
+export default async function ValueQueuePage({
+  searchParams,
+}: ValueQueuePageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const showPullNotice = resolvedSearchParams.pulled === "1";
+
+  async function pullNextTenAction() {
+    "use server";
+
+    await pullBatchDiscogsValues(10);
+    redirect("/collection/value-queue?pulled=1");
+  }
 
   let queue: ValueQueueRecord[] = [];
   let loadError: string | null = null;
@@ -144,11 +161,17 @@ export default async function ValueQueuePage() {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#B8AA96]">
-                This queue is now connected directly to the Discogs value pull
+                This queue is connected directly to the Discogs value pull
                 action. It prioritizes records with a Discogs release ID that
                 need estimated value, median price support, or a refreshed value
                 timestamp.
               </p>
+
+              {showPullNotice && (
+                <p className="mt-4 rounded-2xl border border-[#7FA36B]/35 bg-[#7FA36B]/12 px-4 py-3 text-sm font-semibold text-[#BDE0A8]">
+                  Pull Next 10 completed. The queue has been refreshed.
+                </p>
+              )}
 
               {loadError && (
                 <p className="mt-4 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">
@@ -172,7 +195,7 @@ export default async function ValueQueuePage() {
                 Value Dashboard
               </Link>
 
-              <form action={pullTen}>
+              <form action={pullNextTenAction}>
                 <button
                   type="submit"
                   className="rounded-2xl bg-gradient-to-r from-[#C7A45D] to-[#8F6F35] px-5 py-3 text-sm font-semibold text-[#11100E] transition hover:opacity-90"
@@ -224,10 +247,8 @@ export default async function ValueQueuePage() {
               </div>
 
               <p className="mt-2 text-sm leading-6 text-[#D8CBB8]">
-                This page no longer calculates a separate confidence queue. It
-                now uses the same server action that pulls Discogs values, so
-                the page and the pull button are finally working from the same
-                logic.
+                This page uses the same server action that pulls Discogs values,
+                so the page and the pull button work from the same logic.
               </p>
             </div>
 
