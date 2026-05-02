@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 export type CollectionRecord = {
   id: number | string | null;
@@ -158,6 +158,8 @@ export function CollectionUI({
   sortOptions,
   addRecordForm,
 }: CollectionUIProps) {
+  const [showAddRecordPanel, setShowAddRecordPanel] = useState(false);
+
   const totalValue = useMemo(() => {
     return records.reduce((sum, record) => sum + getEstimatedValue(record), 0);
   }, [records]);
@@ -171,7 +173,7 @@ export function CollectionUI({
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="rounded-[32px] border border-[#3A3328] bg-[linear-gradient(135deg,_#0E0C0A,_#17130F_58%,_#272017)] p-6 shadow-2xl">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div className="w-full max-w-3xl">
+            <div className="w-full max-w-5xl">
               <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
                 Collector Intelligence
               </div>
@@ -241,8 +243,14 @@ export function CollectionUI({
               </form>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              {addRecordForm}
+            <div className="flex w-full flex-wrap gap-3 xl:w-auto xl:max-w-xs xl:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAddRecordPanel(true)}
+                className="rounded-xl bg-[#C7A45D] px-4 py-3 text-sm font-bold text-black hover:bg-[#D8B86A]"
+              >
+                + Add Record
+              </button>
 
               <ActionLink
                 href="/collection/value-dashboard"
@@ -308,7 +316,13 @@ export function CollectionUI({
             </p>
 
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              {addRecordForm}
+              <button
+                type="button"
+                onClick={() => setShowAddRecordPanel(true)}
+                className="rounded-xl bg-[#C7A45D] px-4 py-3 text-sm font-bold text-black hover:bg-[#D8B86A]"
+              >
+                + Add Record
+              </button>
 
               <Link
                 href="/collection"
@@ -436,6 +450,44 @@ export function CollectionUI({
           </section>
         )}
       </div>
+
+      {showAddRecordPanel ? (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            aria-label="Close add record panel"
+            className="absolute inset-0 h-full w-full cursor-default bg-black/70"
+            onClick={() => setShowAddRecordPanel(false)}
+          />
+
+          <aside className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l border-[#3A3328] bg-[#0F1623] p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
+                  Add Record
+                </div>
+                <h2 className="mt-2 text-2xl font-bold">Collector Intake</h2>
+                <p className="mt-2 text-sm leading-6 text-[#B8AA96]">
+                  Add a new entry when needed. The form stays out of the main
+                  collection view until you open it.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAddRecordPanel(false)}
+                className="rounded-xl border border-[#8F6F35] px-4 py-2 text-sm font-bold text-[#C7A45D] hover:bg-[#221F1A]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="rounded-[28px] border border-[#23314A] bg-[#0B1020] p-5">
+              {addRecordForm}
+            </div>
+          </aside>
+        </div>
+      ) : null}
     </main>
   );
 }
