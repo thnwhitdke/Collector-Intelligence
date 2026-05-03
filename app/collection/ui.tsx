@@ -46,12 +46,15 @@ type SortOption = {
   label: string;
 };
 
+type ViewMode = "grid" | "list";
+
 type CollectionUIProps = {
   records: CollectionRecord[];
   totalCount?: number;
   sort?: string;
   searchQuery?: string;
   preset?: string;
+  view?: string;
   presetCounts?: Record<string, number> | unknown;
   sortOptions?: readonly SortOption[] | unknown;
   savedViews?: unknown;
@@ -125,7 +128,9 @@ function getCount(
   key: string,
 ) {
   if (!presetCounts || typeof presetCounts !== "object") return null;
+
   const value = (presetCounts as Record<string, unknown>)[key];
+
   return typeof value === "number" ? value : null;
 }
 
@@ -148,17 +153,29 @@ function normalizeSortOptions(
   return validOptions.length > 0 ? validOptions : DEFAULT_SORT_OPTIONS;
 }
 
+function normalizeViewMode(value: string | null | undefined): ViewMode {
+  return value === "list" ? "list" : "grid";
+}
+
 export function CollectionUI({
   records,
   totalCount,
   sort = "id_desc",
   searchQuery = "",
   preset = "all",
+  view = "grid",
   presetCounts,
   sortOptions,
   addRecordForm,
 }: CollectionUIProps) {
   const [showAddRecordPanel, setShowAddRecordPanel] = useState(false);
+
+  const [returnToPath] = useState(() => {
+    if (typeof window === "undefined") return "/collection";
+    return `${window.location.pathname}${window.location.search}`;
+  });
+
+  const selectedView = normalizeViewMode(view);
 
   const totalValue = useMemo(() => {
     return records.reduce((sum, record) => sum + getEstimatedValue(record), 0);
@@ -167,6 +184,10 @@ export function CollectionUI({
   const visibleCount = records.length;
   const fullCount = totalCount ?? visibleCount;
   const safeSortOptions = normalizeSortOptions(sortOptions);
+
+  function buildRecordHref(recordId: CollectionRecord["id"]) {
+    return `/collection/${recordId}?returnTo=${encodeURIComponent(returnToPath)}`;
+  }
 
   return (
     <main className="min-h-screen bg-[#0E0C0A] p-6 text-[#F4EFE6]">
@@ -187,13 +208,14 @@ export function CollectionUI({
                 {fullCount !== visibleCount ? ` of ${fullCount} total` : ""} •
                 Estimated visible value {formatMoney(totalValue)}
                 {searchQuery ? ` • Search: “${searchQuery}”` : ""}
-                {preset && preset !== "all" ? ` • View: ${preset}` : ""}
+                {preset && preset !== "all" ? ` • View: ${preset}` : ""} •
+                Display: {selectedView === "list" ? "List" : "Grid"}
               </p>
 
               <form
                 method="get"
                 action="/collection"
-                className="mt-5 grid gap-3 lg:grid-cols-[1fr_220px_220px_auto_auto]"
+                className="mt-5 grid gap-3 xl:grid-cols-[1fr_190px_190px_160px_auto_auto]"
               >
                 <input
                   type="text"
@@ -225,6 +247,15 @@ export function CollectionUI({
                       {option.label}
                     </option>
                   ))}
+                </select>
+
+                <select
+                  name="view"
+                  defaultValue={selectedView}
+                  className="min-h-12 rounded-2xl border border-[#3A3328] bg-[#11100E] px-4 text-sm text-[#F4EFE6] outline-none focus:border-[#C7A45D]"
+                >
+                  <option value="grid">Grid View</option>
+                  <option value="list">List View</option>
                 </select>
 
                 <button
@@ -262,7 +293,10 @@ export function CollectionUI({
                 label="Market Intelligence"
               />
               <ActionLink href="/collection/value-queue" label="Value Queue" />
-              <ActionLink href="/api/export/collection" label="Export Collection" />
+              <ActionLink
+                href="/api/export/collection"
+                label="Export Collection"
+              />
             </div>
           </div>
         </section>
@@ -274,25 +308,25 @@ export function CollectionUI({
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <CommandLink
-              href="/collection?preset=missing_covers"
+              href={`/collection?preset=missing_covers&view=${selectedView}`}
               title="Missing Covers"
               count={getCount(presetCounts, "missing_covers")}
               description="Records that need cover repair."
             />
             <CommandLink
-              href="/collection?preset=review_queue"
+              href={`/collection?preset=review_queue&view=${selectedView}`}
               title="Review Queue"
               count={getCount(presetCounts, "review_queue")}
               description="Items marked for manual review."
             />
             <CommandLink
-              href="/collection?preset=needs_pricing"
+              href={`/collection?preset=needs_pricing&view=${selectedView}`}
               title="Needs Pricing"
               count={getCount(presetCounts, "needs_pricing")}
               description="Records missing value data."
             />
             <CommandLink
-              href="/collection?preset=exceptions"
+              href={`/collection?preset=exceptions&view=${selectedView}`}
               title="Exceptions"
               count={getCount(presetCounts, "exceptions")}
               description="Records needing cleanup attention."
@@ -332,6 +366,95 @@ export function CollectionUI({
               </Link>
             </div>
           </section>
+        ) : selectedView === "list" ? (
+          <section className="space-y-3">
+            {records.map((record) => {
+              const estimatedValue = getEstimatedValue(record);
+              const discogsMedian = getDiscogsMedian(record);
+
+              return (
+                <article
+                  key={String(record.id)}
+                  className="rounded-[24px] border border-[#3A3328] bg-[linear-gradient(145deg,_#211B14,_#0E0C0A)] p-4 shadow-xl shadow-black/30"
+                >
+                  <div className="grid gap-4 md:grid-cols-[88px_1fr_auto] md:items-center">
+                    <Link
+                      href={buildRecordHref(record.id)}
+                      className="h-20 w-20 overflow-hidden rounded-2xl border border-[#3A3328] bg-black"
+                    >
+                      {record.cover_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={record.cover_url}
+                          alt={`${record.artist ?? "Unknown Artist"} - ${
+                            record.title ?? "Untitled"
+                          }`}
+                          className="h-20 w-20 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-20 w-20 items-center justify-center text-xs text-[#8E8170]">
+                          No Cover
+                        </div>
+                      )}
+                    </Link>
+
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#C7A45D]">
+                        {record.artist || "Unknown Artist"}
+                      </div>
+
+                      <Link href={buildRecordHref(record.id)}>
+                        <h2 className="mt-1 truncate text-xl font-bold hover:text-[#C7A45D]">
+                          {record.title || "Untitled"}
+                        </h2>
+                      </Link>
+
+                      <p className="mt-1 text-sm leading-6 text-[#B8AA96]">
+                        {[record.label, record.catalogue_number, record.year_released, record.country]
+                          .filter(Boolean)
+                          .join(" • ") || "Release details not cataloged"}
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <SmallPill
+                          label="Discogs"
+                          value={formatMoney(discogsMedian)}
+                        />
+                        <SmallPill
+                          label="Estimate"
+                          value={formatMoney(estimatedValue)}
+                        />
+                        <SmallPill
+                          label="Media"
+                          value={record.media_grade || record.condition || "—"}
+                        />
+                        <SmallPill
+                          label="Sleeve"
+                          value={record.sleeve_grade || "—"}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 md:flex-col md:items-stretch">
+                      <Link
+                        href={buildRecordHref(record.id)}
+                        className="rounded-xl bg-[#C7A45D] px-4 py-2.5 text-center text-sm font-bold text-black hover:bg-[#D8B86A]"
+                      >
+                        Open
+                      </Link>
+
+                      <Link
+                        href={buildRecordHref(record.id)}
+                        className="rounded-xl border border-[#8F6F35] px-4 py-2.5 text-center text-sm font-bold text-[#C7A45D] hover:bg-[#221F1A]"
+                      >
+                        Edit
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
         ) : (
           <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {records.map((record) => {
@@ -345,7 +468,10 @@ export function CollectionUI({
                 >
                   <div className="p-5">
                     <div className="flex justify-center">
-                      <div className="h-48 w-48 overflow-hidden rounded-[22px] border border-[#3A3328] bg-black shadow-xl shadow-black/35">
+                      <Link
+                        href={buildRecordHref(record.id)}
+                        className="h-48 w-48 overflow-hidden rounded-[22px] border border-[#3A3328] bg-black shadow-xl shadow-black/35"
+                      >
                         {record.cover_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -360,7 +486,7 @@ export function CollectionUI({
                             No Cover
                           </div>
                         )}
-                      </div>
+                      </Link>
                     </div>
 
                     <div className="mt-5">
@@ -368,9 +494,11 @@ export function CollectionUI({
                         {record.artist || "Unknown Artist"}
                       </div>
 
-                      <h2 className="mt-2 text-2xl font-bold leading-tight">
-                        {record.title || "Untitled"}
-                      </h2>
+                      <Link href={buildRecordHref(record.id)}>
+                        <h2 className="mt-2 text-2xl font-bold leading-tight hover:text-[#C7A45D]">
+                          {record.title || "Untitled"}
+                        </h2>
+                      </Link>
 
                       <p className="mt-2 text-sm leading-6 text-[#B8AA96]">
                         {[record.label, record.catalogue_number]
@@ -430,14 +558,14 @@ export function CollectionUI({
 
                     <div className="mt-5 grid grid-cols-2 gap-3">
                       <Link
-                        href={`/collection/${record.id}`}
+                        href={buildRecordHref(record.id)}
                         className="rounded-xl bg-[#C7A45D] px-4 py-3 text-center text-sm font-bold text-black hover:bg-[#D8B86A]"
                       >
                         View Details
                       </Link>
 
                       <Link
-                        href={`/collection/${record.id}?returnTo=/collection`}
+                        href={buildRecordHref(record.id)}
                         className="rounded-xl border border-[#8F6F35] px-4 py-3 text-center text-sm font-bold text-[#C7A45D] hover:bg-[#221F1A]"
                       >
                         Edit / Repair
@@ -580,5 +708,24 @@ function ValueBox({ label, value }: { label: string; value: string }) {
         {value}
       </div>
     </div>
+  );
+}
+
+function SmallPill({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+}) {
+  return (
+    <span className="rounded-full border border-[#3A3328] bg-[#17130F] px-3 py-1 text-xs text-[#D8CBB8]">
+      <span className="text-[#8E8170]">{label}: </span>
+      <span className="font-semibold text-[#F4EFE6]">
+        {value === null || value === undefined || String(value).trim() === ""
+          ? "—"
+          : String(value)}
+      </span>
+    </span>
   );
 }

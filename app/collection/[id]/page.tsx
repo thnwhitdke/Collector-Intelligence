@@ -13,7 +13,11 @@ import ManualValueCompForm from "../../components/ManualValueCompForm";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ returnTo?: string }>;
+  searchParams: Promise<{
+    returnTo?: string;
+    q?: string;
+    view?: string;
+  }>;
 };
 
 type RecordDetail = Record<string, string | number | boolean | null>;
@@ -89,7 +93,9 @@ function money(value: string | number | boolean | null | undefined) {
   }
 
   const parsed =
-    typeof value === "number" ? value : Number(String(value).replace(/[$,]/g, ""));
+    typeof value === "number"
+      ? value
+      : Number(String(value).replace(/[$,]/g, ""));
 
   if (!Number.isFinite(parsed)) return displayValue(value);
 
@@ -110,6 +116,34 @@ function formatDate(value: string | number | boolean | null | undefined) {
     day: "numeric",
     year: "numeric",
   }).format(date);
+}
+
+function getSafeReturnPath({
+  returnTo,
+  q,
+  view,
+}: {
+  returnTo?: string;
+  q?: string;
+  view?: string;
+}) {
+  if (returnTo && returnTo.startsWith("/")) {
+    return returnTo;
+  }
+
+  const params = new URLSearchParams();
+
+  if (q && q.trim() !== "") {
+    params.set("q", q);
+  }
+
+  if (view && view.trim() !== "") {
+    params.set("view", view);
+  }
+
+  const queryString = params.toString();
+
+  return queryString ? `/collection?${queryString}` : "/collection";
 }
 
 function getMarketSignal(forSale: number | null) {
@@ -157,7 +191,13 @@ export default async function RecordDetailPage({
   searchParams,
 }: PageProps) {
   const { id } = await params;
-  const { returnTo } = await searchParams;
+  const resolvedSearchParams = await searchParams;
+
+  const returnPath = getSafeReturnPath({
+    returnTo: resolvedSearchParams.returnTo,
+    q: resolvedSearchParams.q,
+    view: resolvedSearchParams.view,
+  });
 
   const supabase = await createClient();
 
@@ -194,7 +234,7 @@ export default async function RecordDetailPage({
 
           <div className="flex flex-wrap gap-2">
             <Link
-              href={returnTo || "/collection"}
+              href={returnPath}
               className="rounded-xl border border-[#3A3328] px-4 py-2 text-sm hover:bg-[#1A1815]"
             >
               Back to Results
@@ -253,6 +293,7 @@ export default async function RecordDetailPage({
                 name="id"
                 value={String(getValue(record, "id"))}
               />
+              <input type="hidden" name="returnTo" value={returnPath} />
               <button className="w-full rounded-xl bg-[#C7A45D] px-4 py-3 text-sm font-semibold text-black hover:bg-[#D8B86A]">
                 Refresh Cover
               </button>
@@ -326,6 +367,7 @@ export default async function RecordDetailPage({
                   name="releaseId"
                   value={discogsReleaseId}
                 />
+                <input type="hidden" name="returnTo" value={returnPath} />
 
                 <button
                   type="submit"
@@ -365,6 +407,7 @@ export default async function RecordDetailPage({
             <Section title="Release Details">
               <form action={updateReleaseDetails} className="space-y-4">
                 <input type="hidden" name="id" value={String(getValue(record, "id"))} />
+                <input type="hidden" name="returnTo" value={returnPath} />
 
                 <Grid>
                   <Field label="Artist" name="artist" defaultValue={getValue(record, "artist")} />
@@ -426,6 +469,7 @@ export default async function RecordDetailPage({
             <Section title="Grading & Manual Value Fields">
               <form action={updateCollectorDetails} className="space-y-5">
                 <input type="hidden" name="id" value={String(getValue(record, "id"))} />
+                <input type="hidden" name="returnTo" value={returnPath} />
 
                 <Grid>
                   <SelectField label="Media Grade" name="media_grade" defaultValue={getValue(record, "media_grade")} />
