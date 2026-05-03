@@ -176,20 +176,50 @@ export function CollectionUI({
   const selectedView = normalizeViewMode(view);
   const scrollStorageKey = `collector-scroll:${returnToPath}`;
 
-  useEffect(() => {
-    const savedScroll = window.sessionStorage.getItem(scrollStorageKey);
-    if (!savedScroll) return;
+useEffect(() => {
+  if (typeof window === "undefined") return;
 
-    const scrollY = Number(savedScroll);
-    if (!Number.isFinite(scrollY)) return;
+  const previousScrollRestoration = window.history.scrollRestoration;
+  window.history.scrollRestoration = "manual";
 
-    window.requestAnimationFrame(() => {
-      window.scrollTo({
-        top: scrollY,
-        behavior: "instant",
-      });
+  const savedScroll = window.sessionStorage.getItem(scrollStorageKey);
+
+  if (!savedScroll) {
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }
+
+  const scrollY = Number(savedScroll);
+
+  if (!Number.isFinite(scrollY)) {
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }
+
+  const restoreScroll = () => {
+    window.scrollTo({
+      top: scrollY,
+      behavior: "auto",
     });
-  }, [scrollStorageKey]);
+  };
+
+  const animationFrame = window.requestAnimationFrame(restoreScroll);
+
+  const timers = [
+    window.setTimeout(restoreScroll, 75),
+    window.setTimeout(restoreScroll, 200),
+    window.setTimeout(restoreScroll, 500),
+    window.setTimeout(restoreScroll, 900),
+  ];
+
+  return () => {
+    window.cancelAnimationFrame(animationFrame);
+    timers.forEach((timer) => window.clearTimeout(timer));
+    window.history.scrollRestoration = previousScrollRestoration;
+  };
+}, [scrollStorageKey, records.length, selectedView]);
 
   function saveScrollPosition() {
     window.sessionStorage.setItem(scrollStorageKey, String(window.scrollY));
