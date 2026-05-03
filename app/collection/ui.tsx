@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type CollectionRecord = {
   id: number | string | null;
@@ -128,9 +128,7 @@ function getCount(
   key: string,
 ) {
   if (!presetCounts || typeof presetCounts !== "object") return null;
-
   const value = (presetCounts as Record<string, unknown>)[key];
-
   return typeof value === "number" ? value : null;
 }
 
@@ -176,6 +174,26 @@ export function CollectionUI({
   });
 
   const selectedView = normalizeViewMode(view);
+  const scrollStorageKey = `collector-scroll:${returnToPath}`;
+
+  useEffect(() => {
+    const savedScroll = window.sessionStorage.getItem(scrollStorageKey);
+    if (!savedScroll) return;
+
+    const scrollY = Number(savedScroll);
+    if (!Number.isFinite(scrollY)) return;
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: scrollY,
+        behavior: "instant",
+      });
+    });
+  }, [scrollStorageKey]);
+
+  function saveScrollPosition() {
+    window.sessionStorage.setItem(scrollStorageKey, String(window.scrollY));
+  }
 
   const totalValue = useMemo(() => {
     return records.reduce((sum, record) => sum + getEstimatedValue(record), 0);
@@ -380,6 +398,7 @@ export function CollectionUI({
                   <div className="grid gap-4 md:grid-cols-[88px_1fr_auto] md:items-center">
                     <Link
                       href={buildRecordHref(record.id)}
+                      onClick={saveScrollPosition}
                       className="h-20 w-20 overflow-hidden rounded-2xl border border-[#3A3328] bg-black"
                     >
                       {record.cover_url ? (
@@ -403,7 +422,10 @@ export function CollectionUI({
                         {record.artist || "Unknown Artist"}
                       </div>
 
-                      <Link href={buildRecordHref(record.id)}>
+                      <Link
+                        href={buildRecordHref(record.id)}
+                        onClick={saveScrollPosition}
+                      >
                         <h2 className="mt-1 truncate text-xl font-bold hover:text-[#C7A45D]">
                           {record.title || "Untitled"}
                         </h2>
@@ -438,6 +460,7 @@ export function CollectionUI({
                     <div className="flex flex-wrap gap-2 md:flex-col md:items-stretch">
                       <Link
                         href={buildRecordHref(record.id)}
+                        onClick={saveScrollPosition}
                         className="rounded-xl bg-[#C7A45D] px-4 py-2.5 text-center text-sm font-bold text-black hover:bg-[#D8B86A]"
                       >
                         Open
@@ -445,6 +468,7 @@ export function CollectionUI({
 
                       <Link
                         href={buildRecordHref(record.id)}
+                        onClick={saveScrollPosition}
                         className="rounded-xl border border-[#8F6F35] px-4 py-2.5 text-center text-sm font-bold text-[#C7A45D] hover:bg-[#221F1A]"
                       >
                         Edit
@@ -470,6 +494,7 @@ export function CollectionUI({
                     <div className="flex justify-center">
                       <Link
                         href={buildRecordHref(record.id)}
+                        onClick={saveScrollPosition}
                         className="h-48 w-48 overflow-hidden rounded-[22px] border border-[#3A3328] bg-black shadow-xl shadow-black/35"
                       >
                         {record.cover_url ? (
@@ -494,7 +519,10 @@ export function CollectionUI({
                         {record.artist || "Unknown Artist"}
                       </div>
 
-                      <Link href={buildRecordHref(record.id)}>
+                      <Link
+                        href={buildRecordHref(record.id)}
+                        onClick={saveScrollPosition}
+                      >
                         <h2 className="mt-2 text-2xl font-bold leading-tight hover:text-[#C7A45D]">
                           {record.title || "Untitled"}
                         </h2>
@@ -559,6 +587,7 @@ export function CollectionUI({
                     <div className="mt-5 grid grid-cols-2 gap-3">
                       <Link
                         href={buildRecordHref(record.id)}
+                        onClick={saveScrollPosition}
                         className="rounded-xl bg-[#C7A45D] px-4 py-3 text-center text-sm font-bold text-black hover:bg-[#D8B86A]"
                       >
                         View Details
@@ -566,6 +595,7 @@ export function CollectionUI({
 
                       <Link
                         href={buildRecordHref(record.id)}
+                        onClick={saveScrollPosition}
                         className="rounded-xl border border-[#8F6F35] px-4 py-3 text-center text-sm font-bold text-[#C7A45D] hover:bg-[#221F1A]"
                       >
                         Edit / Repair
