@@ -8,7 +8,8 @@ import {
   updateCollectorDetails,
   updateReleaseDetails,
 } from "../../actions/records";
-import ValueIntelligencePanel from "../ValueIntelligencePanel";
+import ValueIntelligenceCard from "../../components/ValueIntelligenceCard";
+import ManualValueCompForm from "../../components/ManualValueCompForm";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -99,10 +100,10 @@ function money(value: string | number | boolean | null | undefined) {
 }
 
 function formatDate(value: string | number | boolean | null | undefined) {
-  if (!value || typeof value === "boolean") return "Not available from Discogs API";
+  if (!value || typeof value === "boolean") return "Not available";
 
   const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) return "Not available from Discogs API";
+  if (Number.isNaN(date.getTime())) return "Not available";
 
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -207,6 +208,13 @@ export default async function RecordDetailPage({
             </Link>
 
             <Link
+              href="/collection/want-list"
+              className="rounded-xl border border-[#4A3A1E] px-4 py-2 text-sm font-bold text-[#D8B65A] hover:bg-[#1E170E]"
+            >
+              Want List
+            </Link>
+
+            <Link
               href="/collection/market-intelligence"
               className="rounded-xl border border-fuchsia-300/40 bg-fuchsia-300/10 px-4 py-2 text-sm text-fuchsia-100 hover:bg-fuchsia-300/20"
             >
@@ -252,6 +260,39 @@ export default async function RecordDetailPage({
           </div>
 
           <div className="space-y-6">
+            <ValueIntelligenceCard
+              valueInput={{
+                discogsLowPrice: getNumber(record, "discogs_low_price"),
+                discogsMedianPrice: getNumber(record, "discogs_median_price"),
+                discogsHighPrice: getNumber(record, "discogs_high_price"),
+                ebayLastSoldPrice: getNumber(record, "ebay_last_sold_price"),
+                ebayAvgSoldPrice: getNumber(record, "ebay_avg_sold_price"),
+                ebaySoldCount: getNumber(record, "ebay_sold_count"),
+                manualCompPrice: getNumber(record, "manual_comp_price"),
+                purchasePrice: getNumber(record, "purchase_price"),
+                conditionGrade:
+                  getText(record, "condition_grade") ||
+                  getText(record, "media_grade") ||
+                  null,
+                valueLastUpdated: getText(record, "value_last_updated") || null,
+              }}
+            />
+
+            <ManualValueCompForm
+              recordId={String(getValue(record, "id"))}
+              currentValues={{
+                manualCompPrice: getNumber(record, "manual_comp_price"),
+                manualCompNote: getText(record, "manual_comp_note"),
+                ebayLastSoldPrice: getNumber(record, "ebay_last_sold_price"),
+                ebayAvgSoldPrice: getNumber(record, "ebay_avg_sold_price"),
+                ebaySoldCount: getNumber(record, "ebay_sold_count"),
+                ebayCompUrl: getText(record, "ebay_comp_url"),
+                conditionGrade:
+                  getText(record, "condition_grade") ||
+                  getText(record, "media_grade"),
+              }}
+            />
+
             <Section title="Market Intelligence">
               {discogsSaleBlocked ? (
                 <div className="mb-4 rounded-2xl border border-blue-400/40 bg-blue-400/10 px-5 py-4 text-sm text-blue-100">
@@ -259,7 +300,7 @@ export default async function RecordDetailPage({
                     Discogs market data is intentionally unavailable for this release.
                   </div>
                   <div className="mt-1 text-xs opacity-80">
-                    This record is marked as not sold or blocked from Discogs marketplace data.
+                    This record is marked as unavailable for Discogs marketplace data.
                   </div>
                   {discogsSaleBlockedReason ? (
                     <div className="mt-2 text-xs opacity-90">
@@ -306,134 +347,41 @@ export default async function RecordDetailPage({
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-3">
-                  <Read
-                    label="Estimated Value"
-                    value={money(getValue(record, "estimated_value"))}
-                  />
-                  <Read
-                    label="Discogs Median"
-                    value={money(getValue(record, "discogs_median_price"))}
-                  />
-                  <Read
-                    label="Copies for Sale"
-                    value={forSale === null ? "Not pulled yet" : forSale}
-                  />
-                  <Read
-                    label="Discogs Low"
-                    value={money(getValue(record, "discogs_low_price"))}
-                  />
-                  <Read
-                    label="Discogs High"
-                    value={money(getValue(record, "discogs_high_price"))}
-                  />
-                  <Read
-                    label="Last Sold"
-                    value={formatDate(getValue(record, "discogs_last_sold_date"))}
-                  />
-                  <Read
-                    label="Value Source"
-                    value={getValue(record, "value_source")}
-                  />
-                  <Read
-                    label="Last Refreshed"
-                    value={formatDate(getValue(record, "value_last_updated"))}
-                  />
-                  <Read
-                    label="Discogs Release ID"
-                    value={getValue(record, "discogs_release_id")}
-                  />
+                  <Read label="Estimated Value" value={money(getValue(record, "estimated_value"))} />
+                  <Read label="Value Confidence" value={getValue(record, "value_confidence_score")} />
+                  <Read label="Value Signal" value={getValue(record, "value_signal")} />
+                  <Read label="Discogs Median" value={money(getValue(record, "discogs_median_price"))} />
+                  <Read label="Copies for Sale" value={forSale === null ? "Not pulled yet" : forSale} />
+                  <Read label="Discogs Low" value={money(getValue(record, "discogs_low_price"))} />
+                  <Read label="Discogs High" value={money(getValue(record, "discogs_high_price"))} />
+                  <Read label="Last Sold" value={formatDate(getValue(record, "discogs_last_sold_date"))} />
+                  <Read label="Value Source" value={getValue(record, "value_source")} />
+                  <Read label="Last Refreshed" value={formatDate(getValue(record, "value_last_updated"))} />
+                  <Read label="Discogs Release ID" value={getValue(record, "discogs_release_id")} />
                 </div>
               </div>
             </Section>
 
-            {discogsSaleBlocked ? (
-              <Section title="Discogs Market Estimate">
-                <div className="rounded-2xl border border-blue-400/35 bg-blue-400/10 px-5 py-4 text-sm text-blue-100">
-                  <div className="font-semibold">
-                    Market estimate intentionally suppressed.
-                  </div>
-                  <div className="mt-1 text-xs leading-5 opacity-80">
-                    This item is marked as not sold or blocked from Discogs marketplace data,
-                    so Collector Intelligence will not treat missing Discogs pricing as an error.
-                  </div>
-                </div>
-              </Section>
-            ) : (
-              <ValueIntelligencePanel
-                recordId={String(getValue(record, "id"))}
-                discogsReleaseId={discogsReleaseId || null}
-                purchasePrice={getNumber(record, "purchase_price")}
-                estimatedValue={getNumber(record, "estimated_value")}
-                lowPrice={getNumber(record, "discogs_low_price")}
-                medianPrice={getNumber(record, "discogs_median_price")}
-                highPrice={getNumber(record, "discogs_high_price")}
-                valueLastUpdated={getText(record, "value_last_updated") || null}
-              />
-            )}
-
             <Section title="Release Details">
               <form action={updateReleaseDetails} className="space-y-4">
-                <input
-                  type="hidden"
-                  name="id"
-                  value={String(getValue(record, "id"))}
-                />
+                <input type="hidden" name="id" value={String(getValue(record, "id"))} />
 
                 <Grid>
-                  <Field
-                    label="Artist"
-                    name="artist"
-                    defaultValue={getValue(record, "artist")}
-                  />
-                  <Field
-                    label="Title"
-                    name="title"
-                    defaultValue={getValue(record, "title")}
-                  />
-                  <Field
-                    label="Format"
-                    name="format"
-                    defaultValue={getValue(record, "format")}
-                  />
-                  <Field
-                    label="Label"
-                    name="label"
-                    defaultValue={getValue(record, "label")}
-                  />
-                  <Field
-                    label="Catalogue #"
-                    name="catalogue_number"
-                    defaultValue={getValue(record, "catalogue_number")}
-                  />
-                  <Field
-                    label="Year"
-                    name="year_released"
-                    defaultValue={getValue(record, "year_released")}
-                  />
-                  <Field
-                    label="Country"
-                    name="country"
-                    defaultValue={getValue(record, "country")}
-                  />
-
+                  <Field label="Artist" name="artist" defaultValue={getValue(record, "artist")} />
+                  <Field label="Title" name="title" defaultValue={getValue(record, "title")} />
+                  <Field label="Format" name="format" defaultValue={getValue(record, "format")} />
+                  <Field label="Label" name="label" defaultValue={getValue(record, "label")} />
+                  <Field label="Catalogue #" name="catalogue_number" defaultValue={getValue(record, "catalogue_number")} />
+                  <Field label="Year" name="year_released" defaultValue={getValue(record, "year_released")} />
+                  <Field label="Country" name="country" defaultValue={getValue(record, "country")} />
                   <Field
                     label="Discogs Release ID"
                     name="discogs_release_id"
                     defaultValue={getValue(record, "discogs_release_id")}
                     helpText="Required before pulling Discogs market value."
                   />
-
-                  <Field
-                    label="Discogs Master ID"
-                    name="discogs_master_id"
-                    defaultValue={getValue(record, "discogs_master_id")}
-                  />
-
-                  <Field
-                    label="Discogs URL"
-                    name="discogs_url"
-                    defaultValue={getValue(record, "discogs_url")}
-                  />
+                  <Field label="Discogs Master ID" name="discogs_master_id" defaultValue={getValue(record, "discogs_master_id")} />
+                  <Field label="Discogs URL" name="discogs_url" defaultValue={getValue(record, "discogs_url")} />
                 </Grid>
 
                 <div className="rounded-2xl border border-[#3A3328] bg-[#11100E] p-4">
@@ -469,11 +417,7 @@ export default async function RecordDetailPage({
                   </label>
                 </div>
 
-                <TextArea
-                  label="Notes"
-                  name="notes"
-                  defaultValue={getValue(record, "notes")}
-                />
+                <TextArea label="Notes" name="notes" defaultValue={getValue(record, "notes")} />
 
                 <SaveButton />
               </form>
@@ -481,86 +425,23 @@ export default async function RecordDetailPage({
 
             <Section title="Grading & Manual Value Fields">
               <form action={updateCollectorDetails} className="space-y-5">
-                <input
-                  type="hidden"
-                  name="id"
-                  value={String(getValue(record, "id"))}
-                />
+                <input type="hidden" name="id" value={String(getValue(record, "id"))} />
 
                 <Grid>
-                  <SelectField
-                    label="Media Grade"
-                    name="media_grade"
-                    defaultValue={getValue(record, "media_grade")}
-                  />
-
-                  <SelectField
-                    label="Sleeve Grade"
-                    name="sleeve_grade"
-                    defaultValue={getValue(record, "sleeve_grade")}
-                  />
-
-                  <Field
-                    label="Purchase Price"
-                    name="purchase_price"
-                    defaultValue={getValue(record, "purchase_price")}
-                  />
-
-                  <Field
-                    label="Current Value"
-                    name="current_value"
-                    defaultValue={getValue(record, "current_value")}
-                  />
-
-                  <Field
-                    label="eBay Last Sold"
-                    name="ebay_last_sold_price"
-                    defaultValue={getValue(record, "ebay_last_sold_price")}
-                  />
-
-                  <Field
-                    label="eBay Last Sold Date"
-                    name="ebay_last_sold_date"
-                    defaultValue={getValue(record, "ebay_last_sold_date")}
-                    type="date"
-                  />
-
-                  <Field
-                    label="eBay Comp Count"
-                    name="ebay_sold_comp_count"
-                    defaultValue={getValue(record, "ebay_sold_comp_count")}
-                  />
-
-                  <Field
-                    label="eBay Low Sold"
-                    name="ebay_low_sold_price"
-                    defaultValue={getValue(record, "ebay_low_sold_price")}
-                  />
-
-                  <Field
-                    label="eBay Median Sold"
-                    name="ebay_median_sold_price"
-                    defaultValue={getValue(record, "ebay_median_sold_price")}
-                  />
-
-                  <Field
-                    label="eBay High Sold"
-                    name="ebay_high_sold_price"
-                    defaultValue={getValue(record, "ebay_high_sold_price")}
-                  />
+                  <SelectField label="Media Grade" name="media_grade" defaultValue={getValue(record, "media_grade")} />
+                  <SelectField label="Sleeve Grade" name="sleeve_grade" defaultValue={getValue(record, "sleeve_grade")} />
+                  <Field label="Purchase Price" name="purchase_price" defaultValue={getValue(record, "purchase_price")} />
+                  <Field label="Current Value" name="current_value" defaultValue={getValue(record, "current_value")} />
+                  <Field label="eBay Last Sold" name="ebay_last_sold_price" defaultValue={getValue(record, "ebay_last_sold_price")} />
+                  <Field label="eBay Last Sold Date" name="ebay_last_sold_date" defaultValue={getValue(record, "ebay_last_sold_date")} type="date" />
+                  <Field label="eBay Comp Count" name="ebay_sold_comp_count" defaultValue={getValue(record, "ebay_sold_comp_count")} />
+                  <Field label="eBay Low Sold" name="ebay_low_sold_price" defaultValue={getValue(record, "ebay_low_sold_price")} />
+                  <Field label="eBay Median Sold" name="ebay_median_sold_price" defaultValue={getValue(record, "ebay_median_sold_price")} />
+                  <Field label="eBay High Sold" name="ebay_high_sold_price" defaultValue={getValue(record, "ebay_high_sold_price")} />
                 </Grid>
 
-                <TextArea
-                  label="eBay Notes / Source"
-                  name="ebay_notes"
-                  defaultValue={getValue(record, "ebay_notes")}
-                />
-
-                <TextArea
-                  label="Grading Notes"
-                  name="grading_notes"
-                  defaultValue={getValue(record, "grading_notes")}
-                />
+                <TextArea label="eBay Notes / Source" name="ebay_notes" defaultValue={getValue(record, "ebay_notes")} />
+                <TextArea label="Grading Notes" name="grading_notes" defaultValue={getValue(record, "grading_notes")} />
 
                 <SaveButton />
               </form>
@@ -568,102 +449,37 @@ export default async function RecordDetailPage({
 
             <Section title="Archive Snapshot">
               <div className="grid gap-3 md:grid-cols-2">
-                <Read
-                  label="Media Grade"
-                  value={getValue(record, "media_grade")}
-                />
-                <Read
-                  label="Sleeve Grade"
-                  value={getValue(record, "sleeve_grade")}
-                />
-                <Read
-                  label="Purchase Price"
-                  value={money(getValue(record, "purchase_price"))}
-                />
-                <Read
-                  label="Current Value"
-                  value={money(getValue(record, "current_value"))}
-                />
-                <Read
-                  label="Discogs Estimated Value"
-                  value={money(getValue(record, "estimated_value"))}
-                />
-                <Read
-                  label="Discogs Low"
-                  value={money(getValue(record, "discogs_low_price"))}
-                />
-                <Read
-                  label="Discogs Median"
-                  value={money(getValue(record, "discogs_median_price"))}
-                />
-                <Read
-                  label="Discogs High"
-                  value={money(getValue(record, "discogs_high_price"))}
-                />
-                <Read
-                  label="Discogs Copies for Sale"
-                  value={forSale === null ? "Not pulled yet" : forSale}
-                />
-                <Read
-                  label="Discogs Last Sold"
-                  value={formatDate(getValue(record, "discogs_last_sold_date"))}
-                />
-                <Read
-                  label="eBay Last Sold"
-                  value={money(getValue(record, "ebay_last_sold_price"))}
-                />
-                <Read
-                  label="eBay Last Sold Date"
-                  value={getValue(record, "ebay_last_sold_date")}
-                />
-                <Read
-                  label="eBay Comp Count"
-                  value={getValue(record, "ebay_sold_comp_count")}
-                />
-                <Read
-                  label="eBay Low Sold"
-                  value={money(getValue(record, "ebay_low_sold_price"))}
-                />
-                <Read
-                  label="eBay Median Sold"
-                  value={money(getValue(record, "ebay_median_sold_price"))}
-                />
-                <Read
-                  label="eBay High Sold"
-                  value={money(getValue(record, "ebay_high_sold_price"))}
-                />
-                <Read
-                  label="eBay Notes / Source"
-                  value={getValue(record, "ebay_notes")}
-                />
-                <Read
-                  label="Original Median Price"
-                  value={money(getValue(record, "median_price"))}
-                />
-                <Read
-                  label="Discogs Release ID"
-                  value={getValue(record, "discogs_release_id")}
-                />
-                <Read
-                  label="Discogs Master ID"
-                  value={getValue(record, "discogs_master_id")}
-                />
-                <Read
-                  label="Discogs URL"
-                  value={getValue(record, "discogs_url")}
-                />
-                <Read
-                  label="Discogs Sale Blocked"
-                  value={discogsSaleBlocked ? "Yes" : "No"}
-                />
-                <Read
-                  label="Discogs Blocked Reason"
-                  value={discogsSaleBlockedReason}
-                />
-                <Read
-                  label="Value Source"
-                  value={getValue(record, "value_source")}
-                />
+                <Read label="Media Grade" value={getValue(record, "media_grade")} />
+                <Read label="Sleeve Grade" value={getValue(record, "sleeve_grade")} />
+                <Read label="Purchase Price" value={money(getValue(record, "purchase_price"))} />
+                <Read label="Current Value" value={money(getValue(record, "current_value"))} />
+                <Read label="Collector Intelligence Estimate" value={money(getValue(record, "estimated_value"))} />
+                <Read label="Value Confidence" value={getValue(record, "value_confidence_score")} />
+                <Read label="Value Signal" value={getValue(record, "value_signal")} />
+                <Read label="Manual Comp Price" value={money(getValue(record, "manual_comp_price"))} />
+                <Read label="Manual Comp Note" value={getValue(record, "manual_comp_note")} />
+                <Read label="eBay Last Sold" value={money(getValue(record, "ebay_last_sold_price"))} />
+                <Read label="eBay Average Sold" value={money(getValue(record, "ebay_avg_sold_price"))} />
+                <Read label="eBay Sold Count" value={getValue(record, "ebay_sold_count")} />
+                <Read label="eBay Comp URL" value={getValue(record, "ebay_comp_url")} />
+                <Read label="Discogs Low" value={money(getValue(record, "discogs_low_price"))} />
+                <Read label="Discogs Median" value={money(getValue(record, "discogs_median_price"))} />
+                <Read label="Discogs High" value={money(getValue(record, "discogs_high_price"))} />
+                <Read label="Discogs Copies for Sale" value={forSale === null ? "Not pulled yet" : forSale} />
+                <Read label="Discogs Last Sold" value={formatDate(getValue(record, "discogs_last_sold_date"))} />
+                <Read label="Original eBay Last Sold Date" value={getValue(record, "ebay_last_sold_date")} />
+                <Read label="Original eBay Comp Count" value={getValue(record, "ebay_sold_comp_count")} />
+                <Read label="Original eBay Low Sold" value={money(getValue(record, "ebay_low_sold_price"))} />
+                <Read label="Original eBay Median Sold" value={money(getValue(record, "ebay_median_sold_price"))} />
+                <Read label="Original eBay High Sold" value={money(getValue(record, "ebay_high_sold_price"))} />
+                <Read label="eBay Notes / Source" value={getValue(record, "ebay_notes")} />
+                <Read label="Original Median Price" value={money(getValue(record, "median_price"))} />
+                <Read label="Discogs Release ID" value={getValue(record, "discogs_release_id")} />
+                <Read label="Discogs Master ID" value={getValue(record, "discogs_master_id")} />
+                <Read label="Discogs URL" value={getValue(record, "discogs_url")} />
+                <Read label="Discogs Sale Blocked" value={discogsSaleBlocked ? "Yes" : "No"} />
+                <Read label="Discogs Blocked Reason" value={discogsSaleBlockedReason} />
+                <Read label="Value Source" value={getValue(record, "value_source")} />
               </div>
             </Section>
           </div>
@@ -706,17 +522,7 @@ function Field({ label, name, defaultValue, type = "text", helpText }: FieldProp
 }
 
 function SelectField({ label, name, defaultValue }: SelectFieldProps) {
-  const grades = [
-    "",
-    "Mint",
-    "Near Mint",
-    "NM",
-    "VG+",
-    "VG",
-    "Good",
-    "Fair",
-    "Poor",
-  ];
+  const grades = ["", "Mint", "Near Mint", "NM", "VG+", "VG", "Good", "Fair", "Poor"];
 
   return (
     <label>
