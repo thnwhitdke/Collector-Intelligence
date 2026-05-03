@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   getValueQueue,
+  getMissingCoverQueue,
   pullBatchDiscogsValues,
   pullBatchMissingCovers,
   type ValueQueueRecord,
+  type MissingCoverRecord,
 } from "../../actions/value-queue";
 
 type ValueQueuePageProps = {
@@ -130,11 +132,13 @@ export default async function ValueQueuePage({
     redirect("/collection/value-queue?covers=1");
   }
 
-  let queue: ValueQueueRecord[] = [];
-  let loadError: string | null = null;
+let queue: ValueQueueRecord[] = [];
+let missingCoverQueue: MissingCoverRecord[] = [];
+let loadError: string | null = null;
 
   try {
     queue = await getValueQueue();
+    missingCoverQueue = await getMissingCoverQueue(5000);
   } catch (error) {
     loadError =
       error instanceof Error
@@ -154,11 +158,7 @@ export default async function ValueQueuePage({
       Number(String(record.estimated_value).replace(/[$,]/g, "")) <= 0,
   ).length;
 
-  const missingCoverCount = queue.filter(
-    (record) =>
-      record.discogs_release_id &&
-      (!record.cover_url || record.cover_url.trim() === ""),
-  ).length;
+ const missingCoverCount = missingCoverQueue.length;
 
   const errorCount = queue.filter(
     (record) => record.value_pull_status === "discogs_error",
