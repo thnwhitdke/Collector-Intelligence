@@ -267,7 +267,7 @@ export async function getValueQueue() {
   return sortQueueRecords(cleanQueue as RawQueueRecord[]).slice(0, 50);
 }
 
-export async function getMissingCoverQueue(limit = 5000) {
+export async function getMissingCoverQueue(limit = 50) {
   const supabase = await createClient();
   const userId = await getCurrentUserId();
 
@@ -284,20 +284,15 @@ export async function getMissingCoverQueue(limit = 5000) {
     )
     .eq("user_id", userId)
     .not("discogs_release_id", "is", null)
-    .limit(5000);
+    .or("cover_url.is.null,cover_url.eq.")
+    .order("id", { ascending: true })
+    .limit(limit);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as MissingCoverRecord[])
-    .filter((record) => {
-      const releaseId = String(record.discogs_release_id ?? "").trim();
-      const coverUrl = record.cover_url?.trim() ?? "";
-
-      return releaseId.length > 0 && coverUrl.length === 0;
-    })
-    .slice(0, limit);
+  return (data ?? []) as MissingCoverRecord[];
 }
 
 export async function pullBatchDiscogsValues(limit = 10) {
@@ -532,7 +527,7 @@ export async function pullBatchMissingCovers(limit = 10) {
     };
   }
 
-  const queue = (await getMissingCoverQueue(limit)).slice(0, limit);
+  const queue = await getMissingCoverQueue(limit);
 
   let updated = 0;
   let skipped = 0;
