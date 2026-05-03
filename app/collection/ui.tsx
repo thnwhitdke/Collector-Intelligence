@@ -155,6 +155,39 @@ function normalizeViewMode(value: string | null | undefined): ViewMode {
   return value === "list" ? "list" : "grid";
 }
 
+function buildCollectionReturnPath({
+  searchQuery,
+  preset,
+  sort,
+  view,
+}: {
+  searchQuery: string;
+  preset: string;
+  sort: string;
+  view: ViewMode;
+}) {
+  const params = new URLSearchParams();
+
+  if (searchQuery.trim() !== "") {
+    params.set("q", searchQuery);
+  }
+
+  if (preset && preset !== "all") {
+    params.set("preset", preset);
+  }
+
+  if (sort && sort !== "id_desc") {
+    params.set("sort", sort);
+  }
+
+  if (view !== "grid") {
+    params.set("view", view);
+  }
+
+  const query = params.toString();
+  return query ? `/collection?${query}` : "/collection";
+}
+
 export function CollectionUI({
   records,
   totalCount,
@@ -168,60 +201,64 @@ export function CollectionUI({
 }: CollectionUIProps) {
   const [showAddRecordPanel, setShowAddRecordPanel] = useState(false);
 
-  const [returnToPath] = useState(() => {
-    if (typeof window === "undefined") return "/collection";
-    return `${window.location.pathname}${window.location.search}`;
+  const selectedView = normalizeViewMode(view);
+
+  const returnToPath = buildCollectionReturnPath({
+    searchQuery,
+    preset,
+    sort,
+    view: selectedView,
   });
 
-  const selectedView = normalizeViewMode(view);
   const scrollStorageKey = `collector-scroll:${returnToPath}`;
 
-useEffect(() => {
-  if (typeof window === "undefined") return;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
-  const previousScrollRestoration = window.history.scrollRestoration;
-  window.history.scrollRestoration = "manual";
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
 
-  const savedScroll = window.sessionStorage.getItem(scrollStorageKey);
+    const savedScroll = window.sessionStorage.getItem(scrollStorageKey);
 
-  if (!savedScroll) {
+    if (!savedScroll) {
+      return () => {
+        window.history.scrollRestoration = previousScrollRestoration;
+      };
+    }
+
+    const scrollY = Number(savedScroll);
+
+    if (!Number.isFinite(scrollY)) {
+      return () => {
+        window.history.scrollRestoration = previousScrollRestoration;
+      };
+    }
+
+    const restoreScroll = () => {
+      window.scrollTo({
+        top: scrollY,
+        behavior: "auto",
+      });
+    };
+
+    const animationFrame = window.requestAnimationFrame(restoreScroll);
+
+    const timers = [
+      window.setTimeout(restoreScroll, 100),
+      window.setTimeout(restoreScroll, 300),
+      window.setTimeout(restoreScroll, 700),
+      window.setTimeout(restoreScroll, 1200),
+    ];
+
     return () => {
+      window.cancelAnimationFrame(animationFrame);
+      timers.forEach((timer) => window.clearTimeout(timer));
       window.history.scrollRestoration = previousScrollRestoration;
     };
-  }
-
-  const scrollY = Number(savedScroll);
-
-  if (!Number.isFinite(scrollY)) {
-    return () => {
-      window.history.scrollRestoration = previousScrollRestoration;
-    };
-  }
-
-  const restoreScroll = () => {
-    window.scrollTo({
-      top: scrollY,
-      behavior: "auto",
-    });
-  };
-
-  const animationFrame = window.requestAnimationFrame(restoreScroll);
-
-  const timers = [
-    window.setTimeout(restoreScroll, 75),
-    window.setTimeout(restoreScroll, 200),
-    window.setTimeout(restoreScroll, 500),
-    window.setTimeout(restoreScroll, 900),
-  ];
-
-  return () => {
-    window.cancelAnimationFrame(animationFrame);
-    timers.forEach((timer) => window.clearTimeout(timer));
-    window.history.scrollRestoration = previousScrollRestoration;
-  };
-}, [scrollStorageKey, records.length, selectedView]);
+  }, [scrollStorageKey, records.length, selectedView]);
 
   function saveScrollPosition() {
+    if (typeof window === "undefined") return;
     window.sessionStorage.setItem(scrollStorageKey, String(window.scrollY));
   }
 
