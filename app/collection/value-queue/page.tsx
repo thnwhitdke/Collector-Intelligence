@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 import {
   getValueQueue,
   pullBatchDiscogsValues,
+  pullBatchMissingCovers,
   type ValueQueueRecord,
 } from "../../actions/value-queue";
 
 type ValueQueuePageProps = {
   searchParams?: Promise<{
     pulled?: string;
+    covers?: string;
   }>;
 };
 
@@ -100,10 +102,10 @@ function statusTone(status: string | null | undefined) {
   return "border-[#C7A45D]/45 bg-[#C7A45D]/15 text-[#F4EFE6]";
 }
 
-function buildReturnPath(showPullNotice: boolean) {
-  return showPullNotice
-    ? "/collection/value-queue?pulled=1"
-    : "/collection/value-queue";
+function buildReturnPath(showPullNotice: boolean, showCoverNotice: boolean) {
+  if (showPullNotice) return "/collection/value-queue?pulled=1";
+  if (showCoverNotice) return "/collection/value-queue?covers=1";
+  return "/collection/value-queue";
 }
 
 export default async function ValueQueuePage({
@@ -111,13 +113,21 @@ export default async function ValueQueuePage({
 }: ValueQueuePageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const showPullNotice = resolvedSearchParams.pulled === "1";
-  const returnPath = buildReturnPath(showPullNotice);
+  const showCoverNotice = resolvedSearchParams.covers === "1";
+  const returnPath = buildReturnPath(showPullNotice, showCoverNotice);
 
   async function pullNextTenAction() {
     "use server";
 
     await pullBatchDiscogsValues(10);
     redirect("/collection/value-queue?pulled=1");
+  }
+
+  async function pullMissingCoversAction() {
+    "use server";
+
+    await pullBatchMissingCovers(10);
+    redirect("/collection/value-queue?covers=1");
   }
 
   let queue: ValueQueueRecord[] = [];
@@ -142,6 +152,12 @@ export default async function ValueQueuePage({
     (record) =>
       !record.estimated_value ||
       Number(String(record.estimated_value).replace(/[$,]/g, "")) <= 0,
+  ).length;
+
+  const missingCoverCount = queue.filter(
+    (record) =>
+      record.discogs_release_id &&
+      (!record.cover_url || record.cover_url.trim() === ""),
   ).length;
 
   const errorCount = queue.filter(
@@ -172,13 +188,20 @@ export default async function ValueQueuePage({
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#B8AA96]">
                 This queue is connected directly to the Discogs value pull
                 action. It prioritizes records with a Discogs release ID that
-                need estimated value, median price support, or a refreshed value
-                timestamp.
+                need estimated value, median price support, refreshed value
+                timestamps, or missing cover recovery.
               </p>
 
               {showPullNotice && (
                 <p className="mt-4 rounded-2xl border border-[#7FA36B]/35 bg-[#7FA36B]/12 px-4 py-3 text-sm font-semibold text-[#BDE0A8]">
                   Pull Next 10 completed. The queue has been refreshed.
+                </p>
+              )}
+
+              {showCoverNotice && (
+                <p className="mt-4 rounded-2xl border border-[#7FA36B]/35 bg-[#7FA36B]/12 px-4 py-3 text-sm font-semibold text-[#BDE0A8]">
+                  Missing cover batch pull completed. The queue has been
+                  refreshed.
                 </p>
               )}
 
@@ -203,6 +226,15 @@ export default async function ValueQueuePage({
               >
                 Value Dashboard
               </Link>
+
+              <form action={pullMissingCoversAction}>
+                <button
+                  type="submit"
+                  className="rounded-2xl border border-[#C7A45D]/60 bg-[#17130F] px-5 py-3 text-sm font-semibold text-[#F4EFE6] transition hover:bg-[#C7A45D]/18"
+                >
+                  Pull Missing Covers
+                </button>
+              </form>
 
               <form action={pullNextTenAction}>
                 <button
@@ -236,9 +268,9 @@ export default async function ValueQueuePage({
           />
 
           <QueueMetric
-            label="Discogs Errors"
-            value={formatNumber(errorCount)}
-            helper="Records that need another pull attempt later."
+            label="Missing Covers"
+            value={formatNumber(missingCoverCount)}
+            helper="Records with Discogs IDs but no cover image."
           />
 
           <QueueMetric
@@ -256,8 +288,9 @@ export default async function ValueQueuePage({
               </div>
 
               <p className="mt-2 text-sm leading-6 text-[#D8CBB8]">
-                This page uses the same server action that pulls Discogs values,
-                so the page and the pull button work from the same logic.
+                This page uses the same server actions that pull Discogs values
+                and Discogs cover images, so the page and buttons work from the
+                same logic.
               </p>
             </div>
 
@@ -340,6 +373,14 @@ export default async function ValueQueuePage({
                             Discogs #{record.discogs_release_id}
                           </span>
                         )}
+
+                        {record.discogs_release_id &&
+                          (!record.cover_url ||
+                            record.cover_url.trim() === "") && (
+                            <span className="rounded-full border border-[#C7A45D]/45 bg-[#C7A45D]/12 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#F4EFE6]">
+                              Missing Cover
+                            </span>
+                          )}
                       </div>
 
                       <div className="mt-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
