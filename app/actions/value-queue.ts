@@ -15,6 +15,16 @@ type DiscogsStatsResponse = {
   last_sold_date?: string | null;
 };
 
+type DiscogsImage = {
+  uri?: string | null;
+  uri150?: string | null;
+  type?: string | null;
+};
+
+type DiscogsReleaseResponse = {
+  images?: DiscogsImage[];
+};
+
 export type ValuePullStatus =
   | "needs_pull"
   | "pulled_successfully"
@@ -59,6 +69,14 @@ type PulledRecord = {
   high: number | null;
   forSale: number | null;
   lastSoldDate: string | null;
+};
+
+export type MissingCoverRecord = {
+  id: string;
+  artist: string | null;
+  title: string | null;
+  discogs_release_id: string | number | null;
+  cover_url: string | null;
 };
 
 function toNumber(value: unknown): number | null {
@@ -247,6 +265,39 @@ export async function getValueQueue() {
   });
 
   return sortQueueRecords(cleanQueue as RawQueueRecord[]).slice(0, 50);
+}
+
+export async function getMissingCoverQueue(limit = 50) {
+  const supabase = await createClient();
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("records_clean_safe")
+    .select(
+      `
+      id,
+      artist,
+      title,
+      discogs_release_id,
+      cover_url
+    `,
+    )
+    .eq("user_id", userId)
+    .not("discogs_release_id", "is", null)
+    .limit(250);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as MissingCoverRecord[])
+    .filter((record) => {
+      const releaseId = String(record.discogs_release_id ?? "").trim();
+      const coverUrl = record.cover_url?.trim() ?? "";
+
+      return releaseId.length > 0 && coverUrl.length === 0;
+    })
+    .slice(0, limit);
 }
 
 export async function pullBatchDiscogsValues(limit = 10) {
@@ -460,5 +511,101 @@ export async function pullBatchDiscogsValues(limit = 10) {
     failed,
     markedUnavailable,
     pulledRecords,
+  };
+}
+
+export async function pullBatchMissingCovers(limit = 10) {
+  const supabase = await createClient();
+  const userId = await getCurrentUserId();
+
+  const token = process.env.DISCOGS_TOKEN;
+  const userAgent =
+    process.env.DISCOGS_USER_AGENT ?? "CollectorIntelligence/1.0";
+
+  if (!token) {
+    return {
+      ok: false,
+      message: "Missing DISCOGS_TOKEN",
+      updated: 0,
+      skipped: 0,
+      failed: 0,
+    };
+  }
+
+  const queue = (await getMissingCoverQueue(limit)).slice(0, limit);
+
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const record of queue) {
+    try {
+      const releaseId = String(record.discogs_release_id ?? "").trim();
+
+      if (!releaseId) {
+        skipped++;
+        continue;
+      }
+
+      const releaseRes = await fetch(
+        `https://api.discogs.com/releases/${releaseId}`,
+        {
+          headers: {
+            Authorization: `Discogs token=${token}`,
+            "User-Agent": userAgent,
+          },
+          cache: "no-store",
+        },
+      );
+
+      if (!releaseRes.ok) {
+        failed++;
+        continue;
+      }
+
+      const releaseData = (await releaseRes.json()) as DiscogsReleaseResponse;
+
+      const primaryImage =
+        releaseData.images?.find((image) => image.type === "primary") ??
+        releaseData.images?.[0];
+
+      const coverUrl = primaryImage?.uri150?.trim() || primaryImage?.uri?.trim();
+
+      if (!coverUrl) {
+        skipped++;
+        continue;
+      }
+
+      const { error: updateError } = await supabase
+        .from("records_clean_safe")
+        .update({
+          cover_url: coverUrl,
+        })
+        .eq("id", record.id)
+        .eq("user_id", userId);
+
+      if (updateError) {
+        failed++;
+      } else {
+        updated++;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    } catch {
+      failed++;
+    }
+  }
+
+  revalidatePath("/collection");
+  revalidatePath("/collection/value-dashboard");
+  revalidatePath("/collection/value-queue");
+  revalidatePath("/collection/market-intelligence");
+
+  return {
+    ok: true,
+    message: `Updated ${updated}, skipped ${skipped}, failed ${failed}.`,
+    updated,
+    skipped,
+    failed,
   };
 }
