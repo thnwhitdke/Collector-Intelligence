@@ -267,7 +267,7 @@ export async function getValueQueue() {
   return sortQueueRecords(cleanQueue as RawQueueRecord[]).slice(0, 50);
 }
 
-export async function getMissingCoverQueue(limit = 50) {
+export async function getMissingCoverQueue(limit = 5000) {
   const supabase = await createClient();
   const userId = await getCurrentUserId();
 
@@ -284,7 +284,7 @@ export async function getMissingCoverQueue(limit = 50) {
     )
     .eq("user_id", userId)
     .not("discogs_release_id", "is", null)
-    .limit(250);
+    .limit(5000);
 
   if (error) {
     throw new Error(error.message);
