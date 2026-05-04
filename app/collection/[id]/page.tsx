@@ -17,6 +17,8 @@ type PageProps = {
     returnTo?: string;
     q?: string;
     view?: string;
+    preset?: string;
+    sort?: string;
   }>;
 };
 
@@ -122,12 +124,16 @@ function getSafeReturnPath({
   returnTo,
   q,
   view,
+  preset,
+  sort,
 }: {
   returnTo?: string;
   q?: string;
   view?: string;
+  preset?: string;
+  sort?: string;
 }) {
-  if (returnTo && returnTo.startsWith("/")) {
+  if (returnTo && returnTo.startsWith("/collection")) {
     return returnTo;
   }
 
@@ -137,7 +143,15 @@ function getSafeReturnPath({
     params.set("q", q);
   }
 
-  if (view && view.trim() !== "") {
+  if (preset && preset !== "all") {
+    params.set("preset", preset);
+  }
+
+  if (sort && sort !== "id_desc") {
+    params.set("sort", sort);
+  }
+
+  if (view && view !== "tiles") {
     params.set("view", view);
   }
 
@@ -197,6 +211,8 @@ export default async function RecordDetailPage({
     returnTo: resolvedSearchParams.returnTo,
     q: resolvedSearchParams.q,
     view: resolvedSearchParams.view,
+    preset: resolvedSearchParams.preset,
+    sort: resolvedSearchParams.sort,
   });
 
   const supabase = await createClient();
