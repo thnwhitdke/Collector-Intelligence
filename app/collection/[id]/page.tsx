@@ -1,531 +1,354 @@
-import { pullSingleDiscogsValue } from "../../actions/pull-single-discogs";
-import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { createClient } from "../../../src/lib/supabase/server";
-import {
-  refreshCoverFromDiscogs,
-  updateCollectorDetails,
-  updateReleaseDetails,
-} from "../../actions/records";
-import ValueIntelligenceCard from "../../components/ValueIntelligenceCard";
-import ManualValueCompForm from "../../components/ManualValueCompForm";
+import AddRecordForm from "../../components/AddRecordForm";
+import { getSavedViews, type SavedViewRow } from "../../actions/records";
+import { getCollectionValueSummary } from "../../actions/value-summary";
+import { getValueRankings } from "../../actions/value-rankings";
+import CollectionValueBar from "../CollectionValueBar";
+import TopValueRecordsPanel from "../TopValueRecordsPanel";
+import { CollectionUI, type CollectionRecord } from "../ui";
+import ScrollRestorer from "../ScrollRestorer";
 
-type PageProps = {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{
-    returnTo?: string;
+type CollectionPageProps = {
+  searchParams?: Promise<{
+    sort?: string;
     q?: string;
+    preset?: string;
     view?: string;
   }>;
 };
 
-type RecordDetail = Record<string, string | number | boolean | null>;
+export type SavedViewPreset =
+  | "all"
+  | "missing_covers"
+  | "missing_discogs"
+  | "review_queue"
+  | "needs_pricing"
+  | "needs_year"
+  | "exceptions"
+  | "high_confidence"
+  | "medium_confidence"
+  | "low_confidence"
+  | "needs_verification";
 
-type SectionProps = {
-  title: string;
-  children: React.ReactNode;
+type ViewMode = "tiles" | "grid" | "list";
+
+type SupabaseErrorLike = {
+  message?: string | null;
 };
 
-type GridProps = {
-  children: React.ReactNode;
+type SupabaseQueryResult<T> = {
+  data?: T[] | null;
+  count?: number | null;
+  error?: SupabaseErrorLike | null;
 };
 
-type FieldProps = {
-  label: string;
-  name: string;
-  defaultValue?: string | number | boolean | null;
-  type?: string;
-  helpText?: string;
+type SupabaseQueryLike<T> = PromiseLike<SupabaseQueryResult<T>> & {
+  eq: (column: string, value: string) => SupabaseQueryLike<T>;
+  or: (filters: string) => SupabaseQueryLike<T>;
+  ilike: (column: string, pattern: string) => SupabaseQueryLike<T>;
+  order: (
+    column: string,
+    options: { ascending: boolean },
+  ) => SupabaseQueryLike<T>;
+  limit: (count: number) => Promise<SupabaseQueryResult<T>>;
 };
 
-type TextAreaProps = {
-  label: string;
-  name: string;
-  defaultValue?: string | number | boolean | null;
-};
+const SORT_OPTIONS = [
+  { value: "id_desc", label: "Date Added / ID Newest" },
+  { value: "id_asc", label: "Date Added / ID Oldest" },
+  { value: "artist_asc", label: "Artist A–Z" },
+  { value: "artist_desc", label: "Artist Z–A" },
+  { value: "title_asc", label: "Title A–Z" },
+  { value: "title_desc", label: "Title Z–A" },
+  { value: "year_desc", label: "Year Newest" },
+  { value: "year_asc", label: "Year Oldest" },
+] as const;
 
-type SelectFieldProps = {
-  label: string;
-  name: string;
-  defaultValue?: string | number | boolean | null;
-};
-
-type ReadProps = {
-  label: string;
-  value?: string | number | boolean | null;
-};
-
-function getValue(record: RecordDetail, key: string) {
-  return record[key] ?? null;
+function normalizePreset(value?: string): SavedViewPreset {
+  switch (value) {
+    case "missing_covers":
+    case "missing_discogs":
+    case "review_queue":
+    case "needs_pricing":
+    case "needs_year":
+    case "exceptions":
+    case "high_confidence":
+    case "medium_confidence":
+    case "low_confidence":
+    case "needs_verification":
+      return value;
+    default:
+      return "all";
+  }
 }
 
-function getText(record: RecordDetail, key: string) {
-  const value = getValue(record, key);
-  if (value === null || value === undefined) return "";
-  return String(value);
-}
-
-function getNumber(record: RecordDetail, key: string) {
-  const value = getValue(record, key);
-
-  if (typeof value === "number" && Number.isFinite(value)) {
+function normalizeView(value?: string): ViewMode {
+  if (value === "grid" || value === "list" || value === "tiles") {
     return value;
   }
 
-  if (typeof value === "string") {
-    const parsed = Number(value.replace(/[$,]/g, ""));
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
+  return "tiles";
 }
 
-function displayValue(value: string | number | boolean | null | undefined) {
-  if (value === null || value === undefined) return "—";
-  const text = String(value).trim();
-  return text === "" ? "—" : text;
+function applyPresetFilter<T>(
+  query: SupabaseQueryLike<T>,
+  preset: SavedViewPreset,
+): SupabaseQueryLike<T> {
+  switch (preset) {
+    case "missing_covers":
+      return query.or("cover_url.is.null,cover_url.eq.");
+
+    case "missing_discogs":
+      return query.or(
+        "discogs_release_id.is.null,discogs_release_id.eq.,discogs_release_id.eq.0",
+      );
+
+    case "review_queue":
+      return query.ilike("notes", "%[REVIEW]%");
+
+    case "needs_pricing":
+      return query.or("median_price.is.null,median_price.eq.");
+
+    case "needs_year":
+      return query.or("year_released.is.null,year_released.eq.");
+
+    case "exceptions":
+      return query.or(
+        [
+          "cover_url.is.null",
+          "cover_url.eq.",
+          "discogs_release_id.is.null",
+          "discogs_release_id.eq.",
+          "discogs_release_id.eq.0",
+          "median_price.is.null",
+          "median_price.eq.",
+          "year_released.is.null",
+          "year_released.eq.",
+          "notes.ilike.%[REVIEW]%",
+        ].join(","),
+      );
+
+    case "high_confidence":
+    case "medium_confidence":
+    case "low_confidence":
+    case "needs_verification":
+      return query;
+
+    case "all":
+    default:
+      return query;
+  }
 }
 
-function money(value: string | number | boolean | null | undefined) {
-  if (value === null || value === undefined || typeof value === "boolean") {
-    return "—";
+function applySort<T>(
+  query: SupabaseQueryLike<T>,
+  sort: string,
+): SupabaseQueryLike<T> {
+  switch (sort) {
+    case "id_asc":
+      return query.order("id", { ascending: true });
+
+    case "artist_asc":
+      return query
+        .order("artist", { ascending: true })
+        .order("title", { ascending: true });
+
+    case "artist_desc":
+      return query
+        .order("artist", { ascending: false })
+        .order("title", { ascending: true });
+
+    case "title_asc":
+      return query
+        .order("title", { ascending: true })
+        .order("artist", { ascending: true });
+
+    case "title_desc":
+      return query
+        .order("title", { ascending: false })
+        .order("artist", { ascending: true });
+
+    case "year_desc":
+      return query
+        .order("year_released", { ascending: false })
+        .order("artist", { ascending: true });
+
+    case "year_asc":
+      return query
+        .order("year_released", { ascending: true })
+        .order("artist", { ascending: true });
+
+    case "id_desc":
+    default:
+      return query.order("id", { ascending: false });
   }
-
-  const parsed =
-    typeof value === "number"
-      ? value
-      : Number(String(value).replace(/[$,]/g, ""));
-
-  if (!Number.isFinite(parsed)) return displayValue(value);
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(parsed);
 }
 
-function formatDate(value: string | number | boolean | null | undefined) {
-  if (!value || typeof value === "boolean") return "Not available";
+function getSafeErrorMessage(error: unknown) {
+  if (!error || typeof error !== "object") return "Unknown error";
 
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) return "Not available";
+  const message =
+    "message" in error
+      ? (error as { message?: unknown }).message
+      : "Unknown error";
 
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
+  return typeof message === "string" && message.trim() !== ""
+    ? message
+    : "Unknown error";
 }
 
-function getSafeReturnPath({
-  returnTo,
-  q,
-  view,
-}: {
-  returnTo?: string;
-  q?: string;
-  view?: string;
-}) {
-  if (returnTo && returnTo.startsWith("/")) {
-    return returnTo;
-  }
-
-  const params = new URLSearchParams();
-
-  if (q && q.trim() !== "") {
-    params.set("q", q);
-  }
-
-  if (view && view.trim() !== "") {
-    params.set("view", view);
-  }
-
-  const queryString = params.toString();
-
-  return queryString ? `/collection?${queryString}` : "/collection";
-}
-
-function getMarketSignal(forSale: number | null) {
-  if (forSale === null) {
-    return {
-      label: "Market Status Unknown",
-      description: "Current Discogs supply has not been pulled for this record yet.",
-      className: "border-slate-500/30 bg-slate-500/10 text-slate-200",
-    };
-  }
-
-  if (forSale <= 2) {
-    return {
-      label: "Thin Market",
-      description: "Very few copies are currently listed. Scarcity may matter here.",
-      className: "border-amber-400/30 bg-amber-400/10 text-amber-100",
-    };
-  }
-
-  if (forSale >= 30) {
-    return {
-      label: "Saturated Market",
-      description: "Many copies are listed. Pricing may need to be competitive.",
-      className: "border-slate-400/30 bg-slate-400/10 text-slate-100",
-    };
-  }
-
-  if (forSale >= 10) {
-    return {
-      label: "Active Supply",
-      description: "There is meaningful marketplace activity around this release.",
-      className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
-    };
-  }
-
-  return {
-    label: "Balanced Market",
-    description: "Supply is present but not crowded.",
-    className: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
-  };
-}
-
-export default async function RecordDetailPage({
-  params,
-  searchParams,
-}: PageProps) {
-  const { id } = await params;
-  const resolvedSearchParams = await searchParams;
-
-  const returnPath = getSafeReturnPath({
-    returnTo: resolvedSearchParams.returnTo,
-    q: resolvedSearchParams.q,
-    view: resolvedSearchParams.view,
-  });
-
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("records_clean_safe")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error || !data) notFound();
-
-  const record = data as RecordDetail;
-  const coverUrl = getText(record, "cover_url");
-  const title = getText(record, "title") || "Untitled";
-  const artist = getText(record, "artist") || "Unknown Artist";
-  const discogsReleaseId = getText(record, "discogs_release_id");
-  const discogsSaleBlocked = Boolean(getValue(record, "discogs_sale_blocked"));
-  const discogsSaleBlockedReason = getText(record, "discogs_sale_blocked_reason");
-  const forSale = getNumber(record, "discogs_for_sale");
-  const marketSignal = getMarketSignal(forSale);
-
+function isConfidencePreset(preset: SavedViewPreset) {
   return (
-    <main className="min-h-screen bg-[#11100E] px-6 py-10 text-[#F4EFE6]">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Collector Archive
+    preset === "high_confidence" ||
+    preset === "medium_confidence" ||
+    preset === "low_confidence" ||
+    preset === "needs_verification"
+  );
+}
+
+function filterRecordsByConfidencePreset(
+  records: CollectionRecord[],
+  preset: SavedViewPreset,
+) {
+  if (!isConfidencePreset(preset)) {
+    return records;
+  }
+
+  return records;
+}
+
+async function getPresetCount(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  preset: SavedViewPreset,
+  userId: string,
+) {
+  try {
+    let query = supabase
+      .from("records_clean_safe")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId) as unknown as SupabaseQueryLike<CollectionRecord>;
+
+    query = applyPresetFilter(query, preset);
+
+    const { count } = await query;
+
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+function EmptyCollectionOnboarding() {
+  return (
+    <main className="min-h-screen bg-[#0E0C0A] px-6 py-10 text-[#F4EFE6]">
+      <div className="mx-auto max-w-5xl space-y-8">
+        <section className="overflow-hidden rounded-[34px] border border-[#3A3328] bg-[radial-gradient(circle_at_top_left,_rgba(199,164,93,0.18),_transparent_34%),linear-gradient(135deg,_#0E0C0A,_#17130F_58%,_#272017)] p-8 text-center shadow-2xl shadow-black/40">
+          <div className="mx-auto max-w-3xl">
+            <div className="inline-flex rounded-full border border-[#8F6F35]/45 bg-[#C7A45D]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
+              Collector Intelligence
+            </div>
+
+            <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
+              Start Your Collection Archive
             </h1>
-            <p className="text-sm text-[#B8AA96]">
-              Record ID: {displayValue(getValue(record, "id"))}
+
+            <p className="mt-4 text-base leading-7 text-[#B8AA96]">
+              Your collection is empty right now. Add a record manually or import
+              your catalog to begin building a structured archive with valuation,
+              grading, Discogs data, and market intelligence.
             </p>
+
+            <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                href="/import"
+                className="rounded-2xl bg-gradient-to-r from-[#C7A45D] to-[#8F6F35] px-6 py-3 text-sm font-bold text-[#11100E] transition hover:opacity-90"
+              >
+                Import Records
+              </Link>
+
+              <Link
+                href="/collection/value-dashboard"
+                className="rounded-2xl border border-[#8F6F35]/50 bg-[#C7A45D]/10 px-6 py-3 text-sm font-semibold text-[#F4EFE6] transition hover:bg-[#C7A45D]/18"
+              >
+                View Value Dashboard
+              </Link>
+
+              <Link
+                href="/collection/market-intelligence"
+                className="rounded-2xl border border-fuchsia-300/40 bg-fuchsia-300/10 px-6 py-3 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-300/20"
+              >
+                Market Intelligence
+              </Link>
+            </div>
           </div>
+        </section>
 
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={returnPath}
-              className="rounded-xl border border-[#3A3328] px-4 py-2 text-sm hover:bg-[#1A1815]"
-            >
-              Back to Results
-            </Link>
-
-            <Link
-              href="/collection"
-              className="rounded-xl border border-[#8F6F35] px-4 py-2 text-sm text-[#C7A45D] hover:bg-[#221F1A]"
-            >
-              Full Collection
-            </Link>
-
-            <Link
-              href="/collection/want-list"
-              className="rounded-xl border border-[#4A3A1E] px-4 py-2 text-sm font-bold text-[#D8B65A] hover:bg-[#1E170E]"
-            >
-              Want List
-            </Link>
-
-            <Link
-              href="/collection/market-intelligence"
-              className="rounded-xl border border-fuchsia-300/40 bg-fuchsia-300/10 px-4 py-2 text-sm text-fuchsia-100 hover:bg-fuchsia-300/20"
-            >
-              Market Intelligence
-            </Link>
-          </div>
-        </div>
-
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
-          <div className="rounded-2xl border border-[#3A3328] bg-[#1A1815] p-5 shadow-xl">
-            <div className="relative overflow-hidden rounded-xl border border-[#3A3328] bg-black">
-              {coverUrl ? (
-                <Image
-                  src={coverUrl}
-                  alt={`${artist} - ${title}`}
-                  width={600}
-                  height={600}
-                  className="aspect-square w-full object-cover"
-                  unoptimized
-                />
-              ) : (
-                <div className="flex aspect-square items-center justify-center text-sm text-[#8E8170]">
-                  No Cover
-                </div>
-              )}
+        <section className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+          <div className="rounded-[28px] border border-[#3A3328] bg-[linear-gradient(145deg,_#211B14,_#0E0C0A)] p-6 shadow-xl shadow-black/25">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
+              Add One Record
             </div>
 
-            <div className="mt-4">
-              <h2 className="text-xl font-semibold">{title}</h2>
-              <p className="text-sm text-[#B8AA96]">{artist}</p>
-            </div>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight">
+              Create your first archive entry
+            </h2>
 
-            <form action={refreshCoverFromDiscogs} className="mt-5">
-              <input
-                type="hidden"
-                name="id"
-                value={String(getValue(record, "id"))}
-              />
-              <input type="hidden" name="returnTo" value={returnPath} />
-              <button className="w-full rounded-xl bg-[#C7A45D] px-4 py-3 text-sm font-semibold text-black hover:bg-[#D8B86A]">
-                Refresh Cover
-              </button>
-            </form>
+            <p className="mt-2 text-sm leading-6 text-[#B8AA96]">
+              Use this form to add a single record. Once saved, it will appear in
+              your collection and become available for grading, value pulls, and
+              market review.
+            </p>
+
+            <div className="mt-5 rounded-2xl border border-[#3A3328] bg-[#11100E] p-4">
+              <AddRecordForm />
+            </div>
           </div>
 
-          <div className="space-y-6">
-            <ValueIntelligenceCard
-              valueInput={{
-                discogsLowPrice: getNumber(record, "discogs_low_price"),
-                discogsMedianPrice: getNumber(record, "discogs_median_price"),
-                discogsHighPrice: getNumber(record, "discogs_high_price"),
-                ebayLastSoldPrice: getNumber(record, "ebay_last_sold_price"),
-                ebayAvgSoldPrice: getNumber(record, "ebay_avg_sold_price"),
-                ebaySoldCount: getNumber(record, "ebay_sold_count"),
-                manualCompPrice: getNumber(record, "manual_comp_price"),
-                purchasePrice: getNumber(record, "purchase_price"),
-                conditionGrade:
-                  getText(record, "condition_grade") ||
-                  getText(record, "media_grade") ||
-                  null,
-                valueLastUpdated: getText(record, "value_last_updated") || null,
-              }}
-            />
+          <div className="rounded-[28px] border border-[#3A3328] bg-[linear-gradient(145deg,_#211B14,_#0E0C0A)] p-6 shadow-xl shadow-black/25">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
+              Recommended Start
+            </div>
 
-            <ManualValueCompForm
-              recordId={String(getValue(record, "id"))}
-              currentValues={{
-                manualCompPrice: getNumber(record, "manual_comp_price"),
-                manualCompNote: getText(record, "manual_comp_note"),
-                ebayLastSoldPrice: getNumber(record, "ebay_last_sold_price"),
-                ebayAvgSoldPrice: getNumber(record, "ebay_avg_sold_price"),
-                ebaySoldCount: getNumber(record, "ebay_sold_count"),
-                ebayCompUrl: getText(record, "ebay_comp_url"),
-                conditionGrade:
-                  getText(record, "condition_grade") ||
-                  getText(record, "media_grade"),
-              }}
-            />
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight">
+              Import a full collection
+            </h2>
 
-            <Section title="Market Intelligence">
-              {discogsSaleBlocked ? (
-                <div className="mb-4 rounded-2xl border border-blue-400/40 bg-blue-400/10 px-5 py-4 text-sm text-blue-100">
-                  <div className="font-semibold">
-                    Discogs market data is intentionally unavailable for this release.
-                  </div>
-                  <div className="mt-1 text-xs opacity-80">
-                    This record is marked as unavailable for Discogs marketplace data.
-                  </div>
-                  {discogsSaleBlockedReason ? (
-                    <div className="mt-2 text-xs opacity-90">
-                      Reason: {discogsSaleBlockedReason}
-                    </div>
-                  ) : null}
-                </div>
-              ) : !discogsReleaseId ? (
-                <div className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
-                  This record does not currently have a Discogs Release ID.
-                  Add one in Release Details, save, then pull market data.
-                </div>
-              ) : null}
+            <p className="mt-2 text-sm leading-6 text-[#B8AA96]">
+              If you already have a spreadsheet or exported list, importing is
+              the fastest way to unlock dashboards, saved views, cover checks,
+              value queues, and collection intelligence.
+            </p>
 
-              <form action={pullSingleDiscogsValue} className="mb-4">
-                <input
-                  type="hidden"
-                  name="id"
-                  value={String(getValue(record, "id"))}
-                />
-                <input
-                  type="hidden"
-                  name="releaseId"
-                  value={discogsReleaseId}
-                />
-                <input type="hidden" name="returnTo" value={returnPath} />
+            <div className="mt-5 grid gap-3">
+              <Link
+                href="/import"
+                className="rounded-2xl bg-[#C7A45D] px-5 py-3 text-center text-sm font-bold text-[#11100E] transition hover:bg-[#D8B86A]"
+              >
+                Go to Import Records
+              </Link>
 
-                <button
-                  type="submit"
-                  disabled={!discogsReleaseId || discogsSaleBlocked}
-                  className="rounded-xl bg-fuchsia-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:bg-neutral-600 disabled:text-neutral-300"
-                >
-                  {discogsSaleBlocked
-                    ? "Market Data Blocked"
-                    : "Pull Market Data (This Record)"}
-                </button>
-              </form>
+              <Link
+                href="/"
+                className="rounded-2xl border border-[#3A3328] bg-[#17130F] px-5 py-3 text-center text-sm font-semibold text-[#D8CBB8] transition hover:border-[#C7A45D]/50"
+              >
+                Back to Home
+              </Link>
+            </div>
 
-              <div className="space-y-5">
-                <div className={`rounded-2xl border px-5 py-4 ${marketSignal.className}`}>
-                  <div className="text-sm font-bold">{marketSignal.label}</div>
-                  <div className="mt-1 text-xs opacity-80">
-                    {marketSignal.description}
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
-                  <Read label="Estimated Value" value={money(getValue(record, "estimated_value"))} />
-                  <Read label="Value Confidence" value={getValue(record, "value_confidence_score")} />
-                  <Read label="Value Signal" value={getValue(record, "value_signal")} />
-                  <Read label="Discogs Median" value={money(getValue(record, "discogs_median_price"))} />
-                  <Read label="Copies for Sale" value={forSale === null ? "Not pulled yet" : forSale} />
-                  <Read label="Discogs Low" value={money(getValue(record, "discogs_low_price"))} />
-                  <Read label="Discogs High" value={money(getValue(record, "discogs_high_price"))} />
-                  <Read label="Last Sold" value={formatDate(getValue(record, "discogs_last_sold_date"))} />
-                  <Read label="Value Source" value={getValue(record, "value_source")} />
-                  <Read label="Last Refreshed" value={formatDate(getValue(record, "value_last_updated"))} />
-                  <Read label="Discogs Release ID" value={getValue(record, "discogs_release_id")} />
-                </div>
+            <div className="mt-6 rounded-2xl border border-[#3A3328] bg-[#11100E] p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8E8170]">
+                What unlocks after records exist
               </div>
-            </Section>
 
-            <Section title="Release Details">
-              <form action={updateReleaseDetails} className="space-y-4">
-                <input type="hidden" name="id" value={String(getValue(record, "id"))} />
-                <input type="hidden" name="returnTo" value={returnPath} />
-
-                <Grid>
-                  <Field label="Artist" name="artist" defaultValue={getValue(record, "artist")} />
-                  <Field label="Title" name="title" defaultValue={getValue(record, "title")} />
-                  <Field label="Format" name="format" defaultValue={getValue(record, "format")} />
-                  <Field label="Label" name="label" defaultValue={getValue(record, "label")} />
-                  <Field label="Catalogue #" name="catalogue_number" defaultValue={getValue(record, "catalogue_number")} />
-                  <Field label="Year" name="year_released" defaultValue={getValue(record, "year_released")} />
-                  <Field label="Country" name="country" defaultValue={getValue(record, "country")} />
-                  <Field
-                    label="Discogs Release ID"
-                    name="discogs_release_id"
-                    defaultValue={getValue(record, "discogs_release_id")}
-                    helpText="Required before pulling Discogs market value."
-                  />
-                  <Field label="Discogs Master ID" name="discogs_master_id" defaultValue={getValue(record, "discogs_master_id")} />
-                  <Field label="Discogs URL" name="discogs_url" defaultValue={getValue(record, "discogs_url")} />
-                </Grid>
-
-                <div className="rounded-2xl border border-[#3A3328] bg-[#11100E] p-4">
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      name="discogs_sale_blocked"
-                      defaultChecked={discogsSaleBlocked}
-                      className="mt-1 h-4 w-4"
-                    />
-                    <span>
-                      <span className="block text-sm font-semibold text-[#F4EFE6]">
-                        Not sold / blocked from Discogs marketplace
-                      </span>
-                      <span className="mt-1 block text-xs leading-5 text-[#B8AA96]">
-                        Use this when Discogs pricing is intentionally unavailable,
-                        so the system does not treat missing market data as a problem.
-                      </span>
-                    </span>
-                  </label>
-
-                  <label className="mt-4 block">
-                    <div className="mb-1 text-xs uppercase tracking-wide text-[#8E8170]">
-                      Discogs Blocked Reason
-                    </div>
-                    <input
-                      type="text"
-                      name="discogs_sale_blocked_reason"
-                      defaultValue={discogsSaleBlockedReason}
-                      placeholder="Optional: blocked from sale, promo-only, no sales history, marketplace unavailable..."
-                      className="w-full rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2 text-sm text-[#F4EFE6]"
-                    />
-                  </label>
-                </div>
-
-                <TextArea label="Notes" name="notes" defaultValue={getValue(record, "notes")} />
-
-                <SaveButton />
-              </form>
-            </Section>
-
-            <Section title="Grading & Manual Value Fields">
-              <form action={updateCollectorDetails} className="space-y-5">
-                <input type="hidden" name="id" value={String(getValue(record, "id"))} />
-                <input type="hidden" name="returnTo" value={returnPath} />
-
-                <Grid>
-                  <SelectField label="Media Grade" name="media_grade" defaultValue={getValue(record, "media_grade")} />
-                  <SelectField label="Sleeve Grade" name="sleeve_grade" defaultValue={getValue(record, "sleeve_grade")} />
-                  <Field label="Purchase Price" name="purchase_price" defaultValue={getValue(record, "purchase_price")} />
-                  <Field label="Current Value" name="current_value" defaultValue={getValue(record, "current_value")} />
-                  <Field label="eBay Last Sold" name="ebay_last_sold_price" defaultValue={getValue(record, "ebay_last_sold_price")} />
-                  <Field label="eBay Last Sold Date" name="ebay_last_sold_date" defaultValue={getValue(record, "ebay_last_sold_date")} type="date" />
-                  <Field label="eBay Comp Count" name="ebay_sold_comp_count" defaultValue={getValue(record, "ebay_sold_comp_count")} />
-                  <Field label="eBay Low Sold" name="ebay_low_sold_price" defaultValue={getValue(record, "ebay_low_sold_price")} />
-                  <Field label="eBay Median Sold" name="ebay_median_sold_price" defaultValue={getValue(record, "ebay_median_sold_price")} />
-                  <Field label="eBay High Sold" name="ebay_high_sold_price" defaultValue={getValue(record, "ebay_high_sold_price")} />
-                </Grid>
-
-                <TextArea label="eBay Notes / Source" name="ebay_notes" defaultValue={getValue(record, "ebay_notes")} />
-                <TextArea label="Grading Notes" name="grading_notes" defaultValue={getValue(record, "grading_notes")} />
-
-                <SaveButton />
-              </form>
-            </Section>
-
-            <Section title="Archive Snapshot">
-              <div className="grid gap-3 md:grid-cols-2">
-                <Read label="Media Grade" value={getValue(record, "media_grade")} />
-                <Read label="Sleeve Grade" value={getValue(record, "sleeve_grade")} />
-                <Read label="Purchase Price" value={money(getValue(record, "purchase_price"))} />
-                <Read label="Current Value" value={money(getValue(record, "current_value"))} />
-                <Read label="Collector Intelligence Estimate" value={money(getValue(record, "estimated_value"))} />
-                <Read label="Value Confidence" value={getValue(record, "value_confidence_score")} />
-                <Read label="Value Signal" value={getValue(record, "value_signal")} />
-                <Read label="Manual Comp Price" value={money(getValue(record, "manual_comp_price"))} />
-                <Read label="Manual Comp Note" value={getValue(record, "manual_comp_note")} />
-                <Read label="eBay Last Sold" value={money(getValue(record, "ebay_last_sold_price"))} />
-                <Read label="eBay Average Sold" value={money(getValue(record, "ebay_avg_sold_price"))} />
-                <Read label="eBay Sold Count" value={getValue(record, "ebay_sold_count")} />
-                <Read label="eBay Comp URL" value={getValue(record, "ebay_comp_url")} />
-                <Read label="Discogs Low" value={money(getValue(record, "discogs_low_price"))} />
-                <Read label="Discogs Median" value={money(getValue(record, "discogs_median_price"))} />
-                <Read label="Discogs High" value={money(getValue(record, "discogs_high_price"))} />
-                <Read label="Discogs Copies for Sale" value={forSale === null ? "Not pulled yet" : forSale} />
-                <Read label="Discogs Last Sold" value={formatDate(getValue(record, "discogs_last_sold_date"))} />
-                <Read label="Original eBay Last Sold Date" value={getValue(record, "ebay_last_sold_date")} />
-                <Read label="Original eBay Comp Count" value={getValue(record, "ebay_sold_comp_count")} />
-                <Read label="Original eBay Low Sold" value={money(getValue(record, "ebay_low_sold_price"))} />
-                <Read label="Original eBay Median Sold" value={money(getValue(record, "ebay_median_sold_price"))} />
-                <Read label="Original eBay High Sold" value={money(getValue(record, "ebay_high_sold_price"))} />
-                <Read label="eBay Notes / Source" value={getValue(record, "ebay_notes")} />
-                <Read label="Original Median Price" value={money(getValue(record, "median_price"))} />
-                <Read label="Discogs Release ID" value={getValue(record, "discogs_release_id")} />
-                <Read label="Discogs Master ID" value={getValue(record, "discogs_master_id")} />
-                <Read label="Discogs URL" value={getValue(record, "discogs_url")} />
-                <Read label="Discogs Sale Blocked" value={discogsSaleBlocked ? "Yes" : "No"} />
-                <Read label="Discogs Blocked Reason" value={discogsSaleBlockedReason} />
-                <Read label="Value Source" value={getValue(record, "value_source")} />
-              </div>
-            </Section>
+              <ul className="mt-3 space-y-2 text-sm leading-6 text-[#D8CBB8]">
+                <li>• Collection grid and search</li>
+                <li>• Saved views and exception queues</li>
+                <li>• Discogs value pull workflow</li>
+                <li>• Value dashboard and market intelligence</li>
+                <li>• Record detail pages with grading fields</li>
+              </ul>
+            </div>
           </div>
         </section>
       </div>
@@ -533,94 +356,179 @@ export default async function RecordDetailPage({
   );
 }
 
-function Section({ title, children }: SectionProps) {
-  return (
-    <section className="rounded-2xl border border-[#3A3328] bg-[#1A1815] p-5 shadow-lg">
-      <h3 className="mb-4 text-lg font-semibold text-[#C7A45D]">{title}</h3>
-      {children}
-    </section>
-  );
-}
+export default async function CollectionPage({
+  searchParams,
+}: CollectionPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const sort = resolvedSearchParams.sort ?? "id_desc";
+  const q = resolvedSearchParams.q?.trim() ?? "";
+  const preset = normalizePreset(resolvedSearchParams.preset);
+  const view = normalizeView(resolvedSearchParams.view);
 
-function Grid({ children }: GridProps) {
-  return <div className="grid gap-4 md:grid-cols-2">{children}</div>;
-}
+  const supabase = await createClient();
 
-function Field({ label, name, defaultValue, type = "text", helpText }: FieldProps) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-[#0E0C0A] px-6 py-10 text-[#F4EFE6]">
+        <div className="mx-auto max-w-3xl rounded-[28px] border border-[#3A3328] bg-[#17130F] p-8 text-center shadow-xl shadow-black/30">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Please sign in to view your collection
+          </h1>
+
+          <p className="mt-3 text-sm leading-6 text-[#B8AA96]">
+            Collector Intelligence keeps each user collection separate. Sign in
+            to load your personal archive.
+          </p>
+
+          <Link
+            href="/login"
+            className="mt-6 inline-flex rounded-2xl bg-[#C7A45D] px-5 py-3 text-sm font-bold text-[#11100E] transition hover:bg-[#D8B86A]"
+          >
+            Go to Sign In
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const userId = user.id;
+
+  let records: CollectionRecord[] = [];
+  let totalCount = 0;
+
+  try {
+    let query = supabase
+      .from("records_clean_safe")
+      .select("*", { count: "exact" })
+      .eq("user_id", userId) as unknown as SupabaseQueryLike<CollectionRecord>;
+
+    query = applyPresetFilter(query, preset);
+
+    if (q) {
+      query = query.or(
+        [
+          `artist.ilike.%${q}%`,
+          `title.ilike.%${q}%`,
+          `label.ilike.%${q}%`,
+          `catalogue_number.ilike.%${q}%`,
+          `notes.ilike.%${q}%`,
+        ].join(","),
+      );
+    }
+
+    query = applySort(query, sort);
+
+    const { data, count } = await query.limit(5000);
+
+    records = data ?? [];
+
+    if (isConfidencePreset(preset)) {
+      records = filterRecordsByConfidencePreset(records, preset);
+      totalCount = records.length;
+    } else {
+      totalCount = count ?? 0;
+    }
+  } catch (error) {
+    console.warn("Collection query warning:", getSafeErrorMessage(error));
+  }
+
+  let confidenceCountRecords: CollectionRecord[] = [];
+
+  try {
+    const confidenceCountQuery = supabase
+      .from("records_clean_safe")
+      .select("*")
+      .eq("user_id", userId) as unknown as SupabaseQueryLike<CollectionRecord>;
+
+    const { data } = await confidenceCountQuery.limit(5000);
+    confidenceCountRecords = data ?? [];
+  } catch (error) {
+    console.warn("Confidence counts warning:", getSafeErrorMessage(error));
+  }
+
+  const presetCounts = {
+    all: await getPresetCount(supabase, "all", userId),
+    missing_covers: await getPresetCount(supabase, "missing_covers", userId),
+    missing_discogs: await getPresetCount(supabase, "missing_discogs", userId),
+    review_queue: await getPresetCount(supabase, "review_queue", userId),
+    needs_pricing: await getPresetCount(supabase, "needs_pricing", userId),
+    needs_year: await getPresetCount(supabase, "needs_year", userId),
+    exceptions: await getPresetCount(supabase, "exceptions", userId),
+    high_confidence: filterRecordsByConfidencePreset(
+      confidenceCountRecords,
+      "high_confidence",
+    ).length,
+    medium_confidence: filterRecordsByConfidencePreset(
+      confidenceCountRecords,
+      "medium_confidence",
+    ).length,
+    low_confidence: filterRecordsByConfidencePreset(
+      confidenceCountRecords,
+      "low_confidence",
+    ).length,
+    needs_verification: filterRecordsByConfidencePreset(
+      confidenceCountRecords,
+      "needs_verification",
+    ).length,
+  };
+
+  let savedViews: SavedViewRow[] = [];
+
+  try {
+    savedViews = await getSavedViews();
+  } catch (error) {
+    console.warn("Saved views warning:", getSafeErrorMessage(error));
+  }
+
+  const summary = await getCollectionValueSummary();
+  const rankings = await getValueRankings();
+
+  const hasNoRecords =
+    totalCount === 0 &&
+    q === "" &&
+    preset === "all" &&
+    records.length === 0;
+
+  if (hasNoRecords) {
+    return <EmptyCollectionOnboarding />;
+  }
+
   return (
-    <label>
-      <div className="mb-1 text-xs uppercase tracking-wide text-[#8E8170]">
-        {label}
+    <>
+      <ScrollRestorer />
+
+      <div className="mx-auto max-w-7xl px-6 pt-6">
+        <CollectionValueBar
+          totalEstimatedValue={summary.totalEstimatedValue}
+          totalPurchaseValue={summary.totalPurchaseValue}
+          totalGainLoss={summary.totalGainLoss}
+          totalRecords={summary.totalRecords}
+          missingValueCount={summary.missingValueCount}
+        />
       </div>
-      <input
-        type={type}
-        name={name}
-        defaultValue={defaultValue == null ? "" : String(defaultValue)}
-        className="w-full rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2 text-sm text-[#F4EFE6]"
+
+      <TopValueRecordsPanel
+        topEstimated={rankings.topEstimated}
+        biggestGainers={rankings.biggestGainers}
+        needsValuePull={rankings.needsValuePull}
       />
-      {helpText ? (
-        <div className="mt-1 text-xs text-[#B8AA96]">{helpText}</div>
-      ) : null}
-    </label>
-  );
-}
 
-function SelectField({ label, name, defaultValue }: SelectFieldProps) {
-  const grades = ["", "Mint", "Near Mint", "NM", "VG+", "VG", "Good", "Fair", "Poor"];
-
-  return (
-    <label>
-      <div className="mb-1 text-xs uppercase tracking-wide text-[#8E8170]">
-        {label}
-      </div>
-      <select
-        name={name}
-        defaultValue={defaultValue == null ? "" : String(defaultValue)}
-        className="w-full rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2 text-sm text-[#F4EFE6]"
-      >
-        {grades.map((grade) => (
-          <option key={grade} value={grade}>
-            {grade || "Select Grade"}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function TextArea({ label, name, defaultValue }: TextAreaProps) {
-  return (
-    <label>
-      <div className="mb-1 text-xs uppercase tracking-wide text-[#8E8170]">
-        {label}
-      </div>
-      <textarea
-        name={name}
-        defaultValue={defaultValue == null ? "" : String(defaultValue)}
-        rows={4}
-        className="w-full rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2 text-sm text-[#F4EFE6]"
+      <CollectionUI
+        records={records}
+        totalCount={totalCount}
+        sort={sort}
+        searchQuery={q}
+        preset={preset}
+        view={view}
+        presetCounts={presetCounts}
+        sortOptions={SORT_OPTIONS}
+        savedViews={savedViews}
+        addRecordForm={<AddRecordForm />}
       />
-    </label>
-  );
-}
-
-function SaveButton() {
-  return (
-    <button className="rounded-xl bg-[#C7A45D] px-4 py-2 text-sm font-semibold text-black hover:bg-[#D8B86A]">
-      Save Changes
-    </button>
-  );
-}
-
-function Read({ label, value }: ReadProps) {
-  return (
-    <div className="flex min-h-[82px] flex-col justify-between rounded-xl border border-[#3A3328] bg-[#11100E] p-4">
-      <div className="text-[10px] uppercase leading-tight tracking-wide text-[#8E8170]">
-        {label}
-      </div>
-      <div className="mt-2 break-words text-sm leading-relaxed">
-        {displayValue(value)}
-      </div>
-    </div>
+    </>
   );
 }

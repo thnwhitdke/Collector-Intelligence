@@ -15,6 +15,7 @@ type CollectionPageProps = {
     sort?: string;
     q?: string;
     preset?: string;
+    view?: string;
   }>;
 };
 
@@ -79,6 +80,10 @@ function normalizePreset(value?: string): SavedViewPreset {
     default:
       return "all";
   }
+}
+
+function normalizeView(value?: string): "grid" | "list" {
+  return value === "list" ? "list" : "grid";
 }
 
 function applyPresetFilter<T>(
@@ -413,6 +418,7 @@ export default async function CollectionPage({
   const sort = resolvedSearchParams.sort ?? "id_desc";
   const q = resolvedSearchParams.q?.trim() ?? "";
   const preset = normalizePreset(resolvedSearchParams.preset);
+  const view = normalizeView(resolvedSearchParams.view);
 
   const supabase = await createClient();
 
@@ -427,10 +433,12 @@ export default async function CollectionPage({
           <h1 className="text-3xl font-semibold tracking-tight">
             Please sign in to view your collection
           </h1>
+
           <p className="mt-3 text-sm leading-6 text-[#B8AA96]">
             Collector Intelligence keeps each user collection separate. Sign in
             to load your personal archive.
           </p>
+
           <Link
             href="/login"
             className="mt-6 inline-flex rounded-2xl bg-[#C7A45D] px-5 py-3 text-sm font-bold text-[#11100E] transition hover:bg-[#D8B86A]"
@@ -570,6 +578,7 @@ export default async function CollectionPage({
         sort={sort}
         searchQuery={q}
         preset={preset}
+        view={view}
         presetCounts={presetCounts}
         sortOptions={SORT_OPTIONS}
         savedViews={savedViews}

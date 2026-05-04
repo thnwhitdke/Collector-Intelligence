@@ -25,17 +25,36 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
-function redirectBack(id: string, status: string): never {
-  redirect(`/collection/${id}?marketStatus=${encodeURIComponent(status)}`);
+function getSafeReturnTo(value: FormDataEntryValue | null): string {
+  const raw = String(value || "").trim();
+
+  if (raw.startsWith("/collection")) {
+    return raw;
+  }
+
+  return "/collection";
+}
+
+function buildDetailRedirect(id: string, status: string, returnTo: string): string {
+  const params = new URLSearchParams();
+  params.set("marketStatus", status);
+  params.set("returnTo", returnTo);
+
+  return `/collection/${id}?${params.toString()}`;
+}
+
+function redirectBack(id: string, status: string, returnTo: string): never {
+  redirect(buildDetailRedirect(id, status, returnTo));
 }
 
 export async function pullSingleDiscogsValue(formData: FormData) {
   const supabase = await createClient();
 
   const id = String(formData.get("id") || "").trim();
+  const returnTo = getSafeReturnTo(formData.get("returnTo"));
 
   if (!id) {
-    redirect("/collection?marketStatus=missing-record-id");
+    redirect(`/collection?marketStatus=missing-record-id`);
   }
 
   const token = process.env.DISCOGS_TOKEN;
@@ -43,7 +62,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
     process.env.DISCOGS_USER_AGENT ?? "CollectorIntelligence/1.0";
 
   if (!token) {
-    redirectBack(id, "missing-discogs-token");
+    redirectBack(id, "missing-discogs-token", returnTo);
   }
 
   const { data: record, error: recordError } = await supabase
@@ -53,7 +72,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
     .single();
 
   if (recordError || !record) {
-    redirectBack(id, "record-not-found");
+    redirectBack(id, "record-not-found", returnTo);
   }
 
   const releaseId = String((record as RecordRow).discogs_release_id || "").trim();
@@ -68,7 +87,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
       })
       .eq("id", id);
 
-    redirectBack(id, "missing-discogs-release-id");
+    redirectBack(id, "missing-discogs-release-id", returnTo);
   }
 
   const priceRes = await fetch(
@@ -92,7 +111,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
       })
       .eq("id", id);
 
-    redirectBack(id, `discogs-price-fetch-failed-${priceRes.status}`);
+    redirectBack(id, `discogs-price-fetch-failed-${priceRes.status}`, returnTo);
   }
 
   const suggestions = (await priceRes.json()) as Record<
@@ -112,7 +131,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
       })
       .eq("id", id);
 
-    redirectBack(id, "no-discogs-value-available");
+    redirectBack(id, "no-discogs-value-available", returnTo);
   }
 
   const values = entries
@@ -131,7 +150,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
       })
       .eq("id", id);
 
-    redirectBack(id, "no-usable-discogs-values");
+    redirectBack(id, "no-usable-discogs-values", returnTo);
   }
 
   const low = Number(values[0].toFixed(2));
@@ -195,7 +214,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
       })
       .eq("id", id);
 
-    redirectBack(id, "database-update-failed");
+    redirectBack(id, "database-update-failed", returnTo);
   }
 
   revalidatePath(`/collection/${id}`);
@@ -204,5 +223,5 @@ export async function pullSingleDiscogsValue(formData: FormData) {
   revalidatePath("/collection/value-dashboard");
   revalidatePath("/collection/value-queue");
 
-  redirectBack(id, "updated");
+  redirectBack(id, "updated", returnTo);
 }

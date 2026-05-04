@@ -46,7 +46,7 @@ type SortOption = {
   label: string;
 };
 
-type ViewMode = "grid" | "list";
+type ViewMode = "tiles" | "grid" | "list";
 
 type CollectionUIProps = {
   records: CollectionRecord[];
@@ -123,6 +123,14 @@ function getEstimatedValue(record: CollectionRecord) {
   );
 }
 
+function getDisplayValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return "—";
+  }
+
+  return String(value);
+}
+
 function getCount(
   presetCounts: CollectionUIProps["presetCounts"],
   key: string,
@@ -152,7 +160,11 @@ function normalizeSortOptions(
 }
 
 function normalizeViewMode(value: string | null | undefined): ViewMode {
-  return value === "list" ? "list" : "grid";
+  if (value === "grid" || value === "list" || value === "tiles") {
+    return value;
+  }
+
+  return "tiles";
 }
 
 function buildCollectionReturnPath({
@@ -180,12 +192,29 @@ function buildCollectionReturnPath({
     params.set("sort", sort);
   }
 
-  if (view !== "grid") {
+  if (view !== "tiles") {
     params.set("view", view);
   }
 
   const query = params.toString();
   return query ? `/collection?${query}` : "/collection";
+}
+
+function buildCollectionHref({
+  preset,
+  selectedView,
+}: {
+  preset: string;
+  selectedView: ViewMode;
+}) {
+  const params = new URLSearchParams();
+  params.set("preset", preset);
+
+  if (selectedView !== "tiles") {
+    params.set("view", selectedView);
+  }
+
+  return `/collection?${params.toString()}`;
 }
 
 export function CollectionUI({
@@ -194,7 +223,7 @@ export function CollectionUI({
   sort = "id_desc",
   searchQuery = "",
   preset = "all",
-  view = "grid",
+  view = "tiles",
   presetCounts,
   sortOptions,
   addRecordForm,
@@ -294,7 +323,7 @@ export function CollectionUI({
                 Estimated visible value {formatMoney(totalValue)}
                 {searchQuery ? ` • Search: “${searchQuery}”` : ""}
                 {preset && preset !== "all" ? ` • View: ${preset}` : ""} •
-                Display: {selectedView === "list" ? "List" : "Grid"}
+                Display: {selectedView === "tiles" ? "Tiles" : selectedView === "grid" ? "Grid" : "List"}
               </p>
 
               <form
@@ -339,6 +368,7 @@ export function CollectionUI({
                   defaultValue={selectedView}
                   className="min-h-12 rounded-2xl border border-[#3A3328] bg-[#11100E] px-4 text-sm text-[#F4EFE6] outline-none focus:border-[#C7A45D]"
                 >
+                  <option value="tiles">Tiles View</option>
                   <option value="grid">Grid View</option>
                   <option value="list">List View</option>
                 </select>
@@ -393,25 +423,25 @@ export function CollectionUI({
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <CommandLink
-              href={`/collection?preset=missing_covers&view=${selectedView}`}
+              href={buildCollectionHref({ preset: "missing_covers", selectedView })}
               title="Missing Covers"
               count={getCount(presetCounts, "missing_covers")}
               description="Records that need cover repair."
             />
             <CommandLink
-              href={`/collection?preset=review_queue&view=${selectedView}`}
+              href={buildCollectionHref({ preset: "review_queue", selectedView })}
               title="Review Queue"
               count={getCount(presetCounts, "review_queue")}
               description="Items marked for manual review."
             />
             <CommandLink
-              href={`/collection?preset=needs_pricing&view=${selectedView}`}
+              href={buildCollectionHref({ preset: "needs_pricing", selectedView })}
               title="Needs Pricing"
               count={getCount(presetCounts, "needs_pricing")}
               description="Records missing value data."
             />
             <CommandLink
-              href={`/collection?preset=exceptions&view=${selectedView}`}
+              href={buildCollectionHref({ preset: "exceptions", selectedView })}
               title="Exceptions"
               count={getCount(presetCounts, "exceptions")}
               description="Records needing cleanup attention."
@@ -452,227 +482,23 @@ export function CollectionUI({
             </div>
           </section>
         ) : selectedView === "list" ? (
-          <section className="space-y-3">
-            {records.map((record) => {
-              const estimatedValue = getEstimatedValue(record);
-              const discogsMedian = getDiscogsMedian(record);
-
-              return (
-                <article
-                  key={String(record.id)}
-                  className="rounded-[24px] border border-[#3A3328] bg-[linear-gradient(145deg,_#211B14,_#0E0C0A)] p-4 shadow-xl shadow-black/30"
-                >
-                  <div className="grid gap-4 md:grid-cols-[88px_1fr_auto] md:items-center">
-                    <Link
-                      href={buildRecordHref(record.id)}
-                      onClick={saveScrollPosition}
-                      className="h-20 w-20 overflow-hidden rounded-2xl border border-[#3A3328] bg-black"
-                    >
-                      {record.cover_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={record.cover_url}
-                          alt={`${record.artist ?? "Unknown Artist"} - ${
-                            record.title ?? "Untitled"
-                          }`}
-                          className="h-20 w-20 object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-20 w-20 items-center justify-center text-xs text-[#8E8170]">
-                          No Cover
-                        </div>
-                      )}
-                    </Link>
-
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#C7A45D]">
-                        {record.artist || "Unknown Artist"}
-                      </div>
-
-                      <Link
-                        href={buildRecordHref(record.id)}
-                        onClick={saveScrollPosition}
-                      >
-                        <h2 className="mt-1 truncate text-xl font-bold hover:text-[#C7A45D]">
-                          {record.title || "Untitled"}
-                        </h2>
-                      </Link>
-
-                      <p className="mt-1 text-sm leading-6 text-[#B8AA96]">
-                        {[record.label, record.catalogue_number, record.year_released, record.country]
-                          .filter(Boolean)
-                          .join(" • ") || "Release details not cataloged"}
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <SmallPill
-                          label="Discogs"
-                          value={formatMoney(discogsMedian)}
-                        />
-                        <SmallPill
-                          label="Estimate"
-                          value={formatMoney(estimatedValue)}
-                        />
-                        <SmallPill
-                          label="Media"
-                          value={record.media_grade || record.condition || "—"}
-                        />
-                        <SmallPill
-                          label="Sleeve"
-                          value={record.sleeve_grade || "—"}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 md:flex-col md:items-stretch">
-                      <Link
-                        href={buildRecordHref(record.id)}
-                        onClick={saveScrollPosition}
-                        className="rounded-xl bg-[#C7A45D] px-4 py-2.5 text-center text-sm font-bold text-black hover:bg-[#D8B86A]"
-                      >
-                        Open
-                      </Link>
-
-                      <Link
-                        href={buildRecordHref(record.id)}
-                        onClick={saveScrollPosition}
-                        className="rounded-xl border border-[#8F6F35] px-4 py-2.5 text-center text-sm font-bold text-[#C7A45D] hover:bg-[#221F1A]"
-                      >
-                        Edit
-                      </Link>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
+          <ListRecords
+            records={records}
+            buildRecordHref={buildRecordHref}
+            saveScrollPosition={saveScrollPosition}
+          />
+        ) : selectedView === "grid" ? (
+          <GridRecords
+            records={records}
+            buildRecordHref={buildRecordHref}
+            saveScrollPosition={saveScrollPosition}
+          />
         ) : (
-          <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {records.map((record) => {
-              const estimatedValue = getEstimatedValue(record);
-              const discogsMedian = getDiscogsMedian(record);
-
-              return (
-                <article
-                  key={String(record.id)}
-                  className="overflow-hidden rounded-[28px] border border-[#3A3328] bg-[linear-gradient(145deg,_#282218,_#0E0C0A_48%,_#1B1712)] shadow-2xl shadow-black/40"
-                >
-                  <div className="p-5">
-                    <div className="flex justify-center">
-                      <Link
-                        href={buildRecordHref(record.id)}
-                        onClick={saveScrollPosition}
-                        className="h-48 w-48 overflow-hidden rounded-[22px] border border-[#3A3328] bg-black shadow-xl shadow-black/35"
-                      >
-                        {record.cover_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={record.cover_url}
-                            alt={`${record.artist ?? "Unknown Artist"} - ${
-                              record.title ?? "Untitled"
-                            }`}
-                            className="h-full w-full object-contain"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-sm text-[#8E8170]">
-                            No Cover
-                          </div>
-                        )}
-                      </Link>
-                    </div>
-
-                    <div className="mt-5">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
-                        {record.artist || "Unknown Artist"}
-                      </div>
-
-                      <Link
-                        href={buildRecordHref(record.id)}
-                        onClick={saveScrollPosition}
-                      >
-                        <h2 className="mt-2 text-2xl font-bold leading-tight hover:text-[#C7A45D]">
-                          {record.title || "Untitled"}
-                        </h2>
-                      </Link>
-
-                      <p className="mt-2 text-sm leading-6 text-[#B8AA96]">
-                        {[record.label, record.catalogue_number]
-                          .filter(Boolean)
-                          .join(" • ") || "Label details not cataloged"}
-                      </p>
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      <InfoBox label="Year" value={record.year_released} />
-                      <InfoBox label="Country" value={record.country} />
-                      <InfoBox
-                        label="Discogs Release ID"
-                        value={record.discogs_release_id}
-                      />
-                      <InfoBox
-                        label="Discogs Master ID"
-                        value={record.discogs_master_id}
-                      />
-                    </div>
-
-                    <div className="mt-5 rounded-[24px] border border-[#3A3328] bg-[#0E0C0A]/75 p-4">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#C7A45D]">
-                        Value Intelligence
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-3 gap-3">
-                        <ValueBox
-                          label="Discogs"
-                          value={formatMoney(discogsMedian)}
-                        />
-                        <ValueBox
-                          label="Estimate"
-                          value={formatMoney(estimatedValue)}
-                        />
-                        <ValueBox
-                          label="High"
-                          value={formatMoney(record.discogs_high_price)}
-                        />
-                      </div>
-
-                      {record.discogs_sale_blocked ? (
-                        <p className="mt-3 rounded-xl border border-blue-400/30 bg-blue-400/10 px-3 py-2 text-xs leading-5 text-blue-100">
-                          Discogs sale/value pull blocked
-                          {record.discogs_sale_blocked_reason
-                            ? `: ${record.discogs_sale_blocked_reason}`
-                            : "."}
-                        </p>
-                      ) : !record.discogs_median_price &&
-                        record.discogs_release_id ? (
-                        <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                          Discogs ID is present, but market data has not been
-                          pulled yet. Open details and click Pull Market Data.
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      <Link
-                        href={buildRecordHref(record.id)}
-                        onClick={saveScrollPosition}
-                        className="rounded-xl bg-[#C7A45D] px-4 py-3 text-center text-sm font-bold text-black hover:bg-[#D8B86A]"
-                      >
-                        View Details
-                      </Link>
-
-                      <Link
-                        href={buildRecordHref(record.id)}
-                        onClick={saveScrollPosition}
-                        className="rounded-xl border border-[#8F6F35] px-4 py-3 text-center text-sm font-bold text-[#C7A45D] hover:bg-[#221F1A]"
-                      >
-                        Edit / Repair
-                      </Link>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
+          <TileRecords
+            records={records}
+            buildRecordHref={buildRecordHref}
+            saveScrollPosition={saveScrollPosition}
+          />
         )}
       </div>
 
@@ -714,6 +540,293 @@ export function CollectionUI({
         </div>
       ) : null}
     </main>
+  );
+}
+
+function ListRecords({
+  records,
+  buildRecordHref,
+  saveScrollPosition,
+}: {
+  records: CollectionRecord[];
+  buildRecordHref: (recordId: CollectionRecord["id"]) => string;
+  saveScrollPosition: () => void;
+}) {
+  return (
+    <section className="space-y-3">
+      {records.map((record) => {
+        const estimatedValue = getEstimatedValue(record);
+        const discogsMedian = getDiscogsMedian(record);
+
+        return (
+          <article
+            key={String(record.id)}
+            className="rounded-[24px] border border-[#3A3328] bg-[linear-gradient(145deg,_#211B14,_#0E0C0A)] p-4 shadow-xl shadow-black/30"
+          >
+            <div className="grid gap-4 md:grid-cols-[88px_1fr_auto] md:items-center">
+              <RecordCoverLink
+                record={record}
+                href={buildRecordHref(record.id)}
+                onClick={saveScrollPosition}
+                size="small"
+              />
+
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#C7A45D]">
+                  {record.artist || "Unknown Artist"}
+                </div>
+
+                <Link href={buildRecordHref(record.id)} onClick={saveScrollPosition}>
+                  <h2 className="mt-1 truncate text-xl font-bold hover:text-[#C7A45D]">
+                    {record.title || "Untitled"}
+                  </h2>
+                </Link>
+
+                <p className="mt-1 text-sm leading-6 text-[#B8AA96]">
+                  {[record.label, record.catalogue_number, record.year_released, record.country]
+                    .filter(Boolean)
+                    .join(" • ") || "Release details not cataloged"}
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <SmallPill label="Discogs" value={formatMoney(discogsMedian)} />
+                  <SmallPill label="Estimate" value={formatMoney(estimatedValue)} />
+                  <SmallPill label="Media" value={record.media_grade || record.condition || "—"} />
+                  <SmallPill label="Sleeve" value={record.sleeve_grade || "—"} />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 md:flex-col md:items-stretch">
+                <Link
+                  href={buildRecordHref(record.id)}
+                  onClick={saveScrollPosition}
+                  className="rounded-xl bg-[#C7A45D] px-4 py-2.5 text-center text-sm font-bold text-black hover:bg-[#D8B86A]"
+                >
+                  Open
+                </Link>
+
+                <Link
+                  href={buildRecordHref(record.id)}
+                  onClick={saveScrollPosition}
+                  className="rounded-xl border border-[#8F6F35] px-4 py-2.5 text-center text-sm font-bold text-[#C7A45D] hover:bg-[#221F1A]"
+                >
+                  Edit
+                </Link>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+function GridRecords({
+  records,
+  buildRecordHref,
+  saveScrollPosition,
+}: {
+  records: CollectionRecord[];
+  buildRecordHref: (recordId: CollectionRecord["id"]) => string;
+  saveScrollPosition: () => void;
+}) {
+  return (
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+      {records.map((record) => {
+        const estimatedValue = getEstimatedValue(record);
+        const discogsMedian = getDiscogsMedian(record);
+
+        return (
+          <article
+            key={String(record.id)}
+            className="rounded-[22px] border border-[#3A3328] bg-[linear-gradient(145deg,_#211B14,_#0E0C0A)] p-4 shadow-xl shadow-black/30"
+          >
+            <div className="flex gap-3">
+              <RecordCoverLink
+                record={record}
+                href={buildRecordHref(record.id)}
+                onClick={saveScrollPosition}
+                size="small"
+              />
+
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C7A45D]">
+                  {record.artist || "Unknown Artist"}
+                </div>
+
+                <Link href={buildRecordHref(record.id)} onClick={saveScrollPosition}>
+                  <h2 className="mt-1 line-clamp-2 text-sm font-bold leading-snug hover:text-[#C7A45D]">
+                    {record.title || "Untitled"}
+                  </h2>
+                </Link>
+
+                <p className="mt-1 truncate text-xs text-[#B8AA96]">
+                  {[record.label, record.year_released].filter(Boolean).join(" • ") || "No label/year"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <MiniStat label="Discogs" value={formatMoney(discogsMedian)} />
+              <MiniStat label="Estimate" value={formatMoney(estimatedValue)} />
+              <MiniStat label="Media" value={record.media_grade || record.condition || "—"} />
+              <MiniStat label="Sleeve" value={record.sleeve_grade || "—"} />
+            </div>
+
+            <Link
+              href={buildRecordHref(record.id)}
+              onClick={saveScrollPosition}
+              className="mt-4 flex w-full items-center justify-center rounded-xl border border-[#8F6F35] px-3 py-2 text-xs font-bold text-[#C7A45D] hover:bg-[#221F1A]"
+            >
+              Open Record
+            </Link>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+function TileRecords({
+  records,
+  buildRecordHref,
+  saveScrollPosition,
+}: {
+  records: CollectionRecord[];
+  buildRecordHref: (recordId: CollectionRecord["id"]) => string;
+  saveScrollPosition: () => void;
+}) {
+  return (
+    <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      {records.map((record) => {
+        const estimatedValue = getEstimatedValue(record);
+        const discogsMedian = getDiscogsMedian(record);
+
+        return (
+          <article
+            key={String(record.id)}
+            className="overflow-hidden rounded-[28px] border border-[#3A3328] bg-[linear-gradient(145deg,_#282218,_#0E0C0A_48%,_#1B1712)] shadow-2xl shadow-black/40"
+          >
+            <div className="p-5">
+              <div className="flex justify-center">
+                <RecordCoverLink
+                  record={record}
+                  href={buildRecordHref(record.id)}
+                  onClick={saveScrollPosition}
+                  size="large"
+                />
+              </div>
+
+              <div className="mt-5">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
+                  {record.artist || "Unknown Artist"}
+                </div>
+
+                <Link href={buildRecordHref(record.id)} onClick={saveScrollPosition}>
+                  <h2 className="mt-2 text-2xl font-bold leading-tight hover:text-[#C7A45D]">
+                    {record.title || "Untitled"}
+                  </h2>
+                </Link>
+
+                <p className="mt-2 text-sm leading-6 text-[#B8AA96]">
+                  {[record.label, record.catalogue_number]
+                    .filter(Boolean)
+                    .join(" • ") || "Label details not cataloged"}
+                </p>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <InfoBox label="Year" value={record.year_released} />
+                <InfoBox label="Country" value={record.country} />
+                <InfoBox label="Discogs Release ID" value={record.discogs_release_id} />
+                <InfoBox label="Discogs Master ID" value={record.discogs_master_id} />
+              </div>
+
+              <div className="mt-5 rounded-[24px] border border-[#3A3328] bg-[#0E0C0A]/75 p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#C7A45D]">
+                  Value Intelligence
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  <ValueBox label="Discogs" value={formatMoney(discogsMedian)} />
+                  <ValueBox label="Estimate" value={formatMoney(estimatedValue)} />
+                  <ValueBox label="High" value={formatMoney(record.discogs_high_price)} />
+                </div>
+
+                {record.discogs_sale_blocked ? (
+                  <p className="mt-3 rounded-xl border border-blue-400/30 bg-blue-400/10 px-3 py-2 text-xs leading-5 text-blue-100">
+                    Discogs sale/value pull blocked
+                    {record.discogs_sale_blocked_reason
+                      ? `: ${record.discogs_sale_blocked_reason}`
+                      : "."}
+                  </p>
+                ) : !record.discogs_median_price && record.discogs_release_id ? (
+                  <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                    Discogs ID is present, but market data has not been pulled yet.
+                    Open details and click Pull Market Data.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <Link
+                  href={buildRecordHref(record.id)}
+                  onClick={saveScrollPosition}
+                  className="rounded-xl bg-[#C7A45D] px-4 py-3 text-center text-sm font-bold text-black hover:bg-[#D8B86A]"
+                >
+                  View Details
+                </Link>
+
+                <Link
+                  href={buildRecordHref(record.id)}
+                  onClick={saveScrollPosition}
+                  className="rounded-xl border border-[#8F6F35] px-4 py-3 text-center text-sm font-bold text-[#C7A45D] hover:bg-[#221F1A]"
+                >
+                  Edit / Repair
+                </Link>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+function RecordCoverLink({
+  record,
+  href,
+  onClick,
+  size,
+}: {
+  record: CollectionRecord;
+  href: string;
+  onClick: () => void;
+  size: "small" | "large";
+}) {
+  const className =
+    size === "large"
+      ? "h-48 w-48 overflow-hidden rounded-[22px] border border-[#3A3328] bg-black shadow-xl shadow-black/35"
+      : "h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-[#3A3328] bg-black";
+
+  const imageClassName =
+    size === "large" ? "h-full w-full object-contain" : "h-20 w-20 object-cover";
+
+  return (
+    <Link href={href} onClick={onClick} className={className}>
+      {record.cover_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={record.cover_url}
+          alt={`${record.artist ?? "Unknown Artist"} - ${record.title ?? "Untitled"}`}
+          className={imageClassName}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-xs text-[#8E8170]">
+          No Cover
+        </div>
+      )}
+    </Link>
   );
 }
 
@@ -787,9 +900,20 @@ function InfoBox({
         {label}
       </div>
       <div className="mt-2 break-words text-sm font-semibold text-[#F4EFE6]">
-        {value === null || value === undefined || String(value).trim() === ""
-          ? "—"
-          : String(value)}
+        {getDisplayValue(value)}
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#8E8170]">
+        {label}
+      </div>
+      <div className="mt-1 truncate text-xs font-bold text-[#F4EFE6]">
+        {String(value)}
       </div>
     </div>
   );
@@ -819,9 +943,7 @@ function SmallPill({
     <span className="rounded-full border border-[#3A3328] bg-[#17130F] px-3 py-1 text-xs text-[#D8CBB8]">
       <span className="text-[#8E8170]">{label}: </span>
       <span className="font-semibold text-[#F4EFE6]">
-        {value === null || value === undefined || String(value).trim() === ""
-          ? "—"
-          : String(value)}
+        {getDisplayValue(value)}
       </span>
     </span>
   );
