@@ -560,6 +560,7 @@ export async function pullBatchMissingCovers(limit = 10) {
       updated: 0,
       skipped: 0,
       failed: 0,
+      updatedRecords: [],
     };
   }
 
@@ -568,6 +569,13 @@ export async function pullBatchMissingCovers(limit = 10) {
   let updated = 0;
   let skipped = 0;
   let failed = 0;
+
+  const updatedRecords: {
+    id: string;
+    artist: string | null;
+    title: string | null;
+    coverUrl: string;
+  }[] = [];
 
   for (const record of queue) {
     try {
@@ -600,7 +608,8 @@ export async function pullBatchMissingCovers(limit = 10) {
         releaseData.images?.find((image) => image.type === "primary") ??
         releaseData.images?.[0];
 
-      const coverUrl = primaryImage?.uri150?.trim() || primaryImage?.uri?.trim();
+      const coverUrl =
+        primaryImage?.uri150?.trim() || primaryImage?.uri?.trim();
 
       if (!coverUrl) {
         skipped++;
@@ -619,6 +628,12 @@ export async function pullBatchMissingCovers(limit = 10) {
         failed++;
       } else {
         updated++;
+        updatedRecords.push({
+          id: record.id,
+          artist: record.artist,
+          title: record.title,
+          coverUrl,
+        });
       }
 
       await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -638,5 +653,6 @@ export async function pullBatchMissingCovers(limit = 10) {
     updated,
     skipped,
     failed,
+    updatedRecords,
   };
 }

@@ -1,20 +1,11 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import {
   getValueQueue,
   getMissingCoverQueue,
-  pullBatchDiscogsValues,
-  pullBatchMissingCovers,
   type ValueQueueRecord,
   type MissingCoverRecord,
 } from "../../actions/value-queue";
-
-type ValueQueuePageProps = {
-  searchParams?: Promise<{
-    pulled?: string;
-    covers?: string;
-  }>;
-};
+import EnrichmentQueueActions from "./EnrichmentQueueActions";
 
 function formatMoney(value: string | number | null | undefined) {
   if (value === null || value === undefined || String(value).trim() === "") {
@@ -53,13 +44,14 @@ function formatDate(value: string | null | undefined) {
 }
 
 function priorityLabel(priority: number) {
-  if (priority === 1) return "Purchase / No Value";
-  if (priority === 2) return "Missing Discogs";
-  if (priority === 3) return "Missing Estimate";
-  if (priority === 4) return "Never Updated";
-  if (priority === 50) return "Discogs Error";
+  if (priority === 1) return "Discogs Error Retry";
+  if (priority === 2) return "Purchase / No Value";
+  if (priority === 3) return "Missing Discogs Median";
+  if (priority === 4) return "Missing Estimate";
+  if (priority === 5) return "Never Updated";
   if (priority === 98) return "Missing Release ID";
   if (priority === 99) return "Unavailable";
+  if (priority === 100) return "Blocked";
   return "Routine Refresh";
 }
 
@@ -68,11 +60,11 @@ function priorityTone(priority: number) {
     return "border-red-400/40 bg-red-400/10 text-red-100";
   }
 
-  if (priority === 2 || priority === 3) {
+  if (priority === 2 || priority === 3 || priority === 4) {
     return "border-orange-300/40 bg-orange-300/10 text-orange-100";
   }
 
-  if (priority === 4 || priority === 50) {
+  if (priority === 5) {
     return "border-yellow-300/40 bg-yellow-300/10 text-yellow-100";
   }
 
@@ -104,37 +96,10 @@ function statusTone(status: string | null | undefined) {
   return "border-[#C7A45D]/45 bg-[#C7A45D]/15 text-[#F4EFE6]";
 }
 
-function buildReturnPath(showPullNotice: boolean, showCoverNotice: boolean) {
-  if (showPullNotice) return "/collection/value-queue?pulled=1";
-  if (showCoverNotice) return "/collection/value-queue?covers=1";
-  return "/collection/value-queue";
-}
-
-export default async function ValueQueuePage({
-  searchParams,
-}: ValueQueuePageProps) {
-  const resolvedSearchParams = (await searchParams) ?? {};
-  const showPullNotice = resolvedSearchParams.pulled === "1";
-  const showCoverNotice = resolvedSearchParams.covers === "1";
-  const returnPath = buildReturnPath(showPullNotice, showCoverNotice);
-
-  async function pullNextTenAction() {
-    "use server";
-
-    await pullBatchDiscogsValues(10);
-    redirect("/collection/value-queue?pulled=1");
-  }
-
-  async function pullMissingCoversAction() {
-    "use server";
-
-    await pullBatchMissingCovers(10);
-    redirect("/collection/value-queue?covers=1");
-  }
-
-let queue: ValueQueueRecord[] = [];
-let missingCoverQueue: MissingCoverRecord[] = [];
-let loadError: string | null = null;
+export default async function ValueQueuePage() {
+  let queue: ValueQueueRecord[] = [];
+  let missingCoverQueue: MissingCoverRecord[] = [];
+  let loadError: string | null = null;
 
   try {
     queue = await getValueQueue();
@@ -143,22 +108,26 @@ let loadError: string | null = null;
     loadError =
       error instanceof Error
         ? error.message
-        : "Unknown error while loading value queue.";
+        : "Unknown error while loading enrichment queue.";
   }
 
-  const missingDiscogsCount = queue.filter(
-    (record) =>
-      !record.discogs_median_price ||
-      Number(String(record.discogs_median_price).replace(/[$,]/g, "")) <= 0,
-  ).length;
+  const missingDiscogsCount = queue.filter((record) => {
+    const numeric = Number(
+      String(record.discogs_median_price ?? "").replace(/[$,]/g, ""),
+    );
 
-  const missingEstimateCount = queue.filter(
-    (record) =>
-      !record.estimated_value ||
-      Number(String(record.estimated_value).replace(/[$,]/g, "")) <= 0,
-  ).length;
+    return !Number.isFinite(numeric) || numeric <= 0;
+  }).length;
 
- const missingCoverCount = missingCoverQueue.length;
+  const missingEstimateCount = queue.filter((record) => {
+    const numeric = Number(
+      String(record.estimated_value ?? "").replace(/[$,]/g, ""),
+    );
+
+    return !Number.isFinite(numeric) || numeric <= 0;
+  }).length;
+
+  const missingCoverCount = missingCoverQueue.length;
 
   const errorCount = queue.filter(
     (record) => record.value_pull_status === "discogs_error",
@@ -168,6 +137,7 @@ let loadError: string | null = null;
     const numeric = Number(
       String(record.estimated_value ?? 0).replace(/[$,]/g, ""),
     );
+
     return sum + (Number.isFinite(numeric) ? numeric : 0);
   }, 0);
 
@@ -178,32 +148,19 @@ let loadError: string | null = null;
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="inline-flex rounded-full border border-[#8F6F35]/45 bg-[#C7A45D]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
-                Discogs Value Pull Queue
+                Data Enrichment Queue
               </div>
 
               <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-                Records Ready for Value Intelligence
+                Pull Missing Values and Album Art
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#B8AA96]">
-                This queue is connected directly to the Discogs value pull
-                action. It prioritizes records with a Discogs release ID that
-                need estimated value, median price support, refreshed value
-                timestamps, or missing cover recovery.
+                This is the execution workspace for Discogs enrichment. Use it
+                to pull missing value intelligence and recover album cover art.
+                The Value Dashboard is for analysis; this page is for getting
+                the data filled in.
               </p>
-
-              {showPullNotice && (
-                <p className="mt-4 rounded-2xl border border-[#7FA36B]/35 bg-[#7FA36B]/12 px-4 py-3 text-sm font-semibold text-[#BDE0A8]">
-                  Pull Next 10 completed. The queue has been refreshed.
-                </p>
-              )}
-
-              {showCoverNotice && (
-                <p className="mt-4 rounded-2xl border border-[#7FA36B]/35 bg-[#7FA36B]/12 px-4 py-3 text-sm font-semibold text-[#BDE0A8]">
-                  Missing cover batch pull completed. The queue has been
-                  refreshed.
-                </p>
-              )}
 
               {loadError && (
                 <p className="mt-4 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">
@@ -227,38 +184,27 @@ let loadError: string | null = null;
                 Value Dashboard
               </Link>
 
-              <form action={pullMissingCoversAction}>
-                <button
-                  type="submit"
-                  className="rounded-2xl border border-[#C7A45D]/60 bg-[#17130F] px-5 py-3 text-sm font-semibold text-[#F4EFE6] transition hover:bg-[#C7A45D]/18"
-                >
-                  Pull Missing Covers
-                </button>
-              </form>
-
-              <form action={pullNextTenAction}>
-                <button
-                  type="submit"
-                  className="rounded-2xl bg-gradient-to-r from-[#C7A45D] to-[#8F6F35] px-5 py-3 text-sm font-semibold text-[#11100E] transition hover:opacity-90"
-                >
-                  Pull Next 10
-                </button>
-              </form>
+              <Link
+                href="/collection/market-intelligence"
+                className="rounded-2xl border border-[#8F6F35]/50 bg-[#C7A45D]/10 px-5 py-3 text-sm font-semibold text-[#F4EFE6] transition hover:bg-[#C7A45D]/18"
+              >
+                Market Intelligence
+              </Link>
             </div>
           </div>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <QueueMetric
-            label="Queue Records"
+            label="Value Queue"
             value={formatNumber(queue.length)}
-            helper="Records currently eligible for value pull."
+            helper="Records currently eligible for value enrichment."
           />
 
           <QueueMetric
-            label="Missing Discogs"
+            label="Missing Median"
             value={formatNumber(missingDiscogsCount)}
-            helper="Records without Discogs median support."
+            helper="Records without Discogs median value support."
           />
 
           <QueueMetric
@@ -270,32 +216,34 @@ let loadError: string | null = null;
           <QueueMetric
             label="Missing Covers"
             value={formatNumber(missingCoverCount)}
-            helper="Records with Discogs IDs but no cover image."
+            helper="Records with Discogs IDs but no album art."
           />
 
           <QueueMetric
             label="Queue Value"
             value={formatMoney(totalQueueValue)}
-            helper="Current estimated value represented in queue."
+            helper="Estimated value represented in the active queue."
           />
         </section>
+
+        <EnrichmentQueueActions />
 
         <section className="rounded-[28px] border border-[#3A3328] bg-[linear-gradient(180deg,_rgba(26,24,21,0.96),_rgba(17,16,14,0.94))] p-5 shadow-xl">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.32em] text-[#B8AA96]">
-                Corrected Queue Logic
+                Page Purpose
               </div>
 
               <p className="mt-2 text-sm leading-6 text-[#D8CBB8]">
-                This page uses the same server actions that pull Discogs values
-                and Discogs cover images, so the page and buttons work from the
-                same logic.
+                This page is not the same as the Value Dashboard. The dashboard
+                explains value. This page performs enrichment work: value pulls,
+                cover recovery, and queue cleanup.
               </p>
             </div>
 
             <div className="rounded-2xl border border-[#C7A45D]/35 bg-[#C7A45D]/10 px-4 py-3 text-sm font-semibold text-[#F4EFE6]">
-              Single source of truth
+              Execution layer
             </div>
           </div>
         </section>
@@ -304,7 +252,7 @@ let loadError: string | null = null;
           <section className="rounded-[32px] border border-[#3A3328] bg-gradient-to-br from-[#0E0C0A] via-[#221F1A] to-[#0E0C0A] p-10 text-center shadow-2xl shadow-black/30">
             <div className="mx-auto max-w-xl">
               <div className="inline-flex rounded-full border border-[#7FA36B]/45 bg-[#7FA36B]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#BDE0A8]">
-                Queue Clear
+                Value Queue Clear
               </div>
 
               <h2 className="mt-5 text-2xl font-semibold tracking-tight">
@@ -312,20 +260,35 @@ let loadError: string | null = null;
               </h2>
 
               <p className="mt-3 text-sm leading-7 text-[#D8CBB8]">
-                Either the visible records already have value data, or no
-                eligible Discogs release IDs are currently available.
+                Your value queue is clear. If the Missing Covers count is still
+                above zero, use the cover recovery button above.
               </p>
             </div>
           </section>
         ) : (
           <section className="space-y-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.32em] text-[#B8AA96]">
+                  Active Value Queue
+                </div>
+
+                <h2 className="mt-2 text-2xl font-bold">
+                  Records needing value enrichment
+                </h2>
+              </div>
+
+              {errorCount > 0 && (
+                <div className="rounded-2xl border border-red-400/35 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-100">
+                  {formatNumber(errorCount)} Discogs error records need retry
+                </div>
+              )}
+            </div>
+
             {queue.map((record) => {
-              const recordHref =
-                record.id !== null && record.id !== undefined
-                  ? `/collection/${record.id}?returnTo=${encodeURIComponent(
-                      returnPath,
-                    )}`
-                  : returnPath;
+              const recordHref = `/collection/${record.id}?returnTo=${encodeURIComponent(
+                "/collection/value-queue",
+              )}`;
 
               return (
                 <article
