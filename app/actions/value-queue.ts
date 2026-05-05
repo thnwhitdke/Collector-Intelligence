@@ -91,6 +91,12 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
+function hasUsableReleaseId(value: unknown): boolean {
+  if (typeof value === "number") return Number.isFinite(value) && value > 0;
+  if (typeof value === "string") return value.trim().length > 0;
+  return false;
+}
+
 function getMedianEstimate(data: DiscogsPriceSuggestionsResponse): number | null {
   const preferred = [
     "Near Mint (NM or M-)",
@@ -118,6 +124,28 @@ function getMedianEstimate(data: DiscogsPriceSuggestionsResponse): number | null
       : allValues[middle];
 
   return Number(median.toFixed(2));
+}
+
+function shouldIncludeInValueQueue(record: RawQueueRecord): boolean {
+  if (record.discogs_sale_blocked === true) return false;
+  if (!hasUsableReleaseId(record.discogs_release_id)) return false;
+
+  if (record.value_pull_status === "pulled_successfully") return false;
+  if (record.value_pull_status === "no_discogs_value_available") return false;
+
+  const median = toNumber(record.discogs_median_price);
+  const estimated = toNumber(record.estimated_value);
+
+  const hasMissingMedian = median === null || median <= 0;
+  const hasMissingEstimate = estimated === null || estimated <= 0;
+
+  const retryable =
+    !record.value_pull_status ||
+    record.value_pull_status === "needs_pull" ||
+    record.value_pull_status === "discogs_error" ||
+    record.value_pull_status === "missing_release_id";
+
+  return retryable || hasMissingMedian || hasMissingEstimate;
 }
 
 function getQueuePriority(record: RawQueueRecord): number {
@@ -204,90 +232,103 @@ export async function getValueQueue() {
   const supabase = await createClient();
   const userId = await getCurrentUserId();
 
-  const { data, error } = await supabase
-    .from("records_clean_safe")
-    .select(
-      `
-      id,
-      artist,
-      title,
-      format,
-      year_released,
-      label,
-      catalogue_number,
-      discogs_release_id,
-      estimated_value,
-      discogs_low_price,
-      discogs_median_price,
-      discogs_high_price,
-      value_last_updated,
-      value_source,
-      cover_url,
-      purchase_price,
-      value_pull_status,
-      value_pull_note,
-      value_pull_last_attempted_at,
-      discogs_sale_blocked,
-      discogs_sale_blocked_reason
-    `,
-    )
-    .eq("user_id", userId)
-    .not("discogs_release_id", "is", null)
-    .limit(250);
+  const pageSize = 1000;
+  const maxRowsToScan = 6000;
+  const allRecords: RawQueueRecord[] = [];
 
-  if (error) {
-    throw new Error(error.message);
+  for (let start = 0; start < maxRowsToScan; start += pageSize) {
+    const end = start + pageSize - 1;
+
+    const { data, error } = await supabase
+      .from("records_clean_safe")
+      .select(
+        `
+        id,
+        artist,
+        title,
+        format,
+        year_released,
+        label,
+        catalogue_number,
+        discogs_release_id,
+        estimated_value,
+        discogs_low_price,
+        discogs_median_price,
+        discogs_high_price,
+        value_last_updated,
+        value_source,
+        cover_url,
+        purchase_price,
+        value_pull_status,
+        value_pull_note,
+        value_pull_last_attempted_at,
+        discogs_sale_blocked,
+        discogs_sale_blocked_reason
+      `,
+      )
+      .eq("user_id", userId)
+      .not("discogs_release_id", "is", null)
+      .order("id", { ascending: true })
+      .range(start, end);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const records = (data ?? []) as RawQueueRecord[];
+    allRecords.push(...records);
+
+    if (records.length < pageSize) break;
   }
 
-  const cleanQueue = (data ?? []).filter((record) => {
-    const raw = record as RawQueueRecord;
+  const cleanQueue = allRecords.filter(shouldIncludeInValueQueue);
 
-    if (raw.discogs_sale_blocked === true) return false;
-
-    const median = toNumber(raw.discogs_median_price);
-    const estimated = toNumber(raw.estimated_value);
-
-    const hasMissingMedian = median === null || median <= 0;
-    const hasMissingEstimate = estimated === null || estimated <= 0;
-
-    const needsStatus =
-      !raw.value_pull_status ||
-      raw.value_pull_status === "needs_pull" ||
-      raw.value_pull_status === "discogs_error" ||
-      raw.value_pull_status === "missing_release_id";
-
-    return needsStatus || hasMissingMedian || hasMissingEstimate;
-  });
-
-  return sortQueueRecords(cleanQueue as RawQueueRecord[]).slice(0, 50);
+  return sortQueueRecords(cleanQueue).slice(0, 50);
 }
 
 export async function getMissingCoverQueue(limit = 50) {
   const supabase = await createClient();
   const userId = await getCurrentUserId();
 
-  const { data, error } = await supabase
-    .from("records_clean_safe")
-    .select(
-      `
-      id,
-      artist,
-      title,
-      discogs_release_id,
-      cover_url
-    `,
-    )
-    .eq("user_id", userId)
-    .not("discogs_release_id", "is", null)
-    .or("cover_url.is.null,cover_url.eq.")
-    .order("id", { ascending: true })
-    .limit(limit);
+  const pageSize = 1000;
+  const maxRowsToScan = 6000;
+  const allRecords: MissingCoverRecord[] = [];
 
-  if (error) {
-    throw new Error(error.message);
+  for (let start = 0; start < maxRowsToScan; start += pageSize) {
+    const end = start + pageSize - 1;
+
+    const { data, error } = await supabase
+      .from("records_clean_safe")
+      .select(
+        `
+        id,
+        artist,
+        title,
+        discogs_release_id,
+        cover_url
+      `,
+      )
+      .eq("user_id", userId)
+      .not("discogs_release_id", "is", null)
+      .order("id", { ascending: true })
+      .range(start, end);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const records = ((data ?? []) as MissingCoverRecord[]).filter((record) => {
+      const cover = typeof record.cover_url === "string" ? record.cover_url.trim() : "";
+      return hasUsableReleaseId(record.discogs_release_id) && cover.length === 0;
+    });
+
+    allRecords.push(...records);
+
+    if ((data ?? []).length < pageSize) break;
+    if (allRecords.length >= limit) break;
   }
 
-  return (data ?? []) as MissingCoverRecord[];
+  return allRecords.slice(0, limit);
 }
 
 export async function pullBatchDiscogsValues(limit = 10) {
