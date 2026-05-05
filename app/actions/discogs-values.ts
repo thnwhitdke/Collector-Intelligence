@@ -121,14 +121,16 @@ export async function pullNextDiscogsValues(batchSize = 5) {
 
   const safeBatchSize = Math.max(1, Math.min(batchSize, 10));
 
-  const { data: candidates, error } = await supabase
-    .from("records_clean_safe")
-    .select("id,discogs_release_id")
-    .eq("user_id", user.id)
-    .is("estimated_value", null)
-    .or("discogs_sale_blocked.is.null,discogs_sale_blocked.eq.false")
-    .not("discogs_release_id", "is", null)
-    .limit(safeBatchSize);
+ const { data: candidates, error } = await supabase
+  .from("records_clean_safe")
+  .select("id,discogs_release_id")
+  .eq("user_id", user.id)
+  .or(
+    "discogs_low_price.is.null,discogs_median_price.is.null,discogs_high_price.is.null,value_last_updated.is.null"
+  )
+  .or("discogs_sale_blocked.is.null,discogs_sale_blocked.eq.false")
+  .not("discogs_release_id", "is", null)
+  .limit(safeBatchSize);
 
   if (error) {
     console.error("pullNextDiscogsValues candidate error:", error);
