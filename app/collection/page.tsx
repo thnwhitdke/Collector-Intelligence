@@ -558,12 +558,12 @@ export default async function CollectionPage({
 
       <div className="mx-auto max-w-7xl px-6 pt-6">
         <CollectionValueBar
-          totalEstimatedValue={summary.totalEstimatedValue}
-          totalPurchaseValue={summary.totalPurchaseValue}
-          totalGainLoss={summary.totalGainLoss}
-          totalRecords={summary.totalRecords}
-          missingValueCount={summary.missingValueCount}
-        />
+  totalEstimatedValue={summary.totalEstimatedValue}
+  totalPurchaseValue={summary.totalPurchaseCost}
+  totalGainLoss={summary.totalEstimatedValue - summary.totalPurchaseCost}
+  totalRecords={summary.totalRecords}
+  missingValueCount={summary.recordsNeedingValuePull}
+/>
       </div>
 
       <TopValueRecordsPanel
