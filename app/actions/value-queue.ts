@@ -244,8 +244,13 @@ export async function getValueQueue() {
     const raw = record as RawQueueRecord;
 
     if (raw.discogs_sale_blocked === true) return false;
-    if (raw.value_pull_status === "pulled_successfully") return false;
-    if (raw.value_pull_status === "no_discogs_value_available") return false;
+    return (
+  !raw.value_pull_status ||
+  raw.value_pull_status === "needs_pull" ||
+  raw.value_pull_status === "discogs_error" ||
+  raw.value_pull_status === "missing_release_id" ||
+  raw.value_pull_status === "pulled_successfully" // 👈 allow re-pulls
+);
 
     const hasMissingMedian =
       toNumber(raw.discogs_median_price) === null ||
