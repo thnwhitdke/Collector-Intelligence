@@ -131,17 +131,16 @@ function getQueuePriority(record: RawQueueRecord): number {
   const hasDiscogsMedian = typeof discogsMedian === "number" && discogsMedian > 0;
 
   if (record.discogs_sale_blocked === true) return 100;
-  if (record.value_pull_status === "pulled_successfully") return 100;
   if (record.value_pull_status === "no_discogs_value_available") return 99;
   if (record.value_pull_status === "missing_release_id") return 98;
-  if (record.value_pull_status === "discogs_error") return 50;
+  if (record.value_pull_status === "discogs_error") return 1;
 
-  if (hasPurchasePrice && !hasEstimatedValue) return 1;
-  if (!hasDiscogsMedian) return 2;
-  if (!hasEstimatedValue) return 3;
-  if (!record.value_last_updated) return 4;
+  if (hasPurchasePrice && !hasEstimatedValue) return 2;
+  if (!hasDiscogsMedian) return 3;
+  if (!hasEstimatedValue) return 4;
+  if (!record.value_last_updated) return 5;
 
-  return 5;
+  return 6;
 }
 
 function sortQueueRecords(records: RawQueueRecord[]): ValueQueueRecord[] {
@@ -244,21 +243,12 @@ export async function getValueQueue() {
     const raw = record as RawQueueRecord;
 
     if (raw.discogs_sale_blocked === true) return false;
-    return (
-  !raw.value_pull_status ||
-  raw.value_pull_status === "needs_pull" ||
-  raw.value_pull_status === "discogs_error" ||
-  raw.value_pull_status === "missing_release_id" ||
-  raw.value_pull_status === "pulled_successfully" // 👈 allow re-pulls
-);
 
-    const hasMissingMedian =
-      toNumber(raw.discogs_median_price) === null ||
-      Number(toNumber(raw.discogs_median_price)) <= 0;
+    const median = toNumber(raw.discogs_median_price);
+    const estimated = toNumber(raw.estimated_value);
 
-    const hasMissingEstimate =
-      toNumber(raw.estimated_value) === null ||
-      Number(toNumber(raw.estimated_value)) <= 0;
+    const hasMissingMedian = median === null || median <= 0;
+    const hasMissingEstimate = estimated === null || estimated <= 0;
 
     const needsStatus =
       !raw.value_pull_status ||
