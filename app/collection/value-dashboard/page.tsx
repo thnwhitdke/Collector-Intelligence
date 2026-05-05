@@ -175,6 +175,37 @@ function enrichRecord(record: ValueRecord): EnrichedValueRecord {
   };
 }
 
+async function fetchAllValueRecords(userId: string): Promise<ValueRecord[]> {
+  const supabase = await createClient();
+  const pageSize = 1000;
+  const maxRowsToScan = 6000;
+  const allRecords: ValueRecord[] = [];
+
+  for (let start = 0; start < maxRowsToScan; start += pageSize) {
+    const end = start + pageSize - 1;
+
+    const { data, error } = await supabase
+      .from("records_clean_safe")
+      .select(
+        "id, artist, title, format, purchase_price, estimated_value, discogs_low_price, discogs_median_price, discogs_high_price, value_source, value_last_updated, price_history"
+      )
+      .eq("user_id", userId)
+      .order("id", { ascending: true })
+      .range(start, end);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const records = (data ?? []) as ValueRecord[];
+    allRecords.push(...records);
+
+    if (records.length < pageSize) break;
+  }
+
+  return allRecords;
+}
+
 function Sparkline({
   history,
 }: {
@@ -336,21 +367,31 @@ function MiniRecordCard({
 export default async function ValueDashboardPage() {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const userId = user?.id ?? "";
+
   const { data: records } = await supabase
     .from("records_clean_safe")
     .select(
       "id, artist, title, format, purchase_price, estimated_value, discogs_low_price, discogs_median_price, discogs_high_price, value_source, value_last_updated, price_history"
     )
+    .eq("user_id", userId)
     .order("estimated_value", { ascending: false, nullsFirst: false })
     .limit(150);
 
-  const safeRecords = ((records || []) as ValueRecord[]).map(enrichRecord);
+  const fullRecordsRaw = userId ? await fetchAllValueRecords(userId) : [];
 
-  const recordsWithEstimatedValues = safeRecords.filter(
+  const safeRecords = ((records || []) as ValueRecord[]).map(enrichRecord);
+  const fullRecords = fullRecordsRaw.map(enrichRecord);
+
+  const recordsWithEstimatedValues = fullRecords.filter(
     (record) => typeof record.estimated_value_number === "number"
   );
 
-  const recordsWithPurchaseValues = safeRecords.filter(
+  const recordsWithPurchaseValues = fullRecords.filter(
     (record) =>
       typeof record.purchase_price_number === "number" &&
       record.purchase_price_number > 0
@@ -376,13 +417,21 @@ export default async function ValueDashboardPage() {
       ? Number(((valueDelta / totalPurchaseValue) * 100).toFixed(1))
       : null;
 
+  const { count: needsValueCountFull } = await supabase
+    .from("records_clean_safe")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .not("discogs_release_id", "is", null)
+    .or("discogs_sale_blocked.is.null,discogs_sale_blocked.eq.false")
+    .or("discogs_median_price.is.null,estimated_value.is.null")
+    .or(
+      "value_pull_status.is.null,value_pull_status.in.(needs_pull,discogs_error,missing_release_id)"
+    );
+
   const valuedCount = recordsWithEstimatedValues.length;
+  const needsValueCount = needsValueCountFull ?? 0;
 
-  const needsValueCount = safeRecords.filter(
-    (record) => record.estimated_value_number === null
-  ).length;
-
-  const recordsWithPurchaseAndValue = safeRecords.filter(
+  const recordsWithPurchaseAndValue = fullRecords.filter(
     (record) =>
       typeof record.estimated_value_number === "number" &&
       typeof record.purchase_price_number === "number" &&
@@ -403,15 +452,15 @@ export default async function ValueDashboardPage() {
     .sort((a, b) => (b.roi_percent || 0) - (a.roi_percent || 0))
     .slice(0, 3);
 
-  const risingCount = safeRecords.filter(
+  const risingCount = fullRecords.filter(
     (record) => record.trend_direction === "Rising"
   ).length;
 
-  const fallingCount = safeRecords.filter(
+  const fallingCount = fullRecords.filter(
     (record) => record.trend_direction === "Falling"
   ).length;
 
-  const stableCount = safeRecords.filter(
+  const stableCount = fullRecords.filter(
     (record) => record.trend_direction === "Stable"
   ).length;
 
