@@ -620,12 +620,6 @@ export async function refreshCoverFromDiscogs(formData: FormData) {
     throw new Error("Could not load record for cover refresh.");
   }
 
-  if (record.cover_url) {
-    revalidatePath("/collection");
-    revalidatePath(`/collection/${id}`);
-    return;
-  }
-
   const releaseId =
     record.discogs_release_id ||
     extractDiscogsReleaseIdFromUrl(record.discogs_url);

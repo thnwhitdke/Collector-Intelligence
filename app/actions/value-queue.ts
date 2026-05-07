@@ -609,7 +609,7 @@ export async function pullBatchMissingCovers(limit = 10) {
         releaseData.images?.[0];
 
       const coverUrl =
-        primaryImage?.uri150?.trim() || primaryImage?.uri?.trim();
+        primaryImage?.uri?.trim() || primaryImage?.uri150?.trim();
 
       if (!coverUrl) {
         skipped++;

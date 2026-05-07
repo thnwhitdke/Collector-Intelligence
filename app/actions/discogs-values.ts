@@ -121,16 +121,23 @@ export async function pullNextDiscogsValues(batchSize = 5) {
 
   const safeBatchSize = Math.max(1, Math.min(batchSize, 10));
 
- const { data: candidates, error } = await supabase
+const { data: candidates, error } = await supabase
   .from("records_clean_safe")
-  .select("id,discogs_release_id")
+  .select("id, discogs_release_id, estimated_value, discogs_median_price, discogs_sale_blocked")
   .eq("user_id", user.id)
-  .or(
-    "discogs_low_price.is.null,discogs_median_price.is.null,discogs_high_price.is.null,value_last_updated.is.null"
-  )
-  .or("discogs_sale_blocked.is.null,discogs_sale_blocked.eq.false")
   .not("discogs_release_id", "is", null)
-  .limit(safeBatchSize);
+  .eq("discogs_sale_blocked", false)
+  .limit(100);
+
+  const filteredCandidates = (candidates || []).filter((r) => {
+  const median = toNumber(r.discogs_median_price);
+  const estimate = toNumber(r.estimated_value);
+
+  const missingMedian = median === null || median <= 0;
+  const missingEstimate = estimate === null || estimate <= 0;
+
+  return missingMedian || missingEstimate;
+}).slice(0, safeBatchSize);
 
   if (error) {
     console.error("pullNextDiscogsValues candidate error:", error);
@@ -157,7 +164,7 @@ export async function pullNextDiscogsValues(batchSize = 5) {
   let blocked = 0;
   let failed = 0;
 
-  for (const candidate of candidates) {
+  for (const candidate of filteredCandidates) {
     const id = String(candidate.id);
     const releaseId = normalizeDiscogsId(candidate.discogs_release_id);
 
