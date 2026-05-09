@@ -23,7 +23,7 @@ export async function GET() {
       await supabase
         .from("records_clean_safe")
         .select("*")
-        .limit(10);
+        .limit(100);
 
     if (error) {
       console.error(
@@ -127,6 +127,11 @@ export async function GET() {
         );
 
         enriched++;
+
+        // gentle delay to reduce Discogs rate limiting
+        await new Promise((resolve) =>
+          setTimeout(resolve, 250)
+        );
 
       } catch (recordError) {
         console.error(
