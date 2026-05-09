@@ -2,15 +2,16 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
 export async function GET() {
   try {
     console.log("========== ENRICHMENT START ==========");
 
-    const DISCOGS_TOKEN = process.env.DISCOGS_TOKEN;
+    const DISCOGS_TOKEN =
+      process.env.DISCOGS_TOKEN;
 
     if (!DISCOGS_TOKEN) {
       return NextResponse.json({
@@ -18,27 +19,34 @@ export async function GET() {
       });
     }
 
-    const { data: records, error } = await supabase
-      .from("records_clean_safe")
-      .select("*")
-      .limit(10);
+    const { data: records, error } =
+      await supabase
+        .from("records_clean_safe")
+        .select("*")
+        .limit(10);
 
     if (error) {
-      console.error("SUPABASE FETCH ERROR:", error);
+      console.error(
+        "SUPABASE FETCH ERROR:",
+        error
+      );
 
       return NextResponse.json({
         error: error.message,
       });
     }
 
-    console.log("RECORDS FOUND:", records?.length);
+    console.log(
+      "RECORDS FOUND:",
+      records?.length
+    );
 
     let enriched = 0;
 
     for (const record of records || []) {
       try {
         const query = encodeURIComponent(
-          `${record.artist} ${record.title}`
+          `${record.artist || ""} ${record.title || ""}`
         );
 
         console.log("SEARCHING:", query);
@@ -47,27 +55,50 @@ export async function GET() {
           `https://api.discogs.com/database/search?q=${query}&type=release&token=${DISCOGS_TOKEN}`,
           {
             headers: {
-              "User-Agent": "CollectorIntelligence/1.0",
+              "User-Agent":
+                "CollectorIntelligence/1.0",
             },
           }
         );
 
         const data = await response.json();
 
-        const result = data.results?.[0];
+        const result =
+          data?.results?.[0];
 
         if (!result) {
-          console.log("NO MATCH:", query);
+          console.log(
+            "NO MATCH:",
+            query
+          );
+
           continue;
         }
 
-        console.log("MATCH FOUND:", result.title);
+        console.log(
+          "MATCH FOUND:",
+          result.title
+        );
 
         const updatePayload = {
-          country: result.country || record.country,
-          genre: result.genre?.join(", ") || record.genre,
-          cover_url: result.cover_image || record.cover_url,
-          discogs_release_id: result.id,
+          country:
+            result.country ||
+            record.country ||
+            null,
+
+          genre: Array.isArray(
+            result.genre
+          )
+            ? result.genre.join(", ")
+            : record.genre || null,
+
+          cover_url:
+            result.cover_image ||
+            record.cover_url ||
+            null,
+
+          discogs_release_id:
+            result.id || null,
         };
 
         console.log(
@@ -75,10 +106,11 @@ export async function GET() {
           updatePayload
         );
 
-        const { error: updateError } = await supabase
-          .from("records_clean_safe")
-          .update(updatePayload)
-          .eq("id", record.id);
+        const { error: updateError } =
+          await supabase
+            .from("records_clean_safe")
+            .update(updatePayload)
+            .eq("id", record.id);
 
         if (updateError) {
           console.error(
@@ -96,10 +128,10 @@ export async function GET() {
 
         enriched++;
 
-      } catch (err) {
+      } catch (recordError) {
         console.error(
           "RECORD FAILURE:",
-          err
+          recordError
         );
       }
     }
@@ -115,14 +147,14 @@ export async function GET() {
       message: `Enrichment complete. Updated ${enriched} records.`,
     });
 
-  } catch (error: any) {
+  } catch (routeError) {
     console.error(
       "ROUTE FAILURE:",
-      error
+      routeError
     );
 
     return NextResponse.json({
-      error: error.message || "Unknown error",
+      error: "Unknown route error",
     });
   }
 }
