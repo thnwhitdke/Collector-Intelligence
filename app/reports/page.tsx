@@ -500,7 +500,11 @@ export default async function ReportsPage() {
             ).length
           }
         />
-
+<div className="mt-10">
+  <GlobalMap
+    countryTotals={countryTotals}
+  />
+</div>
       </div>
 
     </div>

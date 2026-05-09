@@ -1,57 +1,74 @@
-"use client";
-
-import { WorldMap } from "react-svg-worldmap";
-
 type Props = {
-  countryCounts: Record<string, number>;
+  countryTotals: Record<string, number>;
 };
 
-function convertCountryToISO(country: string) {
-  const mapping: Record<string, string> = {
-    USA: "us",
-    "United States": "us",
-    UK: "gb",
-    "United Kingdom": "gb",
-    Germany: "de",
-    France: "fr",
-    Japan: "jp",
-    Canada: "ca",
-    Italy: "it",
-    Australia: "au",
-    Netherlands: "nl",
-    Sweden: "se",
-  };
-
-  return mapping[country] || "us";
-}
-
 export default function GlobalMap({
-  countryCounts,
+  countryTotals,
 }: Props) {
-  const data = Object.entries(countryCounts).map(
-    ([country, value]) => ({
-      country: convertCountryToISO(country) as any,
-      value,
-    })
-  );
+
+  const countries =
+    Object.entries(countryTotals);
 
   return (
-    <div className="bg-zinc-950 border border-yellow-900/20 rounded-3xl p-6">
-      <h2 className="text-3xl font-bold mb-6">
-        Collection Density Map
-      </h2>
 
-      <div className="bg-black rounded-2xl p-4">
-        <WorldMap
-          color="#facc15"
-          title=""
-          size="responsive"
-          data={data}
-         tooltipTextFunction={(context: any) =>
-  `${context.countryName}: ${context.value || 0} records`
-}
-        />
+    <div
+      className="
+        rounded-2xl
+        border
+        border-[#2A241D]
+        bg-[#17130F]
+        p-6
+        min-h-[400px]
+      "
+    >
+
+      <div className="mb-6">
+
+        <h3 className="text-2xl font-bold">
+          Global Collection Density
+        </h3>
+
+        <p className="text-[#9A8F80] mt-2">
+          Collection value by country
+        </p>
+
       </div>
+
+      <div className="space-y-3">
+
+        {countries
+          .slice(0, 20)
+          .map(([country, value]) => (
+
+            <div
+              key={country}
+              className="
+                flex
+                items-center
+                justify-between
+                border-b
+                border-[#2A241D]
+                pb-2
+              "
+            >
+
+              <span>
+                {country}
+              </span>
+
+              <span className="text-[#C7A45D] font-bold">
+                $
+                {Number(value).toLocaleString()}
+              </span>
+
+            </div>
+
+          ))}
+
+      </div>
+
     </div>
+
   );
+
 }
