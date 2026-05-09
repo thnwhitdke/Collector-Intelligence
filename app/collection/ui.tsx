@@ -404,6 +404,11 @@ export function CollectionUI({
                 primary
               />
               <ActionLink
+                href="/reports"
+                label="Reports & Analytics"
+                primary
+              />
+              <ActionLink
                 href="/collection/market-intelligence"
                 label="Market Intelligence"
               />

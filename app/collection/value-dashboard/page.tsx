@@ -1,786 +1,531 @@
-import Link from "next/link";
-import { createClient } from "@/src/lib/supabase/server";
-import MarketSnapshotButton from "@/app/components/MarketSnapshotButton";
-import DiscogsValuePullButton from "./DiscogsValuePullButton";
+"use client";
 
-type PriceHistoryEntry = {
-  date?: string;
-  pulled_at?: string;
-  low: number | string | null;
-  median: number | string | null;
-  high: number | string | null;
-  estimated: number | string | null;
-  source: string;
-};
+import { useState } from "react";
+import useSWR from "swr";
+import { WorldMap } from "react-svg-worldmap";
 
-type ValueRecord = {
-  id: string;
-  artist: string | null;
-  title: string | null;
-  format: string | null;
-  purchase_price: number | string | null;
-  estimated_value: number | string | null;
-  discogs_low_price: number | string | null;
-  discogs_median_price: number | string | null;
-  discogs_high_price: number | string | null;
-  value_source: string | null;
-  value_last_updated: string | null;
-  price_history: PriceHistoryEntry[] | null;
-};
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+} from "recharts";
 
-type NormalizedPriceHistoryEntry = {
-  date: string;
-  low: number;
-  median: number;
-  high: number;
-  estimated: number;
-  source: string;
-};
+const fetcher = (url: string) =>
+  fetch(url).then((res) => res.json());
 
-type EnrichedValueRecord = ValueRecord & {
-  purchase_price_number: number | null;
-  estimated_value_number: number | null;
-  discogs_median_price_number: number | null;
-  value_delta: number | null;
-  roi_percent: number | null;
-  trend_direction: "Rising" | "Falling" | "Stable" | "New";
-  trend_delta: number | null;
-  price_history: NormalizedPriceHistoryEntry[];
-};
+const COLORS = [
+  "#facc15",
+  "#eab308",
+  "#ca8a04",
+  "#854d0e",
+  "#451a03",
+];
 
-function toNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-
-  if (typeof value === "string") {
-    const cleaned = value.replace(/[$,]/g, "").trim();
-    const parsed = Number(cleaned);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
-
-function currency(value: number | null | undefined) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(value);
-}
-
-function percent(value: number | null | undefined) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
-
-  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "Not updated";
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function normalizePriceHistory(
-  value: PriceHistoryEntry[] | null
-): NormalizedPriceHistoryEntry[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((entry) => {
-      const date = entry.date || entry.pulled_at || "";
-      const estimated = toNumber(entry.estimated);
-      const low = toNumber(entry.low);
-      const median = toNumber(entry.median);
-      const high = toNumber(entry.high);
-
-      if (!date || estimated === null) return null;
-
-      return {
-        date,
-        estimated,
-        low: low ?? estimated,
-        median: median ?? estimated,
-        high: high ?? estimated,
-        source: entry.source || "Discogs",
-      };
-    })
-    .filter(
-      (entry): entry is NormalizedPriceHistoryEntry => entry !== null
-    )
-    .sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-}
-
-function getTrendFromHistory(history: NormalizedPriceHistoryEntry[]) {
-  if (history.length < 2) {
-    return {
-      trend_direction: "New" as const,
-      trend_delta: null,
-    };
-  }
-
-  const first = history[0].estimated;
-  const last = history[history.length - 1].estimated;
-  const delta = Number((last - first).toFixed(2));
-
-  if (Math.abs(delta) < 0.5) {
-    return {
-      trend_direction: "Stable" as const,
-      trend_delta: delta,
-    };
-  }
-
-  return {
-    trend_direction: delta > 0 ? ("Rising" as const) : ("Falling" as const),
-    trend_delta: delta,
+function convertCountryToISO(country: string) {
+  const mapping: Record<string, string> = {
+    USA: "us",
+    "United States": "us",
+    UK: "gb",
+    "United Kingdom": "gb",
+    Germany: "de",
+    France: "fr",
+    Japan: "jp",
+    Canada: "ca",
+    Italy: "it",
+    Australia: "au",
+    Netherlands: "nl",
+    Sweden: "se",
   };
+
+  return mapping[country] || "us";
 }
 
-function enrichRecord(record: ValueRecord): EnrichedValueRecord {
-  const purchase = toNumber(record.purchase_price);
-  const estimated = toNumber(record.estimated_value);
-  const discogsMedian = toNumber(record.discogs_median_price);
-  const history = normalizePriceHistory(record.price_history);
-  const trend = getTrendFromHistory(history);
+export default function ValueDashboardPage() {
 
-  const hasPurchase = typeof purchase === "number" && purchase > 0;
-  const hasEstimated = typeof estimated === "number";
+  const [isEnriching, setIsEnriching] =
+    useState(false);
 
-  const valueDelta =
-    hasPurchase && hasEstimated ? Number((estimated - purchase).toFixed(2)) : null;
+  const [enrichMessage, setEnrichMessage] =
+    useState("");
 
-  const roiPercent =
-    hasPurchase && typeof valueDelta === "number"
-      ? Number(((valueDelta / purchase) * 100).toFixed(1))
-      : null;
+const {
+  data,
+  error,
+  isLoading,
+  mutate,
+} = useSWR(
+  "/api/dashboard/analytics",
+  async (url) => {
+    const response = await fetch(url);
 
-  return {
-    ...record,
-    price_history: history,
-    purchase_price_number: purchase,
-    estimated_value_number: estimated,
-    discogs_median_price_number: discogsMedian,
-    value_delta: valueDelta,
-    roi_percent: roiPercent,
-    trend_direction: trend.trend_direction,
-    trend_delta: trend.trend_delta,
-  };
-}
-
-async function fetchAllValueRecords(userId: string): Promise<ValueRecord[]> {
-  const supabase = await createClient();
-  const pageSize = 1000;
-  const maxRowsToScan = 6000;
-  const allRecords: ValueRecord[] = [];
-
-  for (let start = 0; start < maxRowsToScan; start += pageSize) {
-    const end = start + pageSize - 1;
-
-    const { data, error } = await supabase
-      .from("records_clean_safe")
-      .select(
-        "id, artist, title, format, purchase_price, estimated_value, discogs_low_price, discogs_median_price, discogs_high_price, value_source, value_last_updated, price_history"
-      )
-      .eq("user_id", userId)
-      .order("id", { ascending: true })
-      .range(start, end);
-
-    if (error) {
-      throw new Error(error.message);
+    if (!response.ok) {
+      throw new Error(
+        "Failed to fetch analytics"
+      );
     }
 
-    const records = (data ?? []) as ValueRecord[];
-    allRecords.push(...records);
-
-    if (records.length < pageSize) break;
+    return response.json();
   }
+);
 
-  return allRecords;
+
+
+  if (isLoading) {
+  return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      Loading Collector Intelligence...
+    </div>
+  );
 }
 
-function Sparkline({
-  history,
-}: {
-  history: NormalizedPriceHistoryEntry[] | null;
-}) {
-  const safeHistory = Array.isArray(history) ? history : [];
+if (error) {
+  return (
+    <div className="min-h-screen bg-black text-red-500 flex items-center justify-center">
+      Failed to load analytics
+    </div>
+  );
+}
 
-  if (safeHistory.length < 2) {
-    return <span className="text-xs text-slate-500">No trend yet</span>;
-  }
+  const mapData = data.countryDistribution.map(
+    (c: any) => ({
+      country: convertCountryToISO(
+        c.country
+      ) as any,
 
-  const values = safeHistory.map((entry) => entry.estimated);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-
-  const points = values
-    .map((value, index) => {
-      const x =
-        safeHistory.length === 1
-          ? 0
-          : (index / (safeHistory.length - 1)) * 120;
-      const y = 36 - ((value - min) / range) * 32;
-
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
+      value: Number(c.count),
     })
-    .join(" ");
-
-  const lastValue = values[values.length - 1];
-  const firstValue = values[0];
-  const positive = lastValue >= firstValue;
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <svg
-        width="120"
-        height="40"
-        viewBox="0 0 120 40"
-        role="img"
-        aria-label="Price trend sparkline"
-        className="overflow-visible"
-      >
-        <polyline
-          points={points}
-          fill="none"
-          stroke={positive ? "#6ee7b7" : "#fda4af"}
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-
-      <span className="text-xs text-slate-500">
-        {safeHistory.length} value points
-      </span>
-    </div>
   );
-}
+async function handleEnrichment() {
 
-function TrendBadge({ record }: { record: EnrichedValueRecord }) {
-  const styles = {
-    Rising: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
-    Falling: "border-rose-400/40 bg-rose-400/10 text-rose-300",
-    Stable: "border-slate-400/40 bg-slate-400/10 text-slate-300",
-    New: "border-amber-400/40 bg-amber-400/10 text-amber-300",
-  };
+  try {
 
-  return (
-    <div
-      className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${styles[record.trend_direction]}`}
-    >
-      {record.trend_direction}
-      {typeof record.trend_delta === "number"
-        ? ` ${currency(record.trend_delta)}`
-        : ""}
-    </div>
-  );
-}
+    setIsEnriching(true);
 
-function MiniRecordCard({
-  record,
-  label,
-}: {
-  record: EnrichedValueRecord;
-  label: string;
-}) {
-  const positive =
-    typeof record.value_delta === "number" ? record.value_delta >= 0 : true;
-
-  return (
-    <div className="rounded-3xl border border-slate-700 bg-slate-950/75 p-5 shadow-xl">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-        {label}
-      </p>
-
-      <div className="mt-4">
-        <p className="line-clamp-1 text-base font-bold text-slate-50">
-          {record.artist || "Unknown Artist"}
-        </p>
-        <p className="line-clamp-1 text-sm text-slate-400">
-          {record.title || "Untitled"}
-        </p>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <TrendBadge record={record} />
-        <Sparkline history={record.price_history} />
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-            Estimated
-          </p>
-          <p className="mt-1 font-bold text-amber-200">
-            {currency(record.estimated_value_number)}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-            Delta
-          </p>
-          <p
-            className={`mt-1 font-bold ${
-              positive ? "text-emerald-300" : "text-rose-300"
-            }`}
-          >
-            {currency(record.value_delta)}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-            Purchase
-          </p>
-          <p className="mt-1 text-slate-300">
-            {currency(record.purchase_price_number)}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-            ROI
-          </p>
-          <p
-            className={`mt-1 font-semibold ${
-              positive ? "text-emerald-300" : "text-rose-300"
-            }`}
-          >
-            {percent(record.roi_percent)}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default async function ValueDashboardPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const userId = user?.id ?? "";
-
-  const { data: records } = await supabase
-    .from("records_clean_safe")
-    .select(
-      "id, artist, title, format, purchase_price, estimated_value, discogs_low_price, discogs_median_price, discogs_high_price, value_source, value_last_updated, price_history"
-    )
-    .eq("user_id", userId)
-    .order("estimated_value", { ascending: false, nullsFirst: false })
-    .limit(150);
-
-  const fullRecordsRaw = userId ? await fetchAllValueRecords(userId) : [];
-
-  const safeRecords = ((records || []) as ValueRecord[]).map(enrichRecord);
-  const fullRecords = fullRecordsRaw.map(enrichRecord);
-
-  const recordsWithEstimatedValues = fullRecords.filter(
-    (record) => typeof record.estimated_value_number === "number"
-  );
-
-  const recordsWithPurchaseValues = fullRecords.filter(
-    (record) =>
-      typeof record.purchase_price_number === "number" &&
-      record.purchase_price_number > 0
-  );
-
-  const totalEstimatedValue = recordsWithEstimatedValues.reduce(
-    (sum, record) => sum + (record.estimated_value_number ?? 0),
-    0
-  );
-
-  const totalPurchaseValue = recordsWithPurchaseValues.reduce(
-    (sum, record) => sum + (record.purchase_price_number ?? 0),
-    0
-  );
-
-  const valueDelta =
-    totalPurchaseValue > 0
-      ? Number((totalEstimatedValue - totalPurchaseValue).toFixed(2))
-      : null;
-
-  const roiOverall =
-    totalPurchaseValue > 0 && typeof valueDelta === "number"
-      ? Number(((valueDelta / totalPurchaseValue) * 100).toFixed(1))
-      : null;
-
-  const { count: needsValueCountFull } = await supabase
-    .from("records_clean_safe")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .not("discogs_release_id", "is", null)
-    .or("discogs_sale_blocked.is.null,discogs_sale_blocked.eq.false")
-    .or("discogs_median_price.is.null,estimated_value.is.null")
-    .or(
-      "value_pull_status.is.null,value_pull_status.in.(needs_pull,discogs_error,missing_release_id)"
+    setEnrichMessage(
+      "Starting Discogs enrichment..."
     );
 
-  const valuedCount = recordsWithEstimatedValues.length;
-  const needsValueCount = needsValueCountFull ?? 0;
+    const response = await fetch(
+      "/api/discogs/enrich"
+    );
 
-  const recordsWithPurchaseAndValue = fullRecords.filter(
-    (record) =>
-      typeof record.estimated_value_number === "number" &&
-      typeof record.purchase_price_number === "number" &&
-      record.purchase_price_number > 0 &&
-      typeof record.value_delta === "number"
-  );
+    const result =
+      await response.json();
 
-  const topGainers = [...recordsWithPurchaseAndValue]
-    .sort((a, b) => (b.value_delta ?? 0) - (a.value_delta ?? 0))
-    .slice(0, 3);
+    console.log(
+      "ENRICH RESULT:",
+      result
+    );
 
-  const topLosers = [...recordsWithPurchaseAndValue]
-    .sort((a, b) => (a.value_delta ?? 0) - (b.value_delta ?? 0))
-    .slice(0, 3);
+    if (response.ok) {
 
-  const topRoi = [...recordsWithPurchaseAndValue]
-    .filter((record) => typeof record.roi_percent === "number")
-    .sort((a, b) => (b.roi_percent || 0) - (a.roi_percent || 0))
-    .slice(0, 3);
+      setEnrichMessage(
+        result.message ||
+        `Enrichment complete. Updated ${
+          result.enriched || 0
+        } records.`
+      );
 
-  const risingCount = fullRecords.filter(
-    (record) => record.trend_direction === "Rising"
-  ).length;
+      await mutate();
 
-  const fallingCount = fullRecords.filter(
-    (record) => record.trend_direction === "Falling"
-  ).length;
+    } else {
 
-  const stableCount = fullRecords.filter(
-    (record) => record.trend_direction === "Stable"
-  ).length;
+      setEnrichMessage(
+        result.error ||
+        result.message ||
+        "Enrichment failed"
+      );
+    }
+
+  } catch (error: any) {
+
+    console.error(error);
+
+    setEnrichMessage(
+      error?.message ||
+      "Enrichment crashed"
+    );
+
+  } finally {
+
+    setIsEnriching(false);
+
+  }
+}
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.18),_transparent_35%),linear-gradient(135deg,_#020617,_#0f172a_45%,_#111827)] px-6 py-8 text-slate-100">
-      <div className="mx-auto max-w-7xl space-y-8">
-        <header className="flex flex-col gap-5 rounded-3xl border border-slate-700/70 bg-slate-950/70 p-6 shadow-2xl md:flex-row md:items-center md:justify-between">
+    <div className="min-h-screen bg-black text-white p-8">
+
+      <div className="max-w-[1800px] mx-auto space-y-8">
+
+        {/* HEADER */}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">
+
+            <div className="inline-flex items-center px-4 py-2 rounded-full border border-yellow-900/20 bg-zinc-950 text-yellow-400 text-xs tracking-[0.3em] uppercase">
               Collector Intelligence
-            </p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-50 md:text-5xl">
-              Collection Value Dashboard
+            </div>
+
+            <h1 className="text-6xl font-black mt-6 leading-none">
+              Reports & Analytics
             </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 md:text-base">
-              Track estimated collection value, purchase basis, Discogs-derived
-              pricing, profit/loss movement, ROI, and price trend history.
+
+            <p className="text-zinc-500 text-xl mt-6 max-w-3xl">
+              Enterprise-grade collection intelligence,
+              rarity tracking, valuation analytics,
+              metadata enrichment, and global market diagnostics.
             </p>
+
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/collection"
-              className="rounded-2xl border border-slate-600 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-amber-300 hover:text-amber-200"
-            >
-              ← Collection
-            </Link>
+          {/* CONTROL PANEL */}
 
-            <Link
-              href="/collection/value-queue"
-              className="rounded-2xl border border-amber-300/50 px-4 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-300 hover:text-slate-950"
-            >
-              Value Queue
-            </Link>
-          </div>
-        </header>
+          <div className="bg-zinc-950 border border-yellow-900/20 rounded-3xl p-6">
 
-        <section className="grid gap-4 md:grid-cols-5">
-          <div className="rounded-3xl border border-slate-700 bg-slate-950/70 p-5 shadow-xl">
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
-              Estimated Value
-            </p>
-            <p className="mt-3 text-3xl font-bold text-slate-50">
-              {valuedCount > 0 ? currency(totalEstimatedValue) : "—"}
-            </p>
-          </div>
+            <div className="space-y-4">
 
-          <div className="rounded-3xl border border-slate-700 bg-slate-950/70 p-5 shadow-xl">
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
-              Purchase Basis
-            </p>
-            <p className="mt-3 text-3xl font-bold text-slate-50">
-              {recordsWithPurchaseValues.length > 0
-                ? currency(totalPurchaseValue)
-                : "—"}
-            </p>
-          </div>
+              <input
+                type="text"
+                placeholder="Search metadata..."
+                className="w-full bg-black border border-yellow-900/20 rounded-2xl px-4 py-4 text-white"
+              />
 
-          <div className="rounded-3xl border border-slate-700 bg-slate-950/70 p-5 shadow-xl">
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
-              Value Delta
-            </p>
-            <p
-              className={`mt-3 text-3xl font-bold ${
-                typeof valueDelta === "number" && valueDelta < 0
-                  ? "text-rose-300"
-                  : "text-emerald-300"
-              }`}
-            >
-              {currency(valueDelta)}
-            </p>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
 
-          <div className="rounded-3xl border border-slate-700 bg-slate-950/70 p-5 shadow-xl">
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
-              Overall ROI
-            </p>
-            <p
-              className={`mt-3 text-3xl font-bold ${
-                typeof valueDelta === "number" && valueDelta < 0
-                  ? "text-rose-300"
-                  : "text-emerald-300"
-              }`}
-            >
-              {percent(roiOverall)}
-            </p>
-          </div>
+                <select className="bg-black border border-yellow-900/20 rounded-xl px-4 py-3 text-white">
+                  <option>All Countries</option>
+                </select>
 
-          <div className="rounded-3xl border border-slate-700 bg-slate-950/70 p-5 shadow-xl">
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
-              Valuation Progress
-            </p>
-            <p className="mt-3 text-3xl font-bold text-slate-50">
-              {valuedCount}
-            </p>
-            <p className="mt-1 text-sm text-slate-400">
-              {needsValueCount} still need values
-            </p>
-          </div>
-        </section>
+                <select className="bg-black border border-yellow-900/20 rounded-xl px-4 py-3 text-white">
+                  <option>All Genres</option>
+                </select>
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5 shadow-xl">
-            <p className="text-xs uppercase tracking-[0.25em] text-emerald-300">
-              Rising
-            </p>
-            <p className="mt-3 text-3xl font-bold text-emerald-200">
-              {risingCount}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-rose-400/20 bg-rose-400/10 p-5 shadow-xl">
-            <p className="text-xs uppercase tracking-[0.25em] text-rose-300">
-              Falling
-            </p>
-            <p className="mt-3 text-3xl font-bold text-rose-200">
-              {fallingCount}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-500/30 bg-slate-800/40 p-5 shadow-xl">
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-300">
-              Stable
-            </p>
-            <p className="mt-3 text-3xl font-bold text-slate-100">
-              {stableCount}
-            </p>
-          </div>
-        </section>
-
-        <DiscogsValuePullButton />
-
-        <section className="rounded-3xl border border-slate-700 bg-slate-950/70 p-6 shadow-2xl">
-          <div className="mb-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
-              Value Intelligence
-            </p>
-            <h2 className="mt-2 text-2xl font-bold text-slate-50">
-              Profit, Loss, ROI, and Trend Signals
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-              These cards compare purchase price against current estimated
-              value and now include sparkline movement from stored price
-              history.
-            </p>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div>
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-emerald-300">
-                Top Gainers
-              </h3>
-              <div className="space-y-4">
-                {topGainers.length > 0 ? (
-                  topGainers.map((record) => (
-                    <MiniRecordCard
-                      key={record.id}
-                      record={record}
-                      label="Gain Signal"
-                    />
-                  ))
-                ) : (
-                  <div className="rounded-3xl border border-slate-700 bg-slate-950/75 p-5 text-sm text-slate-400">
-                    No gain signals yet. Add purchase prices and estimated
-                    values to activate this section.
-                  </div>
-                )}
               </div>
+
+              <select className="w-full bg-black border border-yellow-900/20 rounded-xl px-4 py-3 text-white">
+                <option>All Formats</option>
+              </select>
+
+              <div className="grid grid-cols-2 gap-4">
+
+                <button
+                  onClick={handleEnrichment}
+                  disabled={isEnriching}
+                  className={`rounded-2xl py-4 font-bold transition ${
+                    isEnriching
+                      ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+                      : "bg-yellow-400 hover:bg-yellow-300 text-black"
+                  }`}
+                >
+                  {isEnriching
+                    ? "Enriching..."
+                    : "Enrich Discogs Metadata"}
+                </button>
+
+                <button className="bg-black border border-yellow-900/20 hover:border-yellow-700 transition rounded-2xl py-4 font-bold">
+                  Collection
+                </button>
+
+              </div>
+
+              {/* STATUS MESSAGE */}
+
+              <div className="bg-black border border-yellow-900/20 rounded-2xl p-4">
+
+                <p className="text-sm text-zinc-400 uppercase tracking-widest">
+                  Enrichment Status
+                </p>
+
+                <p className="mt-2 text-yellow-400 font-semibold">
+                  {enrichMessage || "Idle"}
+                </p>
+
+              </div>
+
             </div>
 
-            <div>
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-rose-300">
-                Watchlist Losses
-              </h3>
-              <div className="space-y-4">
-                {topLosers.length > 0 ? (
-                  topLosers.map((record) => (
-                    <MiniRecordCard
-                      key={record.id}
-                      record={record}
-                      label="Loss Signal"
-                    />
-                  ))
-                ) : (
-                  <div className="rounded-3xl border border-slate-700 bg-slate-950/75 p-5 text-sm text-slate-400">
-                    No loss signals yet. This section appears once purchase and
-                    value data are available.
-                  </div>
-                )}
+          </div>
+
+        </div>
+
+        {/* KPI CARDS */}
+
+        <div className="grid grid-cols-4 gap-6">
+
+          <MetricCard
+            title="Collection Value"
+            value={`$${data.totalCollectionValue.toLocaleString()}`}
+          />
+
+          <MetricCard
+            title="Records"
+            value={data.totalRecords.toString()}
+          />
+
+          <MetricCard
+            title="Median Value"
+            value={`$${data.medianValue}`}
+          />
+
+          <MetricCard
+            title="Countries"
+            value={data.totalCountries.toString()}
+          />
+
+        </div>
+
+        {/* MAP + TOP RECORDS */}
+
+        <div className="grid grid-cols-3 gap-6">
+
+          <div className="col-span-2 bg-zinc-950 border border-yellow-900/20 rounded-3xl p-6">
+
+            <div className="flex justify-between mb-6">
+
+              <h2 className="text-3xl font-bold">
+                Global Collection Density
+              </h2>
+
+              <div className="flex gap-4">
+
+                <Legend
+                  color="#422006"
+                  label="Low"
+                />
+
+                <Legend
+                  color="#a16207"
+                  label="Moderate"
+                />
+
+                <Legend
+                  color="#eab308"
+                  label="High"
+                />
+
               </div>
+
             </div>
 
-            <div>
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-amber-300">
-                Best ROI
-              </h3>
-              <div className="space-y-4">
-                {topRoi.length > 0 ? (
-                  topRoi.map((record) => (
-                    <MiniRecordCard
-                      key={record.id}
-                      record={record}
-                      label="ROI Signal"
-                    />
-                  ))
-                ) : (
-                  <div className="rounded-3xl border border-slate-700 bg-slate-950/75 p-5 text-sm text-slate-400">
-                    No ROI signals yet. ROI requires both purchase price and
-                    estimated value.
-                  </div>
-                )}
-              </div>
+            <div className="bg-black rounded-2xl p-4">
+
+              <WorldMap
+                color="#facc15"
+                title=""
+                size="responsive"
+                data={mapData}
+                tooltipTextFunction={(
+                  context: any
+                ) =>
+                  `${context.countryName}: ${context.value || 0} records`
+                }
+              />
+
             </div>
-          </div>
-        </section>
 
-        <section className="overflow-hidden rounded-3xl border border-slate-700 bg-slate-950/80 shadow-2xl">
-          <div className="border-b border-slate-700 px-5 py-4">
-            <h2 className="text-lg font-semibold text-slate-50">
-              Top Valued Records
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Showing the first 150 records sorted by estimated value.
-            </p>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-800 text-sm">
-              <thead className="bg-slate-900/80 text-xs uppercase tracking-[0.18em] text-slate-400">
-                <tr>
-                  <th className="px-5 py-4 text-left">Record</th>
-                  <th className="px-5 py-4 text-left">Format</th>
-                  <th className="px-5 py-4 text-right">Purchase</th>
-                  <th className="px-5 py-4 text-right">Median</th>
-                  <th className="px-5 py-4 text-right">Estimated</th>
-                  <th className="px-5 py-4 text-right">Delta</th>
-                  <th className="px-5 py-4 text-right">ROI</th>
-                  <th className="px-5 py-4 text-right">Trend</th>
-                  <th className="px-5 py-4 text-right">Sparkline</th>
-                  <th className="px-5 py-4 text-left">Source</th>
-                  <th className="px-5 py-4 text-left">Updated</th>
-                </tr>
-              </thead>
+          <AnalyticsCard title="Top Records">
 
-              <tbody className="divide-y divide-slate-800">
-                {safeRecords.map((record) => {
-                  const positive =
-                    typeof record.value_delta === "number"
-                      ? record.value_delta >= 0
-                      : true;
+            <div className="space-y-4">
 
-                  return (
-                    <tr
-                      key={record.id}
-                      className="transition hover:bg-slate-900/80"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="font-semibold text-slate-100">
-                          {record.artist || "Unknown Artist"}
-                        </div>
-                        <div className="text-slate-400">
-                          {record.title || "Untitled"}
-                        </div>
-                      </td>
+              {data.topRecords.map(
+                (record: any) => (
 
-                      <td className="px-5 py-4 text-slate-300">
-                        {record.format || "—"}
-                      </td>
+                  <div
+                    key={record.id}
+                    className="bg-black border border-yellow-900/20 rounded-2xl p-4 flex justify-between"
+                  >
 
-                      <td className="px-5 py-4 text-right text-slate-300">
-                        {currency(record.purchase_price_number)}
-                      </td>
+                    <div>
 
-                      <td className="px-5 py-4 text-right text-slate-300">
-                        {currency(record.discogs_median_price_number)}
-                      </td>
+                      <p className="font-bold">
+                        {record.artist}
+                      </p>
 
-                      <td className="px-5 py-4 text-right font-bold text-amber-200">
-                        {currency(record.estimated_value_number)}
-                      </td>
+                      <p className="text-zinc-500 text-sm">
+                        {record.title}
+                      </p>
 
-                      <td
-                        className={`px-5 py-4 text-right font-bold ${
-                          positive ? "text-emerald-300" : "text-rose-300"
-                        }`}
-                      >
-                        {currency(record.value_delta)}
-                      </td>
+                    </div>
 
-                      <td
-                        className={`px-5 py-4 text-right font-semibold ${
-                          positive ? "text-emerald-300" : "text-rose-300"
-                        }`}
-                      >
-                        {percent(record.roi_percent)}
-                      </td>
+                    <div className="text-yellow-400 font-black text-2xl">
+                      $
+                      {record.estimated_value}
+                    </div>
 
-                      <td className="px-5 py-4 text-right">
-                        <TrendBadge record={record} />
-                      </td>
+                  </div>
+                )
+              )}
 
-                      <td className="px-5 py-4 text-right">
-                        <Sparkline history={record.price_history} />
-                      </td>
+            </div>
 
-                      <td className="px-5 py-4 text-slate-300">
-                        {record.value_source || "—"}
-                      </td>
+          </AnalyticsCard>
 
-                      <td className="px-5 py-4 text-slate-400">
-                        {formatDate(record.value_last_updated)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        </div>
+
+        {/* CHARTS */}
+
+        <div className="grid grid-cols-2 gap-6">
+
+          <AnalyticsCard title="Market Momentum">
+
+            <ResponsiveContainer
+              width="100%"
+              height={300}
+            >
+
+              <AreaChart
+                data={data.marketMomentum}
+              >
+
+                <CartesianGrid stroke="#27272a" />
+
+                <XAxis
+                  dataKey="month"
+                  stroke="#71717a"
+                />
+
+                <YAxis stroke="#71717a" />
+
+                <Tooltip />
+
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#facc15"
+                  fill="#facc15"
+                />
+
+              </AreaChart>
+
+            </ResponsiveContainer>
+
+          </AnalyticsCard>
+
+          <AnalyticsCard title="Genre Distribution">
+
+            <ResponsiveContainer
+              width="100%"
+              height={300}
+            >
+
+              <PieChart>
+
+                <Pie
+                  data={data.genreDistribution}
+                  dataKey="count"
+                  nameKey="genre"
+                  outerRadius={100}
+                >
+
+                  {data.genreDistribution.map(
+                    (
+                      entry: any,
+                      index: number
+                    ) => (
+                      <Cell
+                        key={index}
+                        fill={
+                          COLORS[
+                            index %
+                              COLORS.length
+                          ]
+                        }
+                      />
+                    )
+                  )}
+
+                </Pie>
+
+                <Tooltip />
+
+              </PieChart>
+
+            </ResponsiveContainer>
+
+          </AnalyticsCard>
+
+        </div>
+
       </div>
-    </main>
+
+    </div>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+}: {
+  title: string;
+  value: string;
+}) {
+  return (
+    <div className="bg-zinc-950 border border-yellow-900/20 rounded-3xl p-6">
+
+      <p className="text-zinc-500 uppercase text-xs tracking-widest">
+        {title}
+      </p>
+
+      <h2 className="text-4xl font-black text-yellow-400 mt-4">
+        {value}
+      </h2>
+
+    </div>
+  );
+}
+
+function AnalyticsCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-zinc-950 border border-yellow-900/20 rounded-3xl p-6">
+
+      <h2 className="text-3xl font-bold mb-6">
+        {title}
+      </h2>
+
+      {children}
+
+    </div>
+  );
+}
+
+function Legend({
+  color,
+  label,
+}: {
+  color: string;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+
+      <div
+        className="w-5 h-5 rounded"
+        style={{
+          backgroundColor: color,
+        }}
+      />
+
+      <span>{label}</span>
+
+    </div>
   );
 }
