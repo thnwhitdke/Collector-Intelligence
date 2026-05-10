@@ -78,6 +78,18 @@ export async function enrichDiscogsMetadata() {
       console.log(
         `Updated ${record.id}`
       );
+              await supabase
+          .from(
+            "records_clean_safe"
+          )
+          .update({
+            enrichment_status:
+              "matched",
+          })
+          .eq(
+            "id",
+            record.id
+          );
 
     } catch (err) {
 

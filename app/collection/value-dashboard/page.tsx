@@ -3,6 +3,8 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { WorldMap } from "react-svg-worldmap";
+import { createClient } from "@supabase/supabase-js";
+import MarketTicker from "../../components/MarketTicker";
 
 import {
   ResponsiveContainer,
@@ -15,9 +17,12 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
 } from "recharts";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const fetcher = (url: string) =>
   fetch(url).then((res) => res.json());
@@ -56,44 +61,71 @@ export default function ValueDashboardPage() {
 
   const [enrichMessage, setEnrichMessage] =
     useState("");
+    const [topMovers, setTopMovers] =
+  useState<any[]>([]);
 
-const {
-  data,
-  error,
-  isLoading,
-  mutate,
-} = useSWR(
-  "/api/dashboard/analytics",
-  async (url) => {
-    const response = await fetch(url);
+  const {
+    data,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR(
+    "/api/dashboard/analytics",
+    async (url) => {
+      const response = await fetch(url);
 
-    if (!response.ok) {
-      throw new Error(
-        "Failed to fetch analytics"
-      );
+      if (!response.ok) {
+        throw new Error(
+          "Failed to fetch analytics"
+        );
+      }
+
+      return response.json();
     }
+  );
+useSWR(
+  "top-movers",
+  async () => {
 
-    return response.json();
+    const { data } =
+      await supabase
+        .from("market_changes")
+        .select("*")
+        .not(
+          "change_percent",
+          "is",
+          null
+        )
+        .order(
+          "change_percent",
+          {
+            ascending: false,
+          }
+        )
+        .limit(5);
+
+    setTopMovers(data || []);
+
+    return data;
   }
 );
 
 
-
   if (isLoading) {
-  return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center">
-      Loading Collector Intelligence...
-    </div>
-  );
-}
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        Loading Collector Intelligence...
+      </div>
+    );
+  }
 
-if (error) {
-  return (
-    <div className="min-h-screen bg-black text-red-500 flex items-center justify-center">
-      Failed to load analytics
-    </div>
-  );
-}
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black text-red-500 flex items-center justify-center">
+        Failed to load analytics
+      </div>
+    );
+  }
 
   const mapData = data.countryDistribution.map(
     (c: any) => ({
@@ -104,68 +136,73 @@ if (error) {
       value: Number(c.count),
     })
   );
-async function handleEnrichment() {
 
-  try {
+  async function handleEnrichment() {
 
-    setIsEnriching(true);
+    try {
 
-    setEnrichMessage(
-      "Starting Discogs enrichment..."
-    );
-
-    const response = await fetch(
-      "/api/discogs/enrich"
-    );
-
-    const result =
-      await response.json();
-
-    console.log(
-      "ENRICH RESULT:",
-      result
-    );
-
-    if (response.ok) {
+      setIsEnriching(true);
 
       setEnrichMessage(
-        result.message ||
-        `Enrichment complete. Updated ${
-          result.enriched || 0
-        } records.`
+        "Starting Discogs enrichment..."
       );
 
-      await mutate();
+      const response = await fetch(
+        "/api/discogs/enrich"
+      );
 
-    } else {
+      const result =
+        await response.json();
+
+      console.log(
+        "ENRICH RESULT:",
+        result
+      );
+
+      if (response.ok) {
+
+        setEnrichMessage(
+          result.message ||
+          `Enrichment complete. Updated ${
+            result.enriched || 0
+          } records.`
+        );
+
+        await mutate();
+
+      } else {
+
+        setEnrichMessage(
+          result.error ||
+          result.message ||
+          "Enrichment failed"
+        );
+      }
+
+    } catch (error: any) {
+
+      console.error(error);
 
       setEnrichMessage(
-        result.error ||
-        result.message ||
-        "Enrichment failed"
+        error?.message ||
+        "Enrichment crashed"
       );
+
+    } finally {
+
+      setIsEnriching(false);
+
     }
-
-  } catch (error: any) {
-
-    console.error(error);
-
-    setEnrichMessage(
-      error?.message ||
-      "Enrichment crashed"
-    );
-
-  } finally {
-
-    setIsEnriching(false);
-
   }
-}
 
   return (
     <div className="min-h-screen bg-black text-white p-8">
 
       <div className="max-w-[1800px] mx-auto space-y-8">
+
+        {/* LIVE MARKET TICKER */}
+
+        <MarketTicker />
 
         {/* HEADER */}
 
@@ -238,8 +275,6 @@ async function handleEnrichment() {
                 </button>
 
               </div>
-
-              {/* STATUS MESSAGE */}
 
               <div className="bg-black border border-yellow-900/20 rounded-2xl p-4">
 
@@ -372,6 +407,55 @@ async function handleEnrichment() {
             </div>
 
           </AnalyticsCard>
+          <AnalyticsCard title="Top Movers">
+
+  <div className="space-y-4">
+
+    {topMovers.map(
+      (mover: any) => (
+
+        <div
+          key={mover.id}
+          className="bg-black border border-yellow-900/20 rounded-2xl p-4 flex justify-between"
+        >
+
+          <div>
+
+            <p className="font-bold">
+              {mover.artist}
+            </p>
+
+            <p className="text-zinc-500 text-sm">
+              {mover.title}
+            </p>
+
+          </div>
+
+          <div
+            className={`font-black text-2xl ${
+              mover.change_percent >= 0
+                ? "text-emerald-400"
+                : "text-red-400"
+            }`}
+          >
+
+            {mover.change_percent >= 0
+              ? "▲"
+              : "▼"}
+
+            {" "}
+
+            {mover.change_percent.toFixed(1)}%
+
+          </div>
+
+        </div>
+      )
+    )}
+
+  </div>
+
+</AnalyticsCard>
 
         </div>
 
