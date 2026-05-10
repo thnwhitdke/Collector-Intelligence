@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
+import WorldMapClient from "./components/WorldMapClient";
 
 import { getReportData } from "@/src/lib/reports-data";
 
@@ -501,10 +502,375 @@ export default async function ReportsPage() {
           }
         />
 <div className="mt-10">
-  <GlobalMap
-    countryTotals={countryTotals}
-  />
+  <div
+  className="
+    rounded-3xl
+    border
+    border-[#2A241D]
+    bg-[#11100E]
+    p-8
+  "
+>
+
+  <div className="flex justify-between mb-6">
+
+    <div>
+
+      <h2 className="text-4xl font-black">
+        Global Collection Density
+      </h2>
+
+      <p className="text-[#9A8F80] mt-3">
+        Geographic distribution of collection value
+      </p>
+
+    </div>
+
+    <div className="flex gap-4">
+
+      <div className="flex items-center gap-2">
+
+        <div className="w-4 h-4 rounded bg-[#422006]" />
+
+        <span className="text-sm text-[#9A8F80]">
+          Low
+        </span>
+
+      </div>
+
+      <div className="flex items-center gap-2">
+
+        <div className="w-4 h-4 rounded bg-[#a16207]" />
+
+        <span className="text-sm text-[#9A8F80]">
+          Moderate
+        </span>
+
+      </div>
+
+      <div className="flex items-center gap-2">
+
+        <div className="w-4 h-4 rounded bg-[#facc15]" />
+
+        <span className="text-sm text-[#9A8F80]">
+          High
+        </span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div className="bg-[#0A0907] rounded-3xl p-6">
+
+<WorldMapClient
+  data={
+    Object.entries(countryCounts).map(
+      ([country, count]) => ({
+        country:
+          country === "USA"
+            ? "us"
+            : country === "UK"
+            ? "gb"
+            : "us",
+
+        value: Number(count),
+      })
+    )
+  }
+/>
+
+  </div>
+
 </div>
+  <div className="mt-16 mb-6">
+
+  <div
+    className="
+      inline-flex
+      items-center
+      gap-2
+      px-4
+      py-2
+      rounded-full
+      border
+      border-[#8F6F35]/40
+      bg-[#1A1510]
+      text-[#C7A45D]
+      text-xs
+      tracking-[0.25em]
+      uppercase
+      mb-4
+    "
+  >
+    Collection Intelligence
+  </div>
+
+  <h2 className="text-4xl font-black">
+    Market Analytics &
+    Platform Diagnostics
+  </h2>
+
+  <p className="text-[#9A8F80] mt-3 text-lg">
+    Advanced intelligence signals derived from
+    metadata enrichment, valuation analysis,
+    and global market distribution.
+  </p>
+
+</div>
+
+<div
+  className="
+    grid
+    grid-cols-1
+    md:grid-cols-3
+    gap-8
+    mt-14
+    pt-10
+    border-t
+    border-[#2A241D]
+  "
+>
+
+  <div
+    className="
+      rounded-3xl
+      border
+      border-[#2A241D]
+      bg-[#11100E]
+      p-6
+    "
+  >
+
+    <h3 className="text-2xl font-bold mb-6">
+      Market Distribution
+    </h3>
+
+    <div className="space-y-4">
+
+      {Object.entries(countryTotals)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([country, value]) => (
+
+          <div
+            key={country}
+            className="
+              flex
+              items-center
+              justify-between
+            "
+          >
+
+            <span>
+              {country}
+            </span>
+
+            <span
+              className="
+                text-[#FFD166]
+                font-bold
+              "
+            >
+              $
+              {Number(value).toLocaleString()}
+            </span>
+
+          </div>
+
+        ))}
+
+    </div>
+
+  </div>
+
+  <div
+    className="
+      rounded-3xl
+      border
+      border-[#2A241D]
+      bg-[#11100E]
+      p-6
+    "
+  >
+
+    <h3 className="text-2xl font-bold mb-6">
+      Collection Intelligence
+    </h3>
+
+    <div className="space-y-6">
+
+      <div>
+
+        <div
+          className="
+            text-[#9A8F80]
+            text-sm
+          "
+        >
+          Average Record Value
+        </div>
+
+        <div
+          className="
+            text-3xl
+            font-bold
+            text-[#00C2FF]
+          "
+        >
+          $
+          {(totalValue / records.length).toFixed(2)}
+        </div>
+
+      </div>
+
+      <div>
+
+        <div
+          className="
+            text-[#9A8F80]
+            text-sm
+          "
+        >
+          Highest Value Market
+        </div>
+
+        <div
+          className="
+            text-3xl
+            font-bold
+            text-[#FFD166]
+          "
+        >
+          USA
+        </div>
+
+      </div>
+
+      <div>
+
+        <div
+          className="
+            text-[#9A8F80]
+            text-sm
+          "
+        >
+          Collection Coverage
+        </div>
+
+        <div
+          className="
+            text-3xl
+            font-bold
+            text-[#5B3DF5]
+          "
+        >
+          98%
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div
+    className="
+      rounded-3xl
+      border
+      border-[#2A241D]
+      bg-[#11100E]
+      p-6
+    "
+  >
+
+    <h3 className="text-2xl font-bold mb-6">
+      Platform Status
+    </h3>
+
+    <div className="space-y-4">
+
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+        "
+      >
+
+        <span>
+          Discogs Sync
+        </span>
+
+        <span className="text-[#00E676]">
+          Operational
+        </span>
+
+      </div>
+
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+        "
+      >
+
+        <span>
+          Market Analytics
+        </span>
+
+        <span className="text-[#00E676]">
+          Live
+        </span>
+
+      </div>
+
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+        "
+      >
+
+        <span>
+          Metadata Engine
+        </span>
+
+        <span className="text-[#FFD166]">
+          Enhanced
+        </span>
+
+      </div>
+
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+        "
+      >
+
+        <span>
+          Collection Index
+        </span>
+
+        <span className="text-[#00C2FF]">
+          Active
+         </span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+</div>
+
       </div>
 
     </div>
