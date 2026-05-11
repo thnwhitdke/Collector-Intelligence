@@ -236,6 +236,72 @@ export async function pullSingleDiscogsValue(formData: FormData) {
   } else {
     nextRefreshDueAt.setDate(nextRefreshDueAt.getDate() + 14);
   }
+  const { data: historyRows } = await supabase
+    .from("market_history")
+    .select("*")
+    .eq("record_id", id)
+    .order("captured_at", { ascending: false })
+    .limit(2);
+
+  const previousSnapshot =
+    historyRows && historyRows.length > 0
+      ? historyRows[0]
+      : null;
+
+  let marketValueChangePercent: number | null = null;
+  let marketSupplyChange: number | null = null;
+  let marketMomentum = "Stable";
+  let marketTrend = "Flat";
+
+  if (previousSnapshot) {
+
+    const previousMedian =
+      Number(previousSnapshot.discogs_median_price || 0);
+
+    const previousSupply =
+      Number(previousSnapshot.discogs_for_sale || 0);
+
+    if (previousMedian > 0) {
+
+      marketValueChangePercent =
+        Number(
+          (
+            ((median - previousMedian) / previousMedian) *
+            100
+          ).toFixed(2)
+        );
+    }
+
+    marketSupplyChange =
+      forSale !== null
+        ? forSale - previousSupply
+        : null;
+
+    if (
+      marketValueChangePercent !== null &&
+      marketValueChangePercent >= 15
+    ) {
+
+      marketMomentum = "Heating Up";
+      marketTrend = "Bullish";
+
+    } else if (
+      marketValueChangePercent !== null &&
+      marketValueChangePercent <= -15
+    ) {
+
+      marketMomentum = "Cooling Down";
+      marketTrend = "Bearish";
+
+    } else if (
+      marketSupplyChange !== null &&
+      marketSupplyChange <= -5
+    ) {
+
+      marketMomentum = "Supply Compression";
+      marketTrend = "Bullish";
+    }
+  }
 
   const now = new Date().toISOString();
 
@@ -255,13 +321,43 @@ export async function pullSingleDiscogsValue(formData: FormData) {
       market_signal_updated_at: now,
       market_spread: spread,
       market_activity_days: activityDays,
+            market_value_change_percent: marketValueChangePercent,
+      market_supply_change: marketSupplyChange,
+      market_momentum: marketMomentum,
+      market_trend: marketTrend,
       next_refresh_due_at: nextRefreshDueAt.toISOString(),
       value_pull_status: "pulled_successfully",
       value_pull_note: "Discogs single-record value pull completed successfully.",
       value_pull_last_attempted_at: now,
     })
     .eq("id", id);
+  await supabase
+ console.log("ATTEMPTING MARKET HISTORY INSERT");
 
+const { data: historyData, error: historyError } = await supabase
+  .from("market_history")
+  .insert({
+    record_id: id,
+
+    discogs_low_price: low,
+    discogs_median_price: median,
+    discogs_high_price: high,
+
+    discogs_for_sale: forSale,
+
+    market_signal: marketSignal,
+
+    captured_at: now,
+  })
+  .select();
+
+if (historyError) {
+  console.error("MARKET HISTORY INSERT ERROR:");
+  console.error(historyError);
+} else {
+  console.log("MARKET HISTORY INSERT SUCCESS:");
+  console.log(historyData);
+}
   if (updateError) {
     await supabase
       .from("records_clean_safe")

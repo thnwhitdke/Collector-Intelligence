@@ -417,6 +417,57 @@ export default async function RecordDetailPage({
                   <Read label="Last Refreshed" value={formatDate(getValue(record, "value_last_updated"))} />
                   <Read label="Discogs Release ID" value={getValue(record, "discogs_release_id")} />
                 </div>
+                <div className="rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
+  <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">
+    Market Momentum Intelligence
+  </p>
+
+  <div className="mt-4 grid gap-4 md:grid-cols-4">
+
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+        Momentum
+      </p>
+
+      <p className="mt-2 text-lg font-black text-white">
+        {displayValue(getValue(record, "market_momentum"))}
+      </p>
+    </div>
+
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+        Trend
+      </p>
+
+      <p className="mt-2 text-lg font-black text-white">
+        {displayValue(getValue(record, "market_trend"))}
+      </p>
+    </div>
+
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+        Value Change %
+      </p>
+
+      <p className="mt-2 text-lg font-black text-white">
+        {getValue(record, "market_value_change_percent") !== null
+          ? `${getValue(record, "market_value_change_percent")}%`
+          : "—"}
+      </p>
+    </div>
+
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+        Supply Change
+      </p>
+
+      <p className="mt-2 text-lg font-black text-white">
+        {displayValue(getValue(record, "market_supply_change"))}
+      </p>
+    </div>
+
+  </div>
+</div>
               </div>
             </Section>
 
