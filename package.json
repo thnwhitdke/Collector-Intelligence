@@ -19,6 +19,8 @@
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-is": "^19.2.6",
+    "react-simple-maps": "^3.0.0",
     "react-svg-worldmap": "^2.0.2",
     "react-tooltip": "^6.0.2",
     "recharts": "^3.8.1",

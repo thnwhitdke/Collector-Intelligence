@@ -1,7 +1,8 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import WorldMapClient from "./components/WorldMapClient";
 
+import GlobalCollectionMap from "@/app/components/maps/GlobalCollectionMap";
+import { normalizeCountry } from "@/src/lib/country-normalizer";
 import { getReportData } from "@/src/lib/reports-data";
 
 import {
@@ -10,7 +11,7 @@ import {
 
 import EnrichButton from "./components/EnrichButton";
 import KpiCards from "./components/KpiCards";
-import GlobalMap from "./components/GlobalMap";
+
 
 import {
   normalizeGenres,
@@ -90,6 +91,50 @@ export default async function ReportsPage() {
       })
     );
 
+    /*
+  GLOBAL MAP DATA
+*/
+
+const mapTotals: Record<
+  string,
+  {
+    country: string;
+    value: number;
+    count: number;
+  }
+> = {};
+
+for (const record of records) {
+
+  const rawCountry =
+    String(record.country || "").trim();
+
+  if (!rawCountry) {
+    continue;
+  }
+
+  const normalizedCountry =
+    normalizeCountry(rawCountry);
+
+  const value =
+    Number(record.estimated || 0);
+
+  if (!mapTotals[normalizedCountry]) {
+
+    mapTotals[normalizedCountry] = {
+      country: normalizedCountry,
+      value: 0,
+      count: 0,
+    };
+  }
+
+  mapTotals[normalizedCountry].value += value;
+
+  mapTotals[normalizedCountry].count += 1;
+}
+
+const mapData =
+  Object.values(mapTotals);
   /*
     FILTER OPTIONS
   */
@@ -564,21 +609,8 @@ export default async function ReportsPage() {
 
   <div className="bg-[#0A0907] rounded-3xl p-6">
 
-<WorldMapClient
-  data={
-    Object.entries(countryCounts).map(
-      ([country, count]) => ({
-        country:
-          country === "USA"
-            ? "us"
-            : country === "UK"
-            ? "gb"
-            : "us",
-
-        value: Number(count),
-      })
-    )
-  }
+<GlobalCollectionMap
+  data={mapData}
 />
 
   </div>
