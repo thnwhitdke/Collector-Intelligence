@@ -1,0 +1,16 @@
+name: Collector Intelligence Background Refresh
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Background Refresh
+        run: |
+          curl -X GET https://collector-intelligence.vercel.app/api/background-refresh
