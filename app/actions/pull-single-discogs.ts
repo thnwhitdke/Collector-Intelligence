@@ -185,6 +185,58 @@ export async function pullSingleDiscogsValue(formData: FormData) {
     // Stats are helpful but not required.
   }
 
+    const spread = high - low;
+
+  const activityDays =
+    lastSoldDate
+      ? Math.floor(
+          (Date.now() - new Date(lastSoldDate).getTime()) / 86400000
+        )
+      : null;
+
+  let marketSignal = "Monitor";
+  let marketSignalReason =
+    "Market data exists but no strong signal has been detected.";
+
+  if (forSale !== null && forSale <= 2 && median >= 40) {
+    marketSignal = "Hot Thin Market";
+    marketSignalReason =
+      "Very low supply combined with meaningful value suggests scarcity and strong collector interest.";
+  } else if (forSale !== null && forSale <= 2) {
+    marketSignal = "Thin Market";
+    marketSignalReason =
+      "Very few copies are currently listed for sale.";
+  } else if (spread >= 50) {
+    marketSignal = "Volatile Market";
+    marketSignalReason =
+      "Large spread between low and high values suggests pricing volatility.";
+  } else if (forSale !== null && forSale >= 25) {
+    marketSignal = "Saturated Market";
+    marketSignalReason =
+      "Large number of copies currently listed for sale.";
+  } else if (activityDays !== null && activityDays <= 180) {
+    marketSignal = "Active Market";
+    marketSignalReason =
+      "Recent sales activity suggests current collector demand.";
+  } else if (activityDays !== null && activityDays > 730) {
+    marketSignal = "Quiet Market";
+    marketSignalReason =
+      "Sales activity appears limited or stale.";
+  }
+    let nextRefreshDueAt = new Date();
+
+  if (marketSignal === "Hot Thin Market") {
+    nextRefreshDueAt.setDate(nextRefreshDueAt.getDate() + 1);
+  } else if (marketSignal === "Active Market") {
+    nextRefreshDueAt.setDate(nextRefreshDueAt.getDate() + 7);
+  } else if (marketSignal === "Volatile Market") {
+    nextRefreshDueAt.setDate(nextRefreshDueAt.getDate() + 7);
+  } else if (marketSignal === "Saturated Market") {
+    nextRefreshDueAt.setDate(nextRefreshDueAt.getDate() + 30);
+  } else {
+    nextRefreshDueAt.setDate(nextRefreshDueAt.getDate() + 14);
+  }
+
   const now = new Date().toISOString();
 
   const { error: updateError } = await supabase
@@ -198,6 +250,12 @@ export async function pullSingleDiscogsValue(formData: FormData) {
       value_last_updated: now,
       discogs_for_sale: forSale,
       discogs_last_sold_date: lastSoldDate,
+            market_signal: marketSignal,
+      market_signal_reason: marketSignalReason,
+      market_signal_updated_at: now,
+      market_spread: spread,
+      market_activity_days: activityDays,
+      next_refresh_due_at: nextRefreshDueAt.toISOString(),
       value_pull_status: "pulled_successfully",
       value_pull_note: "Discogs single-record value pull completed successfully.",
       value_pull_last_attempted_at: now,

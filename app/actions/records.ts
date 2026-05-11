@@ -714,7 +714,7 @@ export async function bulkFixMissingCovers(limit = 25) {
     .from("records_clean_safe")
     .select("id, cover_url, cover_present, discogs_release_id, discogs_url")
     .eq("user_id", userId)
-    .limit(5000);
+    .limit(500);
 
   if (readError) {
     throw new Error(`Failed to load records for bulk fix: ${readError.message}`);

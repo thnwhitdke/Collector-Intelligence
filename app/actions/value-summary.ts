@@ -127,7 +127,7 @@ export async function getCollectionValueSummary(): Promise<CollectionValueSummar
     )
     .eq("user_id", user.id)
     .order("id", { ascending: false })
-    .limit(5000);
+    .limit(500);
 
   if (error) {
     console.error("getCollectionValueSummary error:", error);

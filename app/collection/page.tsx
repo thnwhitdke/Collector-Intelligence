@@ -404,7 +404,7 @@ export default async function CollectionPage({
     query = applySort(query, sort);
 
     const { data, count } =
-      await query.limit(5000);
+      await query.limit(500);
 
     records = data ?? [];
     totalCount = count ?? 0;

@@ -82,7 +82,9 @@ function valueSpread(record: MarketRecord) {
 
 function marketSignal(record: MarketRecord) {
   const forSale = record.discogs_for_sale;
-  const lastSoldDays = daysSince(record.discogs_last_sold_date);
+  const lastSoldDays = daysSince(
+  record.discogs_last_sold_date || record.value_last_updated
+);
   const spread = valueSpread(record);
   const estimated = toNumber(record.estimated_value);
 
@@ -130,7 +132,7 @@ function marketSignal(record: MarketRecord) {
     };
   }
 
-  if (lastSoldDays !== null && lastSoldDays <= 45) {
+  if (lastSoldDays !== null && lastSoldDays <= 180) {
     return {
       label: "Active Market",
       shortLabel: "Active",
@@ -575,7 +577,9 @@ let query = supabase
         <section className="grid gap-5">
           {records.map((record) => {
             const signal = marketSignal(record);
-            const lastSoldDays = daysSince(record.discogs_last_sold_date);
+            const lastSoldDays = daysSince(
+  record.discogs_last_sold_date || record.value_last_updated
+);
             const spread = valueSpread(record);
 
             return (

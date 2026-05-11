@@ -31,7 +31,7 @@ export async function GET() {
         title
       `)
 
-      .limit(5000);
+      .limit(500);
 
     if (error) {
 
