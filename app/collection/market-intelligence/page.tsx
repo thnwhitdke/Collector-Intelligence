@@ -288,10 +288,10 @@ export default async function MarketIntelligencePage({
 
   const userId = user?.id ?? "";
 
-  let query = supabase
-    .from("records_clean_safe")
-    .select(
-      `
+let query = supabase
+  .from("records_clean_safe")
+  .select(
+    `
       id,
       artist,
       title,
@@ -309,10 +309,9 @@ export default async function MarketIntelligencePage({
       value_last_updated,
       discogs_url
     `
-    )
-    .not("estimated_value", "is", null)
-    .order("estimated_value", { ascending: false })
-    .limit(500);
+  )
+  .order("artist", { ascending: true })
+  .limit(2000);
 
   if (userId) {
     query = query.eq("user_id", userId);

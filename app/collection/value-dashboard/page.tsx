@@ -318,6 +318,31 @@ useSWR(
             value={data.totalCountries.toString()}
           />
 
+          <div className="rounded-3xl border border-zinc-900 bg-black p-6">
+
+  <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+
+    Collector IQ
+
+  </div>
+
+  <div className="mt-4 text-5xl font-black text-cyan-400">
+
+    {Math.round(
+      data?.averageCollectorIQ || 0
+    )}
+
+  </div>
+
+  <div className="mt-3 text-sm text-zinc-500">
+
+    Average intelligence score
+    across collection
+
+  </div>
+
+</div>
+
         </div>
 
         {/* MAP + TOP RECORDS */}
@@ -491,6 +516,31 @@ useSWR(
                   stroke="#facc15"
                   fill="#facc15"
                 />
+
+                <AnalyticsCard
+  title="Collector IQ"
+>
+
+  <div className="space-y-3">
+
+    <div className="text-5xl font-black text-cyan-400">
+
+      {Math.round(
+        data?.averageCollectorIQ || 0
+      )}
+
+    </div>
+
+    <p className="text-zinc-500">
+
+      Average intelligence score
+      across collection
+
+    </p>
+
+  </div>
+
+</AnalyticsCard>
 
               </AreaChart>
 

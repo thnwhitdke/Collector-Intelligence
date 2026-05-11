@@ -113,7 +113,21 @@ export async function GET() {
       }`,
     },
   ];
+const averageCollectorIQ =
 
+  records?.length
+    ? records.reduce(
+        (
+          sum,
+          record
+        ) =>
+          sum +
+          Number(
+            record.collector_iq_score || 0
+          ),
+        0
+      ) / records.length
+    : 0;
   return NextResponse.json({
     totalCollectionValue,
     totalRecords,
@@ -124,5 +138,7 @@ export async function GET() {
     topRecords,
     marketMomentum,
     velocity,
+    averageCollectorIQ:
+        averageCollectorIQ,
   });
 }

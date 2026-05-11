@@ -28,7 +28,15 @@ export async function GET() {
       await supabase
         .from("records_clean_safe")
 .select("*")
-.is("discogs_release_id", null)
+.not(
+  "discogs_release_id",
+  "is",
+  null
+)
+.is(
+  "collector_iq_score",
+  null
+)
 .limit(25);
 
     if (error) {
@@ -619,6 +627,126 @@ console.log(
           "VALUATION CONFIDENCE:",
           valuationConfidence
         );
+                // =========================
+        // COLLECTOR IQ ENGINE
+        // =========================
+
+        let collectorIQ = 50;
+
+        // =====================
+        // CONFIDENCE BONUS
+        // =====================
+
+        if (
+          valuationConfidence ===
+          "HIGH"
+        ) {
+
+          collectorIQ += 20;
+        }
+
+        if (
+          valuationConfidence ===
+          "MEDIUM"
+        ) {
+
+          collectorIQ += 10;
+        }
+
+        if (
+          valuationConfidence ===
+          "REVIEW"
+        ) {
+
+          collectorIQ -= 10;
+        }
+
+        // =====================
+        // VALUE BONUS
+        // =====================
+
+        if (
+          newMedian > 50
+        ) {
+
+          collectorIQ += 10;
+        }
+
+        if (
+          newMedian > 150
+        ) {
+
+          collectorIQ += 10;
+        }
+
+        // =====================
+        // VOLATILITY BONUS
+        // =====================
+
+        if (
+          oldMedian &&
+          oldMedian > 0
+        ) {
+
+          const volatility =
+            Math.abs(
+              (
+                (
+                  newMedian -
+                  oldMedian
+                ) /
+                oldMedian
+              ) * 100
+            );
+
+          if (
+            volatility > 25
+          ) {
+
+            collectorIQ += 10;
+          }
+
+          if (
+            volatility > 100
+          ) {
+
+            collectorIQ += 5;
+          }
+        }
+
+        // =====================
+        // MATCH QUALITY BONUS
+        // =====================
+
+        if (
+          result?.title
+        ) {
+
+          collectorIQ += 5;
+        }
+
+        // =====================
+        // NORMALIZE
+        // =====================
+
+        if (
+          collectorIQ > 100
+        ) {
+
+          collectorIQ = 100;
+        }
+
+        if (
+          collectorIQ < 0
+        ) {
+
+          collectorIQ = 0;
+        }
+
+        console.log(
+          "COLLECTOR IQ:",
+          collectorIQ
+        );
 
         // =========================
         // METADATA
@@ -659,6 +787,10 @@ console.log(
 
           value_last_updated:
             new Date().toISOString(),
+
+            collector_iq_score:
+  collectorIQ,
+
         valuation_confidence:
             valuationConfidence,
         };
