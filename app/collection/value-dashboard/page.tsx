@@ -101,16 +101,10 @@ export default function PremiumIntelligencePipelinePreview() {
   const [records, setRecords] = React.useState<QueueRecord[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
 
-  const supabase = React.useMemo(() => {
-    const url = (globalThis as any)?.NEXT_PUBLIC_SUPABASE_URL || ''
-    const key = (globalThis as any)?.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-    if (!url || !key) {
-      return null
-    }
-
-    return createClient(url, key)
-  }, [])
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+)
 
   React.useEffect(() => {
     loadRecords()
