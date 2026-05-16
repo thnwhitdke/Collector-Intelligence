@@ -101,10 +101,16 @@ export default function PremiumIntelligencePipelinePreview() {
   const [records, setRecords] = React.useState<QueueRecord[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-)
+  const supabase = React.useMemo(() => {
+    const url = (globalThis as any)?.NEXT_PUBLIC_SUPABASE_URL || ''
+    const key = (globalThis as any)?.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+    if (!url || !key) {
+      return null
+    }
+
+    return createClient(url, key)
+  }, [])
 
   React.useEffect(() => {
     loadRecords()
@@ -365,6 +371,163 @@ const supabase = createClient(
                 </div>
               </div>
             </div>
+          ))}
+        </section>
+
+        <section className="rounded-[38px] border border-white/10 bg-[#050505]/95 p-6">
+          <div className="grid gap-4 xl:grid-cols-[1fr_260px_220px]">
+            <div>
+              <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">
+                Search Your Collection
+              </div>
+
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search artist, title, label, or release..."
+                className="mt-4 h-16 w-full rounded-2xl border border-white/10 bg-black/50 px-6 text-lg text-white outline-none transition-all focus:border-yellow-400/40"
+              />
+            </div>
+
+            <div>
+              <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">
+                Filter Results
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="mt-4 h-16 w-full rounded-2xl border border-white/10 bg-black/50 px-5 text-white outline-none"
+              >
+                <option value="all">All Records</option>
+                <option value="needs_updates">Needs Updates</option>
+                <option value="rare_no_sales_history">Rare / No Sales History</option>
+                <option value="up_to_date">Fully Updated</option>
+              </select>
+            </div>
+
+            <div className="rounded-[28px] border border-yellow-400/15 bg-yellow-400/10 p-5">
+              <div className="text-xs font-black uppercase tracking-[0.3em] text-yellow-300">
+                Results Showing
+              </div>
+
+              <div className="mt-3 text-5xl font-black text-white">
+                {filteredQueue.length}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-6 pb-16">
+          {isLoading && (
+            <div className="rounded-[32px] border border-yellow-400/20 bg-yellow-400/10 p-6 text-lg font-bold text-yellow-200">
+              Loading records from records_clean...
+            </div>
+          )}
+
+          {!isLoading && filteredQueue.length === 0 && (
+            <div className="rounded-[32px] border border-red-400/20 bg-red-400/10 p-6 text-lg font-bold text-red-200">
+              No matching records were found.
+            </div>
+          )}
+
+          {filteredQueue.map((record, index) => (
+            <motion.article
+              key={record.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.01 }}
+              className="overflow-hidden rounded-[34px] border border-white/10 bg-[#050505]/95 p-5 transition-all hover:border-yellow-400/20"
+            >
+              <div className="grid items-start gap-5 xl:grid-cols-[140px_1fr_260px]">
+                <div className="relative h-[140px] w-[140px] overflow-hidden rounded-[24px] border border-white/10 bg-black">
+                  <img
+                    src={uploadedCovers[record.id] || record.cover_url}
+                    alt={record.title}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = fallbackCovers[index % fallbackCovers.length]
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex flex-wrap gap-3">
+                    <div className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.2em] ${statusTone(record.value_pull_status)}`}>
+                      {prettyStatus(record.value_pull_status)}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 text-sm font-black uppercase tracking-[0.3em] text-yellow-300">
+                    {record.artist}
+                  </div>
+
+                  <h2 className="mt-2 text-4xl font-black leading-none text-white">
+                    {record.title}
+                  </h2>
+
+                  <p className="mt-4 text-zinc-400">
+                    {[record.label, record.catalogue_number, record.year_released]
+                      .filter(Boolean)
+                      .join(' • ')}
+                  </p>
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    {[
+                      ['Estimated', record.estimated_value],
+                      ['Low', record.discogs_low_price],
+                      ['Median', record.discogs_median_price],
+                      ['High', record.discogs_high_price],
+                    ].map(([label, value]) => (
+                      <div
+                        key={label}
+                        className="rounded-2xl border border-white/10 bg-black/40 p-3"
+                      >
+                        <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+                          {label}
+                        </div>
+
+                        <div className="mt-2 text-xl font-black text-white">
+                          {value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-[28px] border border-white/10 bg-black/40 p-5">
+                  <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+                    Discogs Release ID
+                  </div>
+
+                  <div className="mt-2 text-2xl font-black text-white">
+                    #{record.discogs_release_id}
+                  </div>
+
+                  <div className="mt-5 text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+                    Update Notes
+                  </div>
+
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                    {record.value_pull_note}
+                  </p>
+
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-cyan-200 hover:bg-cyan-400/20">
+                      <IconImage />
+                      Upload Cover
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(event) => handleCoverUpload(record.id, event)}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </motion.article>
           ))}
         </section>
       </div>
