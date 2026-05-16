@@ -1,107 +1,182 @@
 'use client'
 
+import React from 'react'
 import { motion } from 'framer-motion'
-import {
-  Globe,
-  TrendingUp,
-  Database,
-  Sparkles,
-  BarChart3,
-  Disc3,
-  Search,
-} from 'lucide-react'
 
-export default function ReportsAnalyticsPage() {
+function IconSparkles() {
+  return <span>✦</span>
+}
+
+function IconDatabase() {
+  return <span>◫</span>
+}
+
+function IconShield() {
+  return <span>⬢</span>
+}
+
+function IconRefresh() {
+  return <span>↻</span>
+}
+
+function IconActivity() {
+  return <span>●</span>
+}
+
+function IconImage() {
+  return <span>▣</span>
+}
+
+function IconArrow() {
+  return <span>→</span>
+}
+
+function IconCpu() {
+  return <span>⌘</span>
+}
+
+function IconTrending() {
+  return <span>↗</span>
+}
+
+const demoQueue = [
+  {
+    id: '1',
+    artist: 'David Bowie',
+    title: 'Liza Jane',
+    cover_url:
+      'https://upload.wikimedia.org/wikipedia/en/5/5f/David_Bowie_-_Liza_Jane.jpg',
+    estimated_value: '$3,733',
+    discogs_low_price: '$2,950',
+    discogs_median_price: '$3,400',
+    discogs_high_price: '$5,200',
+    queue_priority: 1,
+    value_pull_status: 'rare_no_sales_history',
+    value_last_updated: 'Apr 2, 2026',
+    value_pull_last_attempted_at: 'May 16, 2026',
+    value_pull_note:
+      'This release has no recorded Discogs sales history. That usually means it is extremely rare or rarely sold publicly.',
+    discogs_release_id: '481920',
+    label: 'Decca',
+    catalogue_number: 'F-11889',
+    year_released: '1964',
+  },
+  {
+    id: '2',
+    artist: 'Pink Floyd',
+    title: 'Wish You Were Here',
+    cover_url:
+      'https://upload.wikimedia.org/wikipedia/en/a/a4/Pink_Floyd%2C_Wish_You_Were_Here_%281975%29.png',
+    estimated_value: '$1,120',
+    discogs_low_price: '$800',
+    discogs_median_price: '$980',
+    discogs_high_price: '$1,900',
+    queue_priority: 3,
+    value_pull_status: 'needs_updates',
+    value_last_updated: 'Mar 28, 2026',
+    value_pull_last_attempted_at: 'May 14, 2026',
+    value_pull_note:
+      'This release still needs additional pricing or metadata updates.',
+    discogs_release_id: '920114',
+    label: 'Harvest',
+    catalogue_number: 'SHVL 814',
+    year_released: '1975',
+  },
+  {
+    id: '3',
+    artist: 'The Smashing Pumpkins',
+    title: 'Oceania',
+    cover_url:
+      'https://upload.wikimedia.org/wikipedia/en/8/87/Oceania_cover.jpg',
+    estimated_value: '$92',
+    discogs_low_price: '$65',
+    discogs_median_price: '$84',
+    discogs_high_price: '$145',
+    queue_priority: 5,
+    value_pull_status: 'up_to_date',
+    value_last_updated: 'May 10, 2026',
+    value_pull_last_attempted_at: 'May 10, 2026',
+    value_pull_note:
+      'Pricing and album artwork are fully updated.',
+    discogs_release_id: '3728472',
+    label: 'EMI',
+    catalogue_number: '509999 780252 1 5',
+    year_released: '2012',
+  },
+]
+
+function statusTone(status: string) {
+  if (status === 'rare_no_sales_history') {
+    return 'border-purple-400/20 bg-purple-400/10 text-purple-200'
+  }
+
+  if (status === 'up_to_date') {
+    return 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
+  }
+
+  if (status === 'discogs_error') {
+    return 'border-red-400/20 bg-red-400/10 text-red-200'
+  }
+
+  return 'border-yellow-400/20 bg-yellow-400/10 text-yellow-200'
+}
+
+function prettyStatus(status: string) {
+  if (status === 'rare_no_sales_history') {
+    return 'Rare • No Sales History'
+  }
+
+  if (status === 'needs_updates') {
+    return 'Needs Updates'
+  }
+
+  if (status === 'up_to_date') {
+    return 'Fully Updated'
+  }
+
+  return status.replaceAll('_', ' ')
+}
+
+export default function PremiumIntelligencePipelinePreview() {
+  const [search, setSearch] = React.useState('')
+  const [statusFilter, setStatusFilter] = React.useState('all')
+
+  const filteredQueue = demoQueue.filter((record) => {
+    const matchesSearch = `${record.artist} ${record.title}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+
+    const matchesStatus =
+      statusFilter === 'all' ||
+      record.value_pull_status === statusFilter
+
+    return matchesSearch && matchesStatus
+  })
+
   const metrics = [
     {
-      label: 'Collection Value',
-      value: '$140,901.88',
-      icon: TrendingUp,
+      label: 'Records Needing Updates',
+      value: String(filteredQueue.length),
+      icon: <IconActivity />,
       accent: 'from-yellow-400 to-orange-500',
     },
     {
-      label: 'Records Indexed',
-      value: '2,860',
-      icon: Database,
+      label: 'Missing Information',
+      value: '1',
+      icon: <IconDatabase />,
       accent: 'from-cyan-400 to-blue-500',
     },
     {
-      label: 'Median Value',
-      value: '$49',
-      icon: BarChart3,
+      label: 'Missing Covers',
+      value: '0',
+      icon: <IconImage />,
       accent: 'from-fuchsia-400 to-purple-500',
     },
     {
-      label: 'Countries',
-      value: '45',
-      icon: Globe,
+      label: 'Collection Value In Queue',
+      value: '$4.8K',
+      icon: <IconTrending />,
       accent: 'from-emerald-400 to-green-500',
-    },
-  ]
-
-  const records = [
-    {
-      artist: 'David Bowie',
-      release: 'Liza Jane',
-      value: '$3,733.25',
-      growth: '+18%',
-    },
-    {
-      artist: 'Nirvana',
-      release: 'Nevermind',
-      value: '$1,890.00',
-      growth: '+12%',
-    },
-    {
-      artist: 'Smashing Pumpkins',
-      release: 'Oceania',
-      value: '$1,620.00',
-      growth: '+31%',
-    },
-    {
-      artist: 'Pink Floyd',
-      release: 'Wish You Were Here',
-      value: '$1,120.00',
-      growth: '+22%',
-    },
-  ]
-
-  const regionCards = [
-    {
-      name: 'North America',
-      color: 'bg-yellow-400',
-      glow: 'shadow-[0_0_16px_rgba(255,196,0,0.8)]',
-      text: 'Highest collection value concentration and strongest collector trading activity.',
-      border: 'border-yellow-400/10',
-      background: 'bg-yellow-400/5',
-      textColor: 'text-yellow-200',
-    },
-    {
-      name: 'Europe',
-      color: 'bg-cyan-400',
-      glow: 'shadow-[0_0_16px_rgba(59,130,246,0.8)]',
-      text: 'High metadata density and active rare pressing marketplace.',
-      border: 'border-cyan-400/10',
-      background: 'bg-cyan-400/5',
-      textColor: 'text-cyan-200',
-    },
-    {
-      name: 'Asia',
-      color: 'bg-fuchsia-400',
-      glow: 'shadow-[0_0_16px_rgba(217,70,239,0.8)]',
-      text: 'Fastest emerging market growth and increasing collector demand.',
-      border: 'border-fuchsia-400/10',
-      background: 'bg-fuchsia-400/5',
-      textColor: 'text-fuchsia-200',
-    },
-    {
-      name: 'Oceania',
-      color: 'bg-emerald-400',
-      glow: 'shadow-[0_0_16px_rgba(16,185,129,0.8)]',
-      text: 'Emerging niche collector ecosystems and specialty releases.',
-      border: 'border-emerald-400/10',
-      background: 'bg-emerald-400/5',
-      textColor: 'text-emerald-200',
     },
   ]
 
@@ -111,344 +186,266 @@ export default function ReportsAnalyticsPage() {
         <div className="absolute -left-40 top-0 h-[600px] w-[600px] rounded-full bg-yellow-500/10 blur-[180px]" />
         <div className="absolute right-0 top-0 h-[700px] w-[700px] rounded-full bg-blue-500/10 blur-[220px]" />
         <div className="absolute bottom-0 left-1/3 h-[600px] w-[600px] rounded-full bg-fuchsia-500/10 blur-[220px]" />
-
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
-            backgroundSize: '80px 80px',
-          }}
-        />
       </div>
 
       <div className="relative z-10 mx-auto flex max-w-[1800px] flex-col gap-8 px-6 py-8 lg:px-10">
         <motion.section
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
           className="relative overflow-hidden rounded-[42px] border border-white/10 bg-[#060606]/95 p-10 shadow-[0_0_80px_rgba(255,196,0,0.08)] backdrop-blur-2xl"
         >
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                'radial-gradient(circle at top left, rgba(255,196,0,0.15), transparent 25%), radial-gradient(circle at bottom right, rgba(59,130,246,0.12), transparent 30%)',
-            }}
-          />
-
           <div className="relative z-10 grid gap-10 xl:grid-cols-[1.1fr_0.9fr]">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-yellow-400/20 bg-yellow-400/10 px-5 py-2 text-xs font-black uppercase tracking-[0.35em] text-yellow-300">
-                <Sparkles className="h-4 w-4" />
-                Collector Intelligence
+                <IconSparkles />
+                Collection Updates
               </div>
 
-              <h1 className="mt-6 max-w-4xl text-6xl font-black leading-[0.9] tracking-[-0.04em] md:text-8xl">
-                Reports &
+              <h1 className="mt-6 max-w-5xl text-6xl font-black leading-[0.9] tracking-[-0.04em] md:text-8xl">
+                Collection
                 <span className="bg-gradient-to-r from-yellow-300 via-yellow-500 to-orange-500 bg-clip-text text-transparent">
                   {' '}
-                  Analytics
+                  Update Center
                 </span>
               </h1>
 
-              <p className="mt-8 max-w-2xl text-xl leading-relaxed text-zinc-400">
-                Luxury-grade collection intelligence engineered for serious collectors.
+              <p className="mt-8 max-w-3xl text-xl leading-relaxed text-zinc-400">
+                This page helps keep your collection updated automatically. It refreshes record values, restores missing album covers, and shows releases that may need attention.
               </p>
             </div>
 
             <div className="relative overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl">
-              <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 via-transparent to-blue-500/10" />
-
               <div className="relative z-10 flex flex-col gap-5">
-                <div>
-                  <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.3em] text-zinc-500">
-                    <Search className="h-4 w-4" />
-                    Search Metadata
+                <div className="flex items-center justify-between rounded-2xl border border-emerald-400/15 bg-emerald-400/10 px-5 py-4">
+                  <div>
+                    <div className="text-xs font-black uppercase tracking-[0.25em] text-emerald-300">
+                      Discogs Connection
+                    </div>
+
+                    <div className="mt-2 text-2xl font-black text-white">
+                      Connected
+                    </div>
                   </div>
 
-                  <input
-                    placeholder="Search artist, release, pressing, catalog..."
-                    className="h-16 w-full rounded-2xl border border-white/10 bg-black/50 px-6 text-lg text-white outline-none transition-all duration-300 placeholder:text-zinc-600 focus:border-yellow-400/40"
-                  />
+                  <div className="text-4xl text-emerald-400">
+                    <IconShield />
+                  </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <select className="h-14 rounded-2xl border border-white/10 bg-black/50 px-5 text-white outline-none transition-all duration-300 focus:border-yellow-400/40">
-                    <option>All Countries</option>
-                    <option>United States</option>
-                    <option>United Kingdom</option>
-                    <option>Germany</option>
-                    <option>Japan</option>
-                  </select>
+                <button className="group flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 px-6 py-5 text-sm font-black uppercase tracking-[0.25em] text-black transition-all duration-300 hover:scale-[1.02]">
+                  Update Record Values
+                  <IconArrow />
+                </button>
 
-                  <select className="h-14 rounded-2xl border border-white/10 bg-black/50 px-5 text-white outline-none transition-all duration-300 focus:border-yellow-400/40">
-                    <option>All Genres</option>
-                    <option>Rock</option>
-                    <option>Alternative</option>
-                    <option>Electronic</option>
-                    <option>Jazz</option>
-                  </select>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <button className="rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 px-6 py-5 text-sm font-black uppercase tracking-[0.25em] text-black transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(255,196,0,0.35)]">
-                    Enrich Metadata
-                  </button>
-
-                  <button className="rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-5 text-sm font-bold uppercase tracking-[0.25em] text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/10">
-                    Open Collection
-                  </button>
-                </div>
+                <button className="group flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-5 text-sm font-bold uppercase tracking-[0.25em] text-white transition-all duration-300 hover:border-cyan-400/40 hover:bg-cyan-400/10">
+                  Recover Missing Covers
+                  <IconRefresh />
+                </button>
               </div>
             </div>
           </div>
         </motion.section>
 
-        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          {metrics.map((metric, index) => {
-            const Icon = metric.icon
-
-            return (
-              <motion.div
-                key={metric.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="group relative overflow-hidden rounded-[32px] border border-white/10 bg-[#050505]/90 p-7"
-              >
-                <div className="relative z-10 flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">
-                      {metric.label}
-                    </div>
-
-                    <div className="mt-5 truncate text-4xl font-black tracking-tight text-white 2xl:text-5xl">
-                      {metric.value}
-                    </div>
+        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {metrics.map((metric, index) => (
+            <motion.div
+              key={metric.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.08 }}
+              className="rounded-[32px] border border-white/10 bg-[#050505]/90 p-7"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">
+                    {metric.label}
                   </div>
 
-                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${metric.accent}`}>
-                    <Icon className="h-7 w-7 text-black" />
+                  <div className="mt-5 text-4xl font-black tracking-tight text-white">
+                    {metric.value}
                   </div>
                 </div>
-              </motion.div>
-            )
-          })}
+
+                <div
+                  className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${metric.accent}`}
+                >
+                  <div className="text-2xl text-black">{metric.icon}</div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="relative overflow-hidden rounded-[40px] border border-white/10 bg-[#050505]/95 p-8">
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  'radial-gradient(circle at top left, rgba(255,196,0,0.1), transparent 25%), radial-gradient(circle at bottom right, rgba(59,130,246,0.12), transparent 30%)',
-              }}
-            />
-
-            <div className="relative z-10 flex flex-col gap-8">
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-                <div className="max-w-4xl">
-                  <div className="flex items-center gap-3">
-                    <Globe className="h-8 w-8 text-yellow-400" />
-
-                    <h2 className="text-5xl font-black tracking-tight text-white">
-                      Global Density
-                    </h2>
-                  </div>
-
-                  <p className="mt-4 text-lg leading-relaxed text-zinc-400">
-                    Real-time geographic concentration mapping showing where your collection inventory, value density, and collector activity are strongest worldwide.
-                  </p>
+        <section className="grid gap-6">
+          <div className="rounded-[38px] border border-white/10 bg-[#050505]/95 p-6">
+            <div className="grid gap-4 xl:grid-cols-[1fr_260px_220px]">
+              <div>
+                <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">
+                  Search Your Collection
                 </div>
 
-                <div className="w-fit rounded-3xl border border-yellow-400/20 bg-yellow-400/10 px-6 py-5 backdrop-blur-xl">
-                  <div className="text-xs font-black uppercase tracking-[0.3em] text-yellow-300">
-                    Active Regions
-                  </div>
-
-                  <div className="mt-2 text-5xl font-black text-white">
-                    45
-                  </div>
-                </div>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search artist or release title..."
+                  className="mt-4 h-16 w-full rounded-2xl border border-white/10 bg-black/50 px-6 text-lg text-white outline-none"
+                />
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {regionCards.map((region) => (
-                  <div
-                    key={region.name}
-                    className={`flex items-start gap-3 rounded-2xl border ${region.border} ${region.background} p-4`}
-                  >
-                    <div className={`mt-1 h-3 w-3 shrink-0 rounded-full ${region.color} ${region.glow}`} />
+              <div>
+                <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">
+                  Filter Results
+                </div>
 
-                    <div>
-                      <div className={`text-sm font-black ${region.textColor}`}>
-                        {region.name}
-                      </div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="mt-4 h-16 w-full rounded-2xl border border-white/10 bg-black/50 px-5 text-white outline-none"
+                >
+                  <option value="all">All Records</option>
+                  <option value="needs_updates">Needs Updates</option>
+                  <option value="rare_no_sales_history">Rare / No Sales History</option>
+                  <option value="up_to_date">Fully Updated</option>
+                </select>
+              </div>
 
-                      <div className="mt-1 text-xs leading-relaxed text-zinc-400">
-                        {region.text}
-                      </div>
+              <div className="rounded-[28px] border border-yellow-400/15 bg-yellow-400/10 p-5">
+                <div className="text-xs font-black uppercase tracking-[0.3em] text-yellow-300">
+                  Records Showing
+                </div>
+
+                <div className="mt-3 text-5xl font-black text-white">
+                  {filteredQueue.length}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {filteredQueue.map((record, index) => (
+            <motion.article
+              key={record.id}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.03 }}
+              className="group relative overflow-hidden rounded-[38px] border border-white/10 bg-[#050505]/95 p-6 transition-all duration-500 hover:border-yellow-400/20"
+            >
+              <div className="grid items-start gap-5 xl:grid-cols-[140px_1fr_260px]">
+                <div className="relative h-[140px] w-[140px] overflow-hidden rounded-[24px] border border-white/10 bg-black shrink-0">
+                  <img
+                    src={record.cover_url}
+                    alt={record.title}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = `https://placehold.co/600x600/111111/facc15?text=${encodeURIComponent(record.title)}`
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex flex-wrap gap-3">
+                    <div
+                      className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.2em] ${statusTone(
+                        record.value_pull_status,
+                      )}`}
+                    >
+                      {prettyStatus(record.value_pull_status)}
                     </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="relative overflow-hidden rounded-[36px] border border-white/10 bg-black">
-                <div
-                  className="relative h-[650px] overflow-hidden"
-                  style={{
-                    background:
-                      'radial-gradient(circle at center, #101827 0%, #040404 78%)',
-                  }}
-                >
-                  <div className="absolute inset-0 flex items-center justify-center opacity-[0.24] mix-blend-screen">
-                    <img
-                      src="https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg"
-                      alt="World Map"
-                      className="h-[88%] w-[88%] object-contain invert brightness-200 contrast-125"
-                    />
+                  <div className="mt-6 text-sm font-black uppercase tracking-[0.3em] text-yellow-300">
+                    {record.artist}
                   </div>
 
-                  <div
-                    className="absolute inset-0 opacity-20"
-                    style={{
-                      backgroundImage:
-                        'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
-                      backgroundSize: '72px 72px',
-                    }}
-                  />
+                  <h3 className="mt-2 text-4xl font-black leading-none tracking-tight text-white xl:text-5xl">
+                    {record.title}
+                  </h3>
 
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        'radial-gradient(circle at 28% 42%, rgba(255,196,0,0.20), transparent 18%), radial-gradient(circle at 55% 36%, rgba(59,130,246,0.22), transparent 20%), radial-gradient(circle at 73% 42%, rgba(217,70,239,0.18), transparent 18%), radial-gradient(circle at 78% 68%, rgba(16,185,129,0.14), transparent 16%)',
-                    }}
-                  />
+                  <p className="mt-5 max-w-3xl text-lg leading-relaxed text-zinc-400">
+                    {[record.label, record.catalogue_number, record.year_released]
+                      .filter(Boolean)
+                      .join(' • ')}
+                  </p>
 
-                  <svg
-                    viewBox="0 0 1200 600"
-                    className="absolute inset-0 h-full w-full opacity-50"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M260 240 C430 180 540 200 720 230"
-                      stroke="rgba(255,196,0,0.45)"
-                      strokeWidth={2}
-                      fill="none"
-                      strokeDasharray="10 10"
-                    />
-
-                    <path
-                      d="M720 230 C820 260 900 330 980 420"
-                      stroke="rgba(59,130,246,0.4)"
-                      strokeWidth={2}
-                      fill="none"
-                      strokeDasharray="10 10"
-                    />
-
-                    <circle cx="260" cy="240" r="6" fill="rgba(255,196,0,0.9)" />
-                    <circle cx="720" cy="230" r="6" fill="rgba(59,130,246,0.9)" />
-                    <circle cx="980" cy="420" r="6" fill="rgba(16,185,129,0.9)" />
-
-                    <text x="210" y="220" fill="rgba(255,255,255,0.9)" fontSize="18" fontWeight="700">
-                      North America
-                    </text>
-
-                    <text x="675" y="210" fill="rgba(255,255,255,0.9)" fontSize="18" fontWeight="700">
-                      Europe
-                    </text>
-
-                    <text x="925" y="455" fill="rgba(255,255,255,0.9)" fontSize="18" fontWeight="700">
-                      Oceania
-                    </text>
-                  </svg>
-
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20" />
-
-                  <div className="absolute bottom-0 left-0 right-0 grid gap-4 p-6 md:grid-cols-4">
+                  <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     {[
-                      ['US', '1,198 Records'],
-                      ['GB', '603 Records'],
-                      ['DE', '292 Records'],
-                      ['FR', '93 Records'],
-                    ].map(([country, amount]) => (
+                      ['Estimated Value', record.estimated_value],
+                      ['Low Sale', record.discogs_low_price],
+                      ['Median Sale', record.discogs_median_price],
+                      ['High Sale', record.discogs_high_price],
+                    ].map(([label, value]) => (
                       <div
-                        key={country}
-                        className="rounded-3xl border border-white/10 bg-black/50 p-5 backdrop-blur-2xl"
+                        key={label}
+                        className="rounded-2xl border border-white/10 bg-black/40 p-3"
                       >
-                        <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">
-                          {country}
+                        <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+                          {label}
                         </div>
 
-                        <div className="mt-3 text-2xl font-black text-white">
-                          {amount}
+                        <div className="mt-2 text-xl font-black text-white">
+                          {value}
                         </div>
                       </div>
                     ))}
                   </div>
+
+                  <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+                      Update Notes
+                    </div>
+
+                    <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+                      {record.value_pull_note}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          <div className="relative overflow-hidden rounded-[40px] border border-white/10 bg-[#050505]/95 p-8">
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  'radial-gradient(circle at top right, rgba(217,70,239,0.15), transparent 35%)',
-              }}
-            />
+                <div className="rounded-[28px] border border-white/10 bg-black/40 p-5 backdrop-blur-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="text-yellow-300">
+                      <IconActivity />
+                    </div>
 
-            <div className="relative z-10">
-              <div className="flex items-center gap-3">
-                <Disc3 className="h-8 w-8 text-fuchsia-400" />
+                    <div className="text-lg font-black text-white">
+                      Update Details
+                    </div>
+                  </div>
 
-                <h2 className="text-5xl font-black tracking-tight text-white">
-                  Top Records
-                </h2>
-              </div>
-
-              <div className="mt-8 space-y-5">
-                {records.map((record, index) => (
-                  <motion.div
-                    key={record.release}
-                    whileHover={{ scale: 1.015 }}
-                    className="group relative overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.03] p-6"
-                  >
-                    <div className="flex items-center gap-5">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 text-2xl font-black text-black">
-                        #{index + 1}
+                  <div className="mt-6 space-y-5">
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+                        Last Value Refresh
                       </div>
 
-                      <div className="flex-1">
-                        <div className="text-xl font-black text-white">
-                          {record.artist}
-                        </div>
-
-                        <div className="mt-1 text-sm text-zinc-500">
-                          {record.release}
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div className="text-3xl font-black text-yellow-300">
-                          {record.value}
-                        </div>
-
-                        <div className="mt-2 text-sm font-bold text-emerald-400">
-                          {record.growth}
-                        </div>
+                      <div className="mt-2 text-2xl font-black text-white">
+                        {record.value_last_updated}
                       </div>
                     </div>
-                  </motion.div>
-                ))}
+
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+                        Last Update Attempt
+                      </div>
+
+                      <div className="mt-2 text-xl font-black text-white">
+                        {record.value_pull_last_attempted_at}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+                        Discogs Release ID
+                      </div>
+
+                      <div className="mt-2 text-xl font-black text-white">
+                        #{record.discogs_release_id}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </motion.article>
+          ))}
         </section>
       </div>
     </main>
