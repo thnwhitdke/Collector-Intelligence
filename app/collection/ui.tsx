@@ -403,20 +403,21 @@ export function CollectionUI({
                 label="Value Dashboard"
                 primary
               />
-              <ActionLink
-                href="/reports"
-                label="Reports & Analytics"
-                primary
-              />
-              <ActionLink
-                href="/collection/market-intelligence"
-                label="Market Intelligence"
-              />
-              <ActionLink href="/collection/value-queue" label="Value Queue" />
-              <ActionLink
-                href="/api/export/collection"
-                label="Export Collection"
-              />
+            <ActionLink
+  href="/collection/market-intelligence"
+  label="Market Intelligence"
+/>
+
+<ActionLink
+  href="/collection/market-leaders"
+  label="Market Leaders"
+  primary
+/>
+
+<ActionLink
+  href="/collection/value-queue"
+  label="Value Queue"
+/>
             </div>
           </div>
         </section>

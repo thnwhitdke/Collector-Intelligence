@@ -11,6 +11,7 @@ import {
 
 import EnrichButton from "./components/EnrichButton";
 import KpiCards from "./components/KpiCards";
+import LiveMarketFeed from "@/app/components/LiveMarketFeed";
 
 
 import {
@@ -530,22 +531,35 @@ const mapData =
 
         </div>
 
-        <KpiCards
-          totalValue={
-            totalValue
-          }
-          totalRecords={
-            records.length
-          }
-          avgROI={
-            avgROI
-          }
-          activeMarkets={
-            Object.keys(
-              countryTotals
-            ).length
-          }
-        />
+     <KpiCards
+  totalValue={
+    totalValue
+  }
+  totalRecords={
+    records.length
+  }
+  avgROI={
+    avgROI
+  }
+  activeMarkets={
+    Object.keys(
+      countryTotals
+    ).length
+  }
+/>
+
+<div className="mt-10">
+  <LiveMarketFeed />
+</div>
+
+<div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+  ...
+  metric cards
+  ...
+
+</div>
+
 <div className="mt-10">
   <div
   className="

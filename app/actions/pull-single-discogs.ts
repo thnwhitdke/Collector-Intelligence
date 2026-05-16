@@ -11,6 +11,7 @@ type DiscogsPriceSuggestion = {
 type RecordRow = {
   id: string;
   discogs_release_id: string | number | null;
+  artist?: string | null;
 };
 
 function toNumber(value: unknown): number | null {
@@ -67,7 +68,7 @@ export async function pullSingleDiscogsValue(formData: FormData) {
 
   const { data: record, error: recordError } = await supabase
     .from("records_clean_safe")
-    .select("id, discogs_release_id")
+    .select("id, discogs_release_id, artist")
     .eq("id", id)
     .single();
 
@@ -75,7 +76,8 @@ export async function pullSingleDiscogsValue(formData: FormData) {
     redirectBack(id, "record-not-found", returnTo);
   }
 
-  const releaseId = String((record as RecordRow).discogs_release_id || "").trim();
+  const { discogs_release_id: releaseIdRaw, artist } = record as RecordRow;
+  const releaseId = String(releaseIdRaw || "").trim();
 
   if (!releaseId) {
     await supabase
@@ -250,60 +252,210 @@ export async function pullSingleDiscogsValue(formData: FormData) {
 
   let marketValueChangePercent: number | null = null;
   let marketSupplyChange: number | null = null;
+  let demandScore = 0;
+
+if (median >= 20) {
+  demandScore += 35;
+}
+
+if (forSale !== null && forSale < 15) {
+  demandScore += 30;
+}
+
+if (
+  activityDays !== null &&
+  activityDays <= 14
+) {
+  demandScore += 20;
+}
+if (spread >= 20) {
+  demandScore += 15;
+}
+
+let supplyPressure = 20;
+
+if (forSale !== null && forSale <= 3) {
+  supplyPressure = 95;
+} else if (
+  forSale !== null &&
+  forSale <= 10
+) {
+  supplyPressure = 75;
+} else if (
+  forSale !== null &&
+  forSale <= 25
+) {
+  supplyPressure = 45;
+}
+
+const volatilityScore =
+  Math.min(
+    Math.round(spread / 10),
+    100
+  );
+
+let rarityIndex = 20;
+
+if (
+  forSale !== null &&
+  forSale <= 5 &&
+  median >= 50
+)
+ {
+  rarityIndex = 95;
+} else if (
+  forSale !== null &&
+  forSale <= 10
+) {
+  rarityIndex = 75;
+} else if (
+  forSale !== null &&
+  forSale <= 25
+) {
+  rarityIndex = 50;
+}
+
+let collectorVelocity = 15;
+let prestigeBonus = 0;
+
+const artistName =
+  (artist || "").toLowerCase();
+
+if (artistName.includes("david bowie")) {
+  prestigeBonus += 40;
+}
+
+if (artistName.includes("pink floyd")) {
+  prestigeBonus += 45;
+}
+
+if (artistName.includes("beatles")) {
+  prestigeBonus += 50;
+}
+
+if (artistName.includes("velvet underground")) {
+  prestigeBonus += 40;
+}
+
+if (artistName.includes("led zeppelin")) {
+  prestigeBonus += 45;
+}
+
+
+
+if (artistName.includes("miles davis")) {
+  prestigeBonus += 45;
+}
+
+if (artistName.includes("radiohead")) {
+  prestigeBonus += 35;
+}
+
+if (artistName.includes("bob dylan")) {
+  prestigeBonus += 35;
+}
+
+if (
+  activityDays !== null &&
+  activityDays <= 7
+) {
+  collectorVelocity = 95;
+} else if (
+  activityDays !== null &&
+  activityDays <= 30
+) {
+  collectorVelocity = 70;
+} else if (
+  activityDays !== null &&
+  activityDays <= 90
+) {
+  collectorVelocity = 40;
+}
+const collectorIQScore =
+  demandScore +
+  rarityIndex +
+  volatilityScore +
+  collectorVelocity +
+  prestigeBonus;
+  
   let marketMomentum = "Stable";
   let marketTrend = "Flat";
 
   if (previousSnapshot) {
 
-    const previousMedian =
-      Number(previousSnapshot.discogs_median_price || 0);
+  const previousMedian =
+    Number(previousSnapshot.discogs_median_price || 0);
 
-    const previousSupply =
-      Number(previousSnapshot.discogs_for_sale || 0);
+  const previousSupply =
+    Number(previousSnapshot.discogs_for_sale || 0);
 
-    if (previousMedian > 0) {
+  if (previousMedian > 0) {
 
-      marketValueChangePercent =
-        Number(
-          (
-            ((median - previousMedian) / previousMedian) *
-            100
-          ).toFixed(2)
-        );
-    }
-
-    marketSupplyChange =
-      forSale !== null
-        ? forSale - previousSupply
-        : null;
-
-    if (
-      marketValueChangePercent !== null &&
-      marketValueChangePercent >= 15
-    ) {
-
-      marketMomentum = "Heating Up";
-      marketTrend = "Bullish";
-
-    } else if (
-      marketValueChangePercent !== null &&
-      marketValueChangePercent <= -15
-    ) {
-
-      marketMomentum = "Cooling Down";
-      marketTrend = "Bearish";
-
-    } else if (
-      marketSupplyChange !== null &&
-      marketSupplyChange <= -5
-    ) {
-
-      marketMomentum = "Supply Compression";
-      marketTrend = "Bullish";
-    }
+    marketValueChangePercent =
+      Number(
+        (
+          ((median - previousMedian) / previousMedian) *
+          100
+        ).toFixed(2)
+      );
   }
 
+  marketSupplyChange =
+    forSale !== null
+      ? forSale - previousSupply
+      : null;
+
+  if (
+    demandScore >= 70 &&
+    supplyPressure >= 70
+  ) {
+
+    marketMomentum = "Accelerating";
+    marketTrend = "Bullish";
+
+  } else if (
+    volatilityScore >= 70
+  ) {
+
+    marketMomentum = "Volatile";
+    marketTrend = "Unstable";
+
+  } else if (
+    collectorVelocity >= 70
+  ) {
+
+    marketMomentum = "Active";
+    marketTrend = "Bullish";
+
+  } else if (
+    marketValueChangePercent !== null &&
+    marketValueChangePercent <= -15
+  ) {
+
+    marketMomentum = "Cooling Down";
+    marketTrend = "Bearish";
+
+  } else if (
+    marketSupplyChange !== null &&
+    marketSupplyChange <= -5
+  ) {
+
+    marketMomentum = "Supply Compression";
+    marketTrend = "Bullish";
+  }
+}
+
   const now = new Date().toISOString();
+ console.log("PHASE 3 INTELLIGENCE DEBUG", {
+  marketMomentum,
+  demandScore,
+  supplyPressure,
+  volatilityScore,
+  rarityIndex,
+  collectorVelocity,
+  prestigeBonus,
+  collectorIQScore,
+});
 
   const { error: updateError } = await supabase
     .from("records_clean_safe")
@@ -325,14 +477,21 @@ export async function pullSingleDiscogsValue(formData: FormData) {
       market_supply_change: marketSupplyChange,
       market_momentum: marketMomentum,
       market_trend: marketTrend,
+      demand_score: demandScore,
+      supply_pressure: supplyPressure,
+      volatility_score: volatilityScore,
+      rarity_index: rarityIndex,
+
+collector_velocity: collectorVelocity,
+collector_iq_score: collectorIQScore,
       next_refresh_due_at: nextRefreshDueAt.toISOString(),
       value_pull_status: "pulled_successfully",
       value_pull_note: "Discogs single-record value pull completed successfully.",
       value_pull_last_attempted_at: now,
     })
-    .eq("id", id);
-  await supabase
- console.log("ATTEMPTING MARKET HISTORY INSERT");
+   .eq("id", id);
+  
+   console.log("ATTEMPTING MARKET HISTORY INSERT");
 
 const { data: historyData, error: historyError } = await supabase
   .from("market_history")

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/src/lib/supabase/server";
+import LiveMarketFeed from "@/app/components/LiveMarketFeed";
 
 type SearchParams = {
   q?: string;
@@ -402,6 +403,7 @@ let query = supabase
         <section className="rounded-[2rem] border border-cyan-300/20 bg-cyan-300/[0.06] p-6">
           <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <div>
+            <div></div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-200">
                 How to use this page
               </p>
@@ -416,32 +418,74 @@ let query = supabase
               </p>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Signal legend
-              </p>
-              <div className="mt-4 grid gap-2 text-sm text-slate-300">
-                <p>
-                  <span className="font-bold text-orange-200">Hot</span> — scarce and meaningful value.
-                </p>
-                <p>
-                  <span className="font-bold text-amber-200">Thin</span> — very few copies listed.
-                </p>
-                <p>
-                  <span className="font-bold text-emerald-200">Active</span> — recent sale activity.
-                </p>
-                <p>
-                  <span className="font-bold text-red-200">Volatile</span> — wide low-to-high spread.
-                </p>
-                <p>
-                  <span className="font-bold text-slate-200">Saturated</span> — many copies listed.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+            <div className="rounded-3xl border border-cyan-500/10 bg-cyan-500/[0.03] p-6">
+  <h3 className="mb-4 text-sm font-bold uppercase tracking-[0.25em] text-cyan-300">
+    Market Intelligence Legend
+  </h3>
 
-        <form
+  <div className="space-y-4 text-sm text-zinc-300">
+
+    <div>
+      <div className="font-semibold text-orange-300">
+        🟠 LIVE Price Spike
+      </div>
+
+      <p className="mt-1 text-zinc-400">
+        Median market value significantly exceeds the lowest active
+        listing. May indicate rising demand or undervalued inventory.
+      </p>
+    </div>
+
+    <div>
+      <div className="font-semibold text-red-300">
+        🔴 Volatility Alert
+      </div>
+
+      <p className="mt-1 text-zinc-400">
+        Large spread between low and high sales prices. Often reflects
+        grading sensitivity or unstable market pricing.
+      </p>
+    </div>
+
+    <div>
+      <div className="font-semibold text-blue-300">
+        🔵 Trending Market
+      </div>
+
+      <p className="mt-1 text-zinc-400">
+        Releases showing strong collector momentum and elevated market
+        activity.
+      </p>
+    </div>
+
+    <div>
+      <div className="font-semibold text-green-300">
+        🟢 Supply Compression
+      </div>
+
+      <p className="mt-1 text-zinc-400">
+        Very limited active supply detected in the marketplace.
+      </p>
+    </div>
+
+    <div>
+      <div className="font-semibold text-cyan-300">
+        Collector IQ
+      </div>
+
+      <p className="mt-1 text-zinc-400">
+        Composite intelligence score combining scarcity, demand,
+        volatility, and market momentum.
+      </p>
+    </div>
+
+  </div>
+</div>
+   <div className="mt-10">
+  <LiveMarketFeed />
+</div>
+</div>
+<form
           action="/collection/market-intelligence"
           className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-xl"
         >
@@ -514,10 +558,10 @@ let query = supabase
         </form>
 
         <section className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
-              Estimated Value Shown
-            </p>
+  <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+    Estimated Value Shown
+  </p>
             <p className="mt-3 text-3xl font-black text-white">
               {money(totalEstimatedValue)}
             </p>
@@ -754,8 +798,9 @@ let query = supabase
               </article>
             );
           })}
-        </section>
-      </div>
-    </main>
-  );
+</section>
+</section>
+</div>
+</main>
+);
 }

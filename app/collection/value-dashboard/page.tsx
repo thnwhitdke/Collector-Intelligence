@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { WorldMap } from "react-svg-worldmap";
 import { createClient } from "@supabase/supabase-js";
 import MarketTicker from "../../components/MarketTicker";
 
@@ -20,12 +19,9 @@ import {
 } from "recharts";
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 );
-
-const fetcher = (url: string) =>
-  fetch(url).then((res) => res.json());
 
 const COLORS = [
   "#facc15",
@@ -34,6 +30,30 @@ const COLORS = [
   "#854d0e",
   "#451a03",
 ];
+
+interface AnalyticsData {
+  countryDistribution: any[];
+  topRecords: any[];
+  marketMomentum: any[];
+  genreDistribution: any[];
+  totalCollectionValue: number;
+  totalRecords: number;
+  medianValue: number;
+  totalCountries: number;
+  averageCollectorIQ: number;
+}
+
+const EMPTY_ANALYTICS: AnalyticsData = {
+  countryDistribution: [],
+  topRecords: [],
+  marketMomentum: [],
+  genreDistribution: [],
+  totalCollectionValue: 0,
+  totalRecords: 0,
+  medianValue: 0,
+  totalCountries: 0,
+  averageCollectorIQ: 0,
+};
 
 function convertCountryToISO(country: string) {
   const mapping: Record<string, string> = {
@@ -51,18 +71,23 @@ function convertCountryToISO(country: string) {
     Sweden: "se",
   };
 
-  return mapping[country] || "us";
+  return mapping[country] || country;
 }
 
 export default function ValueDashboardPage() {
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichMessage, setEnrichMessage] = useState("Idle");
+  const [topMovers, setTopMovers] = useState<any[]>([]);
 
-  const [isEnriching, setIsEnriching] =
-    useState(false);
+  const fetcher = async (url: string) => {
+    const response = await fetch(url);
 
-  const [enrichMessage, setEnrichMessage] =
-    useState("");
-    const [topMovers, setTopMovers] =
-  useState<any[]>([]);
+    if (!response.ok) {
+      throw new Error("Failed to fetch analytics");
+    }
+
+    return response.json();
+  };
 
   const {
     data,
@@ -71,49 +96,127 @@ export default function ValueDashboardPage() {
     mutate,
   } = useSWR(
     "/api/dashboard/analytics",
-    async (url) => {
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to fetch analytics"
-        );
-      }
-
-      return response.json();
-    }
+    fetcher
   );
-useSWR(
-  "top-movers",
-  async () => {
 
-    const { data } =
-      await supabase
+  useSWR("top-movers", async () => {
+    try {
+      const response = await supabase
         .from("market_changes")
         .select("*")
-        .not(
-          "change_percent",
-          "is",
-          null
-        )
-        .order(
-          "change_percent",
-          {
-            ascending: false,
-          }
-        )
+        .not("change_percent", "is", null)
+        .order("change_percent", {
+          ascending: false,
+        })
         .limit(5);
 
-    setTopMovers(data || []);
+      if (Array.isArray(response.data)) {
+        setTopMovers(response.data);
+      } else {
+        setTopMovers([]);
+      }
 
-    return data;
+      return response.data;
+    } catch (err) {
+      console.error(err);
+      setTopMovers([]);
+      return [];
+    }
+  });
+
+  const analytics: AnalyticsData = {
+    countryDistribution: Array.isArray(data?.countryDistribution)
+      ? data.countryDistribution
+      : EMPTY_ANALYTICS.countryDistribution,
+
+    topRecords: Array.isArray(data?.topRecords)
+      ? data.topRecords
+      : EMPTY_ANALYTICS.topRecords,
+
+    marketMomentum: Array.isArray(data?.marketMomentum)
+      ? data.marketMomentum
+      : EMPTY_ANALYTICS.marketMomentum,
+
+    genreDistribution: Array.isArray(data?.genreDistribution)
+      ? data.genreDistribution
+      : EMPTY_ANALYTICS.genreDistribution,
+
+    totalCollectionValue:
+      Number(data?.totalCollectionValue) || 0,
+
+    totalRecords:
+      Number(data?.totalRecords) || 0,
+
+    medianValue:
+      Number(data?.medianValue) || 0,
+
+    totalCountries:
+      Number(data?.totalCountries) || 0,
+
+    averageCollectorIQ:
+      Number(data?.averageCollectorIQ) || 0,
+  };
+
+  const mapData = Array.isArray(
+    analytics.countryDistribution
+  )
+    ? analytics.countryDistribution
+        .filter(
+          (c: any) =>
+            c &&
+            typeof c === "object" &&
+            c.country
+        )
+        .map((c: any) => ({
+          country: convertCountryToISO(
+            String(c.country)
+          ),
+
+          value: Number(c.count || 0),
+        }))
+    : [];
+
+  async function handleEnrichment() {
+    try {
+      setIsEnriching(true);
+
+      setEnrichMessage(
+        "Starting enrichment..."
+      );
+
+      const response = await fetch(
+        "/api/discogs/enrich"
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setEnrichMessage(
+          result?.message ||
+            "Enrichment complete"
+        );
+
+        await mutate();
+      } else {
+        setEnrichMessage(
+          result?.error ||
+            "Enrichment failed"
+        );
+      }
+    } catch (err) {
+      console.error(err);
+
+      setEnrichMessage(
+        "Enrichment crashed"
+      );
+    } finally {
+      setIsEnriching(false);
+    }
   }
-);
-
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="min-h-screen bg-black text-white flex items-center justify-center text-2xl font-bold">
         Loading Collector Intelligence...
       </div>
     );
@@ -121,78 +224,10 @@ useSWR(
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black text-red-500 flex items-center justify-center">
+      <div className="min-h-screen bg-black text-red-500 flex items-center justify-center text-2xl font-bold">
         Failed to load analytics
       </div>
     );
-  }
-
-  const mapData = data.countryDistribution.map(
-    (c: any) => ({
-      country: convertCountryToISO(
-        c.country
-      ) as any,
-
-      value: Number(c.count),
-    })
-  );
-
-  async function handleEnrichment() {
-
-    try {
-
-      setIsEnriching(true);
-
-      setEnrichMessage(
-        "Starting Discogs enrichment..."
-      );
-
-      const response = await fetch(
-        "/api/discogs/enrich"
-      );
-
-      const result =
-        await response.json();
-
-      console.log(
-        "ENRICH RESULT:",
-        result
-      );
-
-      if (response.ok) {
-
-        setEnrichMessage(
-          result.message ||
-          `Enrichment complete. Updated ${
-            result.enriched || 0
-          } records.`
-        );
-
-        await mutate();
-
-      } else {
-
-        setEnrichMessage(
-          result.error ||
-          result.message ||
-          "Enrichment failed"
-        );
-      }
-
-    } catch (error: any) {
-
-      console.error(error);
-
-      setEnrichMessage(
-        error?.message ||
-        "Enrichment crashed"
-      );
-
-    } finally {
-
-      setIsEnriching(false);
-
-    }
   }
 
   return (
@@ -200,11 +235,7 @@ useSWR(
 
       <div className="max-w-[1800px] mx-auto space-y-8">
 
-        {/* LIVE MARKET TICKER */}
-
-        <MarketTicker />
-
-        {/* HEADER */}
+       {/* <MarketTicker /> */}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -226,8 +257,6 @@ useSWR(
 
           </div>
 
-          {/* CONTROL PANEL */}
-
           <div className="bg-zinc-950 border border-yellow-900/20 rounded-3xl p-6">
 
             <div className="space-y-4">
@@ -241,17 +270,23 @@ useSWR(
               <div className="grid grid-cols-2 gap-4">
 
                 <select className="bg-black border border-yellow-900/20 rounded-xl px-4 py-3 text-white">
-                  <option>All Countries</option>
+                  <option>
+                    All Countries
+                  </option>
                 </select>
 
                 <select className="bg-black border border-yellow-900/20 rounded-xl px-4 py-3 text-white">
-                  <option>All Genres</option>
+                  <option>
+                    All Genres
+                  </option>
                 </select>
 
               </div>
 
               <select className="w-full bg-black border border-yellow-900/20 rounded-xl px-4 py-3 text-white">
-                <option>All Formats</option>
+                <option>
+                  All Formats
+                </option>
               </select>
 
               <div className="grid grid-cols-2 gap-4">
@@ -283,7 +318,7 @@ useSWR(
                 </p>
 
                 <p className="mt-2 text-yellow-400 font-semibold">
-                  {enrichMessage || "Idle"}
+                  {enrichMessage}
                 </p>
 
               </div>
@@ -294,103 +329,83 @@ useSWR(
 
         </div>
 
-        {/* KPI CARDS */}
-
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
 
           <MetricCard
             title="Collection Value"
-            value={`$${data.totalCollectionValue.toLocaleString()}`}
+            value={`$${analytics.totalCollectionValue.toLocaleString()}`}
           />
 
           <MetricCard
             title="Records"
-            value={data.totalRecords.toString()}
+            value={analytics.totalRecords.toString()}
           />
 
           <MetricCard
             title="Median Value"
-            value={`$${data.medianValue}`}
+            value={`$${analytics.medianValue.toLocaleString()}`}
           />
 
           <MetricCard
             title="Countries"
-            value={data.totalCountries.toString()}
+            value={analytics.totalCountries.toString()}
           />
 
-          <div className="rounded-3xl border border-zinc-900 bg-black p-6">
-
-  <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-
-    Collector IQ
-
-  </div>
-
-  <div className="mt-4 text-5xl font-black text-cyan-400">
-
-    {Math.round(
-      data?.averageCollectorIQ || 0
-    )}
-
-  </div>
-
-  <div className="mt-3 text-sm text-zinc-500">
-
-    Average intelligence score
-    across collection
-
-  </div>
-
-</div>
+          <MetricCard
+            title="Collector IQ"
+            value={Math.round(
+              analytics.averageCollectorIQ
+            ).toString()}
+          />
 
         </div>
 
-        {/* MAP + TOP RECORDS */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <div className="grid grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-zinc-950 border border-yellow-900/20 rounded-3xl p-6">
 
-          <div className="col-span-2 bg-zinc-950 border border-yellow-900/20 rounded-3xl p-6">
+            <h2 className="text-3xl font-bold mb-6">
+              Global Collection Density
+            </h2>
 
-            <div className="flex justify-between mb-6">
+            <div className="bg-black rounded-2xl p-6 min-h-[420px]">
 
-              <h2 className="text-3xl font-bold">
-                Global Collection Density
-              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
 
-              <div className="flex gap-4">
+                {mapData.length > 0 ? (
+                  mapData.map(
+                    (
+                      item: any,
+                      index: number
+                    ) => (
 
-                <Legend
-                  color="#422006"
-                  label="Low"
-                />
+                      <div
+                        key={`${item.country}-${index}`}
+                        className="bg-zinc-900 border border-yellow-900/20 rounded-2xl p-4"
+                      >
 
-                <Legend
-                  color="#a16207"
-                  label="Moderate"
-                />
+                        <p className="text-zinc-500 text-xs uppercase tracking-widest">
+                          Country
+                        </p>
 
-                <Legend
-                  color="#eab308"
-                  label="High"
-                />
+                        <h3 className="text-yellow-400 text-2xl font-black mt-2 uppercase">
+                          {item.country}
+                        </h3>
+
+                        <p className="text-white mt-4 text-lg font-bold">
+                          {item.value} Records
+                        </p>
+
+                      </div>
+                    )
+                  )
+                ) : (
+                  <div className="text-zinc-500 col-span-full text-center p-10">
+                    No country data available
+                  </div>
+                )}
 
               </div>
-
-            </div>
-
-            <div className="bg-black rounded-2xl p-4">
-
-              <WorldMap
-                color="#facc15"
-                title=""
-                size="responsive"
-                data={mapData}
-                tooltipTextFunction={(
-                  context: any
-                ) =>
-                  `${context.countryName}: ${context.value || 0} records`
-                }
-              />
 
             </div>
 
@@ -400,194 +415,119 @@ useSWR(
 
             <div className="space-y-4">
 
-              {data.topRecords.map(
-                (record: any) => (
+              {analytics.topRecords.map((record: any) => (
 
-                  <div
-                    key={record.id}
-                    className="bg-black border border-yellow-900/20 rounded-2xl p-4 flex justify-between"
-                  >
+                <div
+                  key={record.id || Math.random()}
+                  className="bg-black border border-yellow-900/20 rounded-2xl p-4 flex justify-between"
+                >
 
-                    <div>
+                  <div>
 
-                      <p className="font-bold">
-                        {record.artist}
-                      </p>
+                    <p className="font-bold">
+                      {record.artist || "Unknown Artist"}
+                    </p>
 
-                      <p className="text-zinc-500 text-sm">
-                        {record.title}
-                      </p>
-
-                    </div>
-
-                    <div className="text-yellow-400 font-black text-2xl">
-                      $
-                      {record.estimated_value}
-                    </div>
+                    <p className="text-zinc-500 text-sm">
+                      {record.title || "Unknown Title"}
+                    </p>
 
                   </div>
-                )
-              )}
+
+                  <div className="text-yellow-400 font-black text-2xl">
+                    ${Number(
+                      record.estimated_value || 0
+                    ).toLocaleString()}
+                  </div>
+
+                </div>
+              ))}
 
             </div>
 
           </AnalyticsCard>
-          <AnalyticsCard title="Top Movers">
-
-  <div className="space-y-4">
-
-    {topMovers.map(
-      (mover: any) => (
-
-        <div
-          key={mover.id}
-          className="bg-black border border-yellow-900/20 rounded-2xl p-4 flex justify-between"
-        >
-
-          <div>
-
-            <p className="font-bold">
-              {mover.artist}
-            </p>
-
-            <p className="text-zinc-500 text-sm">
-              {mover.title}
-            </p>
-
-          </div>
-
-          <div
-            className={`font-black text-2xl ${
-              mover.change_percent >= 0
-                ? "text-emerald-400"
-                : "text-red-400"
-            }`}
-          >
-
-            {mover.change_percent >= 0
-              ? "▲"
-              : "▼"}
-
-            {" "}
-
-            {mover.change_percent.toFixed(1)}%
-
-          </div>
-
-        </div>
-      )
-    )}
-
-  </div>
-
-</AnalyticsCard>
 
         </div>
 
-        {/* CHARTS */}
-
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           <AnalyticsCard title="Market Momentum">
 
-            <ResponsiveContainer
-              width="100%"
-              height={300}
-            >
+            <div className="w-full h-[350px] min-h-[350px]">
 
-              <AreaChart
-                data={data.marketMomentum}
-              >
+              <ResponsiveContainer width="100%" height="100%">
 
-                <CartesianGrid stroke="#27272a" />
+                <AreaChart
+                  data={analytics.marketMomentum}
+                >
 
-                <XAxis
-                  dataKey="month"
-                  stroke="#71717a"
-                />
+                  <CartesianGrid stroke="#27272a" />
 
-                <YAxis stroke="#71717a" />
+                  <XAxis
+                    dataKey="month"
+                    stroke="#71717a"
+                  />
 
-                <Tooltip />
+                  <YAxis stroke="#71717a" />
 
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#facc15"
-                  fill="#facc15"
-                />
+                  <Tooltip />
 
-                <AnalyticsCard
-  title="Collector IQ"
->
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#facc15"
+                    fill="#facc15"
+                  />
 
-  <div className="space-y-3">
+                </AreaChart>
 
-    <div className="text-5xl font-black text-cyan-400">
+              </ResponsiveContainer>
 
-      {Math.round(
-        data?.averageCollectorIQ || 0
-      )}
-
-    </div>
-
-    <p className="text-zinc-500">
-
-      Average intelligence score
-      across collection
-
-    </p>
-
-  </div>
-
-</AnalyticsCard>
-
-              </AreaChart>
-
-            </ResponsiveContainer>
+            </div>
 
           </AnalyticsCard>
 
           <AnalyticsCard title="Genre Distribution">
 
-            <ResponsiveContainer
-              width="100%"
-              height={300}
-            >
+            <div className="w-full h-[350px] min-h-[350px]">
 
-              <PieChart>
+              <ResponsiveContainer width="100%" height="100%">
 
-                <Pie
-                  data={data.genreDistribution}
-                  dataKey="count"
-                  nameKey="genre"
-                  outerRadius={100}
-                >
+                <PieChart>
 
-                  {data.genreDistribution.map(
-                    (
-                      entry: any,
-                      index: number
-                    ) => (
-                      <Cell
-                        key={index}
-                        fill={
-                          COLORS[
-                            index %
-                              COLORS.length
-                          ]
-                        }
-                      />
-                    )
-                  )}
+                  <Pie
+                    data={analytics.genreDistribution}
+                    dataKey="count"
+                    nameKey="genre"
+                    outerRadius={120}
+                    label
+                  >
 
-                </Pie>
+                    {analytics.genreDistribution.map(
+                      (
+                        _entry: any,
+                        index: number
+                      ) => (
+                        <Cell
+                          key={index}
+                          fill={
+                            COLORS[
+                              index % COLORS.length
+                            ]
+                          }
+                        />
+                      )
+                    )}
 
-                <Tooltip />
+                  </Pie>
 
-              </PieChart>
+                  <Tooltip />
 
-            </ResponsiveContainer>
+                </PieChart>
+
+              </ResponsiveContainer>
+
+            </div>
 
           </AnalyticsCard>
 
@@ -636,29 +576,6 @@ function AnalyticsCard({
       </h2>
 
       {children}
-
-    </div>
-  );
-}
-
-function Legend({
-  color,
-  label,
-}: {
-  color: string;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-
-      <div
-        className="w-5 h-5 rounded"
-        style={{
-          backgroundColor: color,
-        }}
-      />
-
-      <span>{label}</span>
 
     </div>
   );
