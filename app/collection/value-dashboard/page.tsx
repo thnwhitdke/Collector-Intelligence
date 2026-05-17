@@ -3,6 +3,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { createClient } from '@supabase/supabase-js'
+import { enrichSingleRecord } from "@/app/actions/discogs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

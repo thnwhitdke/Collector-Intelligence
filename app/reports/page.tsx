@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 
-import GlobalCollectionMap from "@/app/components/maps/GlobalCollectionMap";
+// import GlobalCollectionMap from "@/app/components/maps/GlobalCollectionMap";
 import { normalizeCountry } from "@/src/lib/country-normalizer";
 import { getReportData } from "@/src/lib/reports-data";
 
@@ -499,11 +499,13 @@ const mapData =
 
             <div className="grid grid-cols-2 gap-3">
 
-              <EnrichButton
-                action={async () => {
-  await enrichDiscogsMetadata();
-}}
-              />
+            <EnrichButton
+  action={async () => {
+    "use server";
+
+    await enrichDiscogsMetadata();
+  }}
+/>
 
               <Link
                 href="/collection"
@@ -621,13 +623,12 @@ const mapData =
 
   </div>
 
-  <div className="bg-[#0A0907] rounded-3xl p-6">
-
-<GlobalCollectionMap
-  data={mapData}
-/>
-
+<div className="bg-[#0A0907] rounded-3xl p-6">
+  <div className="flex items-center justify-center min-h-[320px] text-[#9A8F80]">
+    Global map visualization temporarily disabled during
+    React 19 platform migration.
   </div>
+</div>
 
 </div>
   <div className="mt-16 mb-6">
