@@ -13,7 +13,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-
+    "typeRoots": ["./node_modules/@types"],
     "types": ["node"],
 
     "plugins": [
@@ -21,7 +21,7 @@
         "name": "next"
       }
     ],
-
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
     }

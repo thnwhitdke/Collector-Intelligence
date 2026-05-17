@@ -676,6 +676,11 @@ export async function fixCover(recordId: number, discogsReleaseId: string) {
   }
 
   const data = await res.json();
+  const imageUrl =
+    data.images?.[0]?.uri || null
+
+   const thumbnailUrl = 
+    data.images?.[0]?.uri150 || null
 
   const coverUrl = data?.images?.[0]?.uri || data?.images?.[0]?.resource_url;
 
@@ -685,11 +690,14 @@ export async function fixCover(recordId: number, discogsReleaseId: string) {
 
   const { error } = await supabase
     .from("records_clean_safe")
-    .update({
-      cover_url: coverUrl,
-      cover_present: "Yes",
-      discogs_release_id: discogsReleaseId,
-    })
+ .update({
+    cover_url: coverUrl,
+    cover_present: "Yes",
+    discogs_release_id: discogsReleaseId,
+
+  discogs_image_url: imageUrl,
+  discogs_thumbnail_url: thumbnailUrl,
+})
     .eq("id", recordId)
     .eq("user_id", userId);
 
@@ -760,10 +768,13 @@ export async function bulkFixMissingCovers(limit = 25) {
       const { error: updateError } = await supabase
         .from("records_clean_safe")
         .update({
-          cover_url: coverUrl,
-          cover_present: "Yes",
-          discogs_release_id: String(releaseId),
-        })
+            cover_url: coverUrl,
+            cover_present: "Yes",
+            discogs_release_id: String(releaseId),
+
+            discogs_image_url: coverUrl,
+            discogs_thumbnail_url: coverUrl,
+})
         .eq("id", record.id);
 
       if (updateError) {

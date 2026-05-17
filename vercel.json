@@ -3,6 +3,14 @@
     {
       "path": "/api/background-refresh",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/populate-enrichment-queue",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/process-enrichment",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
