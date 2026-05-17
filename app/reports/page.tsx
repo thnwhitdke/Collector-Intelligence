@@ -7,7 +7,7 @@ import { getReportData } from "@/src/lib/reports-data";
 
 import {
   enrichDiscogsMetadata,
-} from "../actions/discogs-enrichment";
+} from "@/app/actions/enrichment";
 
 import EnrichButton from "./components/EnrichButton";
 import KpiCards from "./components/KpiCards";
@@ -500,9 +500,9 @@ const mapData =
             <div className="grid grid-cols-2 gap-3">
 
               <EnrichButton
-                action={
-                  enrichDiscogsMetadata
-                }
+                action={async () => {
+  await enrichDiscogsMetadata();
+}}
               />
 
               <Link
