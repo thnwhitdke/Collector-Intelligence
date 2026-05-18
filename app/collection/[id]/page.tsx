@@ -1,13 +1,21 @@
+/* ============================================================================
+   COLLECTOR INTELLIGENCE — PREMIUM RECORD INTELLIGENCE PROFILE
+   FULL REPLACEMENT FILE
+   app/collection/[id]/page.tsx
+============================================================================ */
+
 import { pullSingleDiscogsValue } from "../../actions/pull-single-discogs";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "../../../src/lib/supabase/server";
+
 import {
   refreshCoverFromDiscogs,
   updateCollectorDetails,
   updateReleaseDetails,
 } from "../../actions/records";
+
 import ValueIntelligenceCard from "../../components/ValueIntelligenceCard";
 import ManualValueCompForm from "../../components/ManualValueCompForm";
 
@@ -23,40 +31,6 @@ type PageProps = {
 };
 
 type RecordDetail = Record<string, string | number | boolean | null>;
-
-type SectionProps = {
-  title: string;
-  children: React.ReactNode;
-};
-
-type GridProps = {
-  children: React.ReactNode;
-};
-
-type FieldProps = {
-  label: string;
-  name: string;
-  defaultValue?: string | number | boolean | null;
-  type?: string;
-  helpText?: string;
-};
-
-type TextAreaProps = {
-  label: string;
-  name: string;
-  defaultValue?: string | number | boolean | null;
-};
-
-type SelectFieldProps = {
-  label: string;
-  name: string;
-  defaultValue?: string | number | boolean | null;
-};
-
-type ReadProps = {
-  label: string;
-  value?: string | number | boolean | null;
-};
 
 function getValue(record: RecordDetail, key: string) {
   return record[key] ?? null;
@@ -85,7 +59,9 @@ function getNumber(record: RecordDetail, key: string) {
 
 function displayValue(value: string | number | boolean | null | undefined) {
   if (value === null || value === undefined) return "—";
+
   const text = String(value).trim();
+
   return text === "" ? "—" : text;
 }
 
@@ -111,6 +87,7 @@ function formatDate(value: string | number | boolean | null | undefined) {
   if (!value || typeof value === "boolean") return "Not available";
 
   const date = new Date(String(value));
+
   if (Number.isNaN(date.getTime())) return "Not available";
 
   return new Intl.DateTimeFormat("en-US", {
@@ -164,39 +141,49 @@ function getMarketSignal(forSale: number | null) {
   if (forSale === null) {
     return {
       label: "Market Status Unknown",
-      description: "Current Discogs supply has not been pulled for this record yet.",
-      className: "border-slate-500/30 bg-slate-500/10 text-slate-200",
+      description:
+        "Current marketplace supply has not yet been analyzed.",
+      className:
+        "border-slate-500/30 bg-slate-500/10 text-slate-200",
     };
   }
 
   if (forSale <= 2) {
     return {
       label: "Thin Market",
-      description: "Very few copies are currently listed. Scarcity may matter here.",
-      className: "border-amber-400/30 bg-amber-400/10 text-amber-100",
+      description:
+        "Very few copies are currently listed. Scarcity may be significant.",
+      className:
+        "border-amber-400/30 bg-amber-400/10 text-amber-100",
     };
   }
 
   if (forSale >= 30) {
     return {
       label: "Saturated Market",
-      description: "Many copies are listed. Pricing may need to be competitive.",
-      className: "border-slate-400/30 bg-slate-400/10 text-slate-100",
+      description:
+        "High active supply. Competitive pricing pressure may exist.",
+      className:
+        "border-slate-400/30 bg-slate-400/10 text-slate-100",
     };
   }
 
   if (forSale >= 10) {
     return {
       label: "Active Supply",
-      description: "There is meaningful marketplace activity around this release.",
-      className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
+      description:
+        "Healthy marketplace activity detected around this release.",
+      className:
+        "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
     };
   }
 
   return {
     label: "Balanced Market",
-    description: "Supply is present but not crowded.",
-    className: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
+    description:
+      "Supply appears stable with moderate marketplace availability.",
+    className:
+      "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
   };
 }
 
@@ -226,371 +213,597 @@ export default async function RecordDetailPage({
   if (error || !data) notFound();
 
   const record = data as RecordDetail;
-  const coverUrl = getText(record, "cover_url");
+
   const title = getText(record, "title") || "Untitled";
   const artist = getText(record, "artist") || "Unknown Artist";
-  const discogsReleaseId = getText(record, "discogs_release_id");
-  const discogsSaleBlocked = Boolean(getValue(record, "discogs_sale_blocked"));
-  const discogsSaleBlockedReason = getText(record, "discogs_sale_blocked_reason");
+
+  const coverUrl = getText(record, "cover_url");
+
+  const estimatedValue = money(getValue(record, "estimated_value"));
+
   const forSale = getNumber(record, "discogs_for_sale");
+
   const marketSignal = getMarketSignal(forSale);
 
+  const discogsReleaseId = getText(record, "discogs_release_id");
+
   return (
-    <main className="min-h-screen bg-[#11100E] px-6 py-10 text-[#F4EFE6]">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <main className="relative min-h-screen overflow-hidden bg-[#090909] text-[#F4EFE6]">
+      {/* BACKGROUND */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute left-[-10%] top-[-10%] h-[500px] w-[500px] rounded-full bg-fuchsia-500/10 blur-3xl" />
+
+        <div className="absolute bottom-[-20%] right-[-10%] h-[600px] w-[600px] rounded-full bg-cyan-400/10 blur-3xl" />
+
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_35%)]" />
+
+        <div className="absolute inset-0 opacity-[0.04]">
+          <div className="h-full w-full bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:70px_70px]" />
+        </div>
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-7xl px-6 py-10">
+        {/* TOP NAV */}
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Collector Archive
+            <p className="text-xs uppercase tracking-[0.3em] text-[#D8B86A]">
+              Collector Intelligence Profile
+            </p>
+
+            <h1 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">
+              {title}
             </h1>
-            <p className="text-sm text-[#B8AA96]">
-              Record ID: {displayValue(getValue(record, "id"))}
+
+            <p className="mt-3 text-lg text-[#B8AA96]">
+              {artist}
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             <Link
               href={returnPath}
-              className="rounded-xl border border-[#3A3328] px-4 py-2 text-sm hover:bg-[#1A1815]"
+              className="rounded-2xl border border-white/10 px-5 py-3 text-sm transition hover:bg-white/5"
             >
-              Back to Results
+              Back to Collection
             </Link>
 
             <Link
               href="/collection"
-              className="rounded-xl border border-[#8F6F35] px-4 py-2 text-sm text-[#C7A45D] hover:bg-[#221F1A]"
+              className="rounded-2xl border border-[#C7A45D]/30 bg-[#C7A45D]/10 px-5 py-3 text-sm text-[#D8B86A] transition hover:bg-[#C7A45D]/20"
             >
-              Full Collection
-            </Link>
-
-            <Link
-              href="/collection/want-list"
-              className="rounded-xl border border-[#4A3A1E] px-4 py-2 text-sm font-bold text-[#D8B65A] hover:bg-[#1E170E]"
-            >
-              Want List
+              Full Archive
             </Link>
 
             <Link
               href="/collection/market-intelligence"
-              className="rounded-xl border border-fuchsia-300/40 bg-fuchsia-300/10 px-4 py-2 text-sm text-fuchsia-100 hover:bg-fuchsia-300/20"
+              className="rounded-2xl border border-fuchsia-400/30 bg-fuchsia-400/10 px-5 py-3 text-sm text-fuchsia-100 transition hover:bg-fuchsia-400/20"
             >
               Market Intelligence
             </Link>
           </div>
         </div>
 
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
-          <div className="rounded-2xl border border-[#3A3328] bg-[#1A1815] p-5 shadow-xl">
-            <div className="relative overflow-hidden rounded-xl border border-[#3A3328] bg-black">
-              {coverUrl ? (
-                <Image
-                  src={coverUrl}
-                  alt={`${artist} - ${title}`}
-                  width={600}
-                  height={600}
-                  className="aspect-square w-full object-cover"
-                  unoptimized
-                />
-              ) : (
-                <div className="flex aspect-square items-center justify-center text-sm text-[#8E8170]">
-                  No Cover
-                </div>
-              )}
+        {/* HERO */}
+        <section className="grid gap-8 lg:grid-cols-[380px_1fr]">
+          {/* LEFT */}
+          <div className="space-y-6">
+            <div className="overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.04] shadow-2xl backdrop-blur-2xl">
+              <div className="relative aspect-square bg-black">
+                {coverUrl ? (
+                  <Image
+                    src={coverUrl}
+                    alt={`${artist} - ${title}`}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-[#8E8170]">
+                    No Cover Available
+                  </div>
+                )}
+              </div>
+
+              <div className="p-5">
+                <form action={refreshCoverFromDiscogs}>
+                  <input
+                    type="hidden"
+                    name="id"
+                    value={String(getValue(record, "id"))}
+                  />
+
+                  <input
+                    type="hidden"
+                    name="returnTo"
+                    value={returnPath}
+                  />
+
+                  <button className="w-full rounded-2xl bg-[#C7A45D] px-5 py-4 text-sm font-bold text-black transition hover:bg-[#D8B86A]">
+                    Refresh Cover Artwork
+                  </button>
+                </form>
+              </div>
             </div>
 
-            <div className="mt-4">
-              <h2 className="text-xl font-semibold">{title}</h2>
-              <p className="text-sm text-[#B8AA96]">{artist}</p>
-            </div>
-
-            <form action={refreshCoverFromDiscogs} className="mt-5">
-              <input
-                type="hidden"
-                name="id"
-                value={String(getValue(record, "id"))}
+            {/* QUICK SIGNALS */}
+            <div className="grid gap-4">
+              <SignalCard
+                label="Estimated Value"
+                value={estimatedValue}
               />
-              <input type="hidden" name="returnTo" value={returnPath} />
-              <button className="w-full rounded-xl bg-[#C7A45D] px-4 py-3 text-sm font-semibold text-black hover:bg-[#D8B86A]">
-                Refresh Cover
-              </button>
-            </form>
+
+              <SignalCard
+                label="Market Momentum"
+                value={displayValue(
+                  getValue(record, "market_momentum")
+                )}
+              />
+
+              <SignalCard
+                label="Value Signal"
+                value={displayValue(
+                  getValue(record, "value_signal")
+                )}
+              />
+
+              <SignalCard
+                label="Collection IQ"
+                value={displayValue(
+                  getValue(record, "value_confidence_score")
+                )}
+              />
+            </div>
           </div>
 
-          <div className="space-y-6">
-            <ValueIntelligenceCard
-              valueInput={{
-                discogsLowPrice: getNumber(record, "discogs_low_price"),
-                discogsMedianPrice: getNumber(record, "discogs_median_price"),
-                discogsHighPrice: getNumber(record, "discogs_high_price"),
-                ebayLastSoldPrice: getNumber(record, "ebay_last_sold_price"),
-                ebayAvgSoldPrice: getNumber(record, "ebay_avg_sold_price"),
-                ebaySoldCount: getNumber(record, "ebay_sold_count"),
-                manualCompPrice: getNumber(record, "manual_comp_price"),
-                purchasePrice: getNumber(record, "purchase_price"),
-                conditionGrade:
-                  getText(record, "condition_grade") ||
-                  getText(record, "media_grade") ||
-                  null,
-                valueLastUpdated: getText(record, "value_last_updated") || null,
-              }}
-            />
+          {/* RIGHT */}
+          <div className="space-y-8">
+            {/* MARKET STATUS */}
+            <section
+              className={`rounded-[32px] border p-6 backdrop-blur-xl ${marketSignal.className}`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] opacity-70">
+                    Market Status
+                  </p>
 
-            <ManualValueCompForm
-              recordId={String(getValue(record, "id"))}
-              currentValues={{
-                manualCompPrice: getNumber(record, "manual_comp_price"),
-                manualCompNote: getText(record, "manual_comp_note"),
-                ebayLastSoldPrice: getNumber(record, "ebay_last_sold_price"),
-                ebayAvgSoldPrice: getNumber(record, "ebay_avg_sold_price"),
-                ebaySoldCount: getNumber(record, "ebay_sold_count"),
-                ebayCompUrl: getText(record, "ebay_comp_url"),
-                conditionGrade:
-                  getText(record, "condition_grade") ||
-                  getText(record, "media_grade"),
-              }}
-            />
+                  <h2 className="mt-3 text-3xl font-black">
+                    {marketSignal.label}
+                  </h2>
 
-            <Section title="Market Intelligence">
-              {discogsSaleBlocked ? (
-                <div className="mb-4 rounded-2xl border border-blue-400/40 bg-blue-400/10 px-5 py-4 text-sm text-blue-100">
-                  <div className="font-semibold">
-                    Discogs market data is intentionally unavailable for this release.
-                  </div>
-                  <div className="mt-1 text-xs opacity-80">
-                    This record is marked as unavailable for Discogs marketplace data.
-                  </div>
-                  {discogsSaleBlockedReason ? (
-                    <div className="mt-2 text-xs opacity-90">
-                      Reason: {discogsSaleBlockedReason}
-                    </div>
-                  ) : null}
+                  <p className="mt-3 max-w-2xl text-sm leading-7 opacity-80">
+                    {marketSignal.description}
+                  </p>
                 </div>
-              ) : !discogsReleaseId ? (
-                <div className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
-                  This record does not currently have a Discogs Release ID.
-                  Add one in Release Details, save, then pull market data.
-                </div>
-              ) : null}
 
-              <form action={pullSingleDiscogsValue} className="mb-4">
+                <div className="rounded-3xl border border-white/10 bg-black/20 px-6 py-5">
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/60">
+                    Copies For Sale
+                  </p>
+
+                  <p className="mt-2 text-4xl font-black">
+                    {forSale ?? "—"}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* VALUE INTELLIGENCE */}
+            <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-2xl">
+              <div className="mb-6">
+                <p className="text-xs uppercase tracking-[0.2em] text-[#D8B86A]">
+                  Value Intelligence
+                </p>
+
+                <h3 className="mt-3 text-3xl font-black">
+                  Market Valuation Analysis
+                </h3>
+              </div>
+
+              <ValueIntelligenceCard
+                valueInput={{
+                  discogsLowPrice: getNumber(
+                    record,
+                    "discogs_low_price"
+                  ),
+                  discogsMedianPrice: getNumber(
+                    record,
+                    "discogs_median_price"
+                  ),
+                  discogsHighPrice: getNumber(
+                    record,
+                    "discogs_high_price"
+                  ),
+                  ebayLastSoldPrice: getNumber(
+                    record,
+                    "ebay_last_sold_price"
+                  ),
+                  ebayAvgSoldPrice: getNumber(
+                    record,
+                    "ebay_avg_sold_price"
+                  ),
+                  ebaySoldCount: getNumber(
+                    record,
+                    "ebay_sold_count"
+                  ),
+                  manualCompPrice: getNumber(
+                    record,
+                    "manual_comp_price"
+                  ),
+                  purchasePrice: getNumber(
+                    record,
+                    "purchase_price"
+                  ),
+                  conditionGrade:
+                    getText(record, "condition_grade") ||
+                    getText(record, "media_grade") ||
+                    null,
+                  valueLastUpdated:
+                    getText(record, "value_last_updated") ||
+                    null,
+                }}
+              />
+            </section>
+
+            {/* MOMENTUM */}
+            <section className="rounded-[32px] border border-cyan-400/20 bg-cyan-400/5 p-6">
+              <div className="mb-6">
+                <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">
+                  Market Momentum Intelligence
+                </p>
+
+                <h3 className="mt-3 text-3xl font-black">
+                  Trend & Supply Analysis
+                </h3>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-4">
+                <MomentumCard
+                  label="Momentum"
+                  value={displayValue(
+                    getValue(record, "market_momentum")
+                  )}
+                />
+
+                <MomentumCard
+                  label="Trend"
+                  value={displayValue(
+                    getValue(record, "market_trend")
+                  )}
+                />
+
+                <MomentumCard
+                  label="Value Change %"
+                  value={
+                    getValue(
+                      record,
+                      "market_value_change_percent"
+                    ) !== null
+                      ? `${getValue(
+                          record,
+                          "market_value_change_percent"
+                        )}%`
+                      : "—"
+                  }
+                />
+
+                <MomentumCard
+                  label="Supply Change"
+                  value={displayValue(
+                    getValue(record, "market_supply_change")
+                  )}
+                />
+              </div>
+            </section>
+
+            {/* MARKET ACTIONS */}
+            <section className="rounded-[32px] border border-fuchsia-400/20 bg-fuchsia-400/5 p-6">
+              <div className="flex flex-wrap items-center justify-between gap-5">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-200">
+                    Market Intelligence Engine
+                  </p>
+
+                  <h3 className="mt-3 text-3xl font-black">
+                    Refresh Market Data
+                  </h3>
+
+                  <p className="mt-3 max-w-xl text-sm leading-7 text-white/70">
+                    Pull fresh Discogs marketplace intelligence,
+                    pricing analytics, and supply signals for this
+                    release.
+                  </p>
+                </div>
+
+                <form action={pullSingleDiscogsValue}>
+                  <input
+                    type="hidden"
+                    name="id"
+                    value={String(getValue(record, "id"))}
+                  />
+
+                  <input
+                    type="hidden"
+                    name="releaseId"
+                    value={discogsReleaseId}
+                  />
+
+                  <input
+                    type="hidden"
+                    name="returnTo"
+                    value={returnPath}
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={!discogsReleaseId}
+                    className="rounded-2xl bg-fuchsia-500 px-6 py-4 text-sm font-bold text-white transition hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:bg-neutral-700"
+                  >
+                    Pull Market Intelligence
+                  </button>
+                </form>
+              </div>
+            </section>
+
+            {/* MANUAL COMPS */}
+            <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-xl backdrop-blur-xl">
+              <div className="mb-6">
+                <p className="text-xs uppercase tracking-[0.2em] text-[#D8B86A]">
+                  Manual Value Intelligence
+                </p>
+
+                <h3 className="mt-3 text-3xl font-black">
+                  Collector Value Comps
+                </h3>
+              </div>
+
+              <ManualValueCompForm
+                recordId={String(getValue(record, "id"))}
+                currentValues={{
+                  manualCompPrice: getNumber(
+                    record,
+                    "manual_comp_price"
+                  ),
+                  manualCompNote: getText(
+                    record,
+                    "manual_comp_note"
+                  ),
+                  ebayLastSoldPrice: getNumber(
+                    record,
+                    "ebay_last_sold_price"
+                  ),
+                  ebayAvgSoldPrice: getNumber(
+                    record,
+                    "ebay_avg_sold_price"
+                  ),
+                  ebaySoldCount: getNumber(
+                    record,
+                    "ebay_sold_count"
+                  ),
+                  ebayCompUrl: getText(
+                    record,
+                    "ebay_comp_url"
+                  ),
+                  conditionGrade:
+                    getText(record, "condition_grade") ||
+                    getText(record, "media_grade"),
+                }}
+              />
+            </section>
+
+            {/* RELEASE DETAILS */}
+            <Section title="Release Details">
+              <form action={updateReleaseDetails} className="space-y-5">
                 <input
                   type="hidden"
                   name="id"
                   value={String(getValue(record, "id"))}
                 />
+
                 <input
                   type="hidden"
-                  name="releaseId"
-                  value={discogsReleaseId}
+                  name="returnTo"
+                  value={returnPath}
                 />
-                <input type="hidden" name="returnTo" value={returnPath} />
-
-                <button
-                  type="submit"
-                  disabled={!discogsReleaseId || discogsSaleBlocked}
-                  className="rounded-xl bg-fuchsia-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:bg-neutral-600 disabled:text-neutral-300"
-                >
-                  {discogsSaleBlocked
-                    ? "Market Data Blocked"
-                    : "Pull Market Data (This Record)"}
-                </button>
-              </form>
-
-              <div className="space-y-5">
-                <div className={`rounded-2xl border px-5 py-4 ${marketSignal.className}`}>
-                  <div className="text-sm font-bold">{marketSignal.label}</div>
-                  <div className="mt-1 text-xs opacity-80">
-                    {marketSignal.description}
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
-                  <Read label="Estimated Value" value={money(getValue(record, "estimated_value"))} />
-                  <Read label="Value Confidence" value={getValue(record, "value_confidence_score")} />
-                  <Read label="Value Signal" value={getValue(record, "value_signal")} />
-                  <Read label="Discogs Median" value={money(getValue(record, "discogs_median_price"))} />
-                  <Read label="Copies for Sale" value={forSale === null ? "Not pulled yet" : forSale} />
-                  <Read label="Discogs Low" value={money(getValue(record, "discogs_low_price"))} />
-                  <Read label="Discogs High" value={money(getValue(record, "discogs_high_price"))} />
-                  <Read label="Last Sold" value={formatDate(getValue(record, "discogs_last_sold_date"))} />
-                  <Read label="Value Source" value={getValue(record, "value_source")} />
-                  <Read label="Last Refreshed" value={formatDate(getValue(record, "value_last_updated"))} />
-                  <Read label="Discogs Release ID" value={getValue(record, "discogs_release_id")} />
-                </div>
-                <div className="rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
-  <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">
-    Market Momentum Intelligence
-  </p>
-
-  <div className="mt-4 grid gap-4 md:grid-cols-4">
-
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
-        Momentum
-      </p>
-
-      <p className="mt-2 text-lg font-black text-white">
-        {displayValue(getValue(record, "market_momentum"))}
-      </p>
-    </div>
-
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
-        Trend
-      </p>
-
-      <p className="mt-2 text-lg font-black text-white">
-        {displayValue(getValue(record, "market_trend"))}
-      </p>
-    </div>
-
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
-        Value Change %
-      </p>
-
-      <p className="mt-2 text-lg font-black text-white">
-        {getValue(record, "market_value_change_percent") !== null
-          ? `${getValue(record, "market_value_change_percent")}%`
-          : "—"}
-      </p>
-    </div>
-
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
-        Supply Change
-      </p>
-
-      <p className="mt-2 text-lg font-black text-white">
-        {displayValue(getValue(record, "market_supply_change"))}
-      </p>
-    </div>
-
-  </div>
-</div>
-              </div>
-            </Section>
-
-            <Section title="Release Details">
-              <form action={updateReleaseDetails} className="space-y-4">
-                <input type="hidden" name="id" value={String(getValue(record, "id"))} />
-                <input type="hidden" name="returnTo" value={returnPath} />
 
                 <Grid>
-                  <Field label="Artist" name="artist" defaultValue={getValue(record, "artist")} />
-                  <Field label="Title" name="title" defaultValue={getValue(record, "title")} />
-                  <Field label="Format" name="format" defaultValue={getValue(record, "format")} />
-                  <Field label="Label" name="label" defaultValue={getValue(record, "label")} />
-                  <Field label="Catalogue #" name="catalogue_number" defaultValue={getValue(record, "catalogue_number")} />
-                  <Field label="Year" name="year_released" defaultValue={getValue(record, "year_released")} />
-                  <Field label="Country" name="country" defaultValue={getValue(record, "country")} />
+                  <Field
+                    label="Artist"
+                    name="artist"
+                    defaultValue={getValue(record, "artist")}
+                  />
+
+                  <Field
+                    label="Title"
+                    name="title"
+                    defaultValue={getValue(record, "title")}
+                  />
+
+                  <Field
+                    label="Format"
+                    name="format"
+                    defaultValue={getValue(record, "format")}
+                  />
+
+                  <Field
+                    label="Label"
+                    name="label"
+                    defaultValue={getValue(record, "label")}
+                  />
+
+                  <Field
+                    label="Year"
+                    name="year_released"
+                    defaultValue={getValue(
+                      record,
+                      "year_released"
+                    )}
+                  />
+
+                  <Field
+                    label="Country"
+                    name="country"
+                    defaultValue={getValue(record, "country")}
+                  />
+
                   <Field
                     label="Discogs Release ID"
                     name="discogs_release_id"
-                    defaultValue={getValue(record, "discogs_release_id")}
-                    helpText="Required before pulling Discogs market value."
+                    defaultValue={getValue(
+                      record,
+                      "discogs_release_id"
+                    )}
                   />
-                  <Field label="Discogs Master ID" name="discogs_master_id" defaultValue={getValue(record, "discogs_master_id")} />
-                  <Field label="Discogs URL" name="discogs_url" defaultValue={getValue(record, "discogs_url")} />
+
+                  <Field
+                    label="Discogs URL"
+                    name="discogs_url"
+                    defaultValue={getValue(
+                      record,
+                      "discogs_url"
+                    )}
+                  />
                 </Grid>
 
-                <div className="rounded-2xl border border-[#3A3328] bg-[#11100E] p-4">
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      name="discogs_sale_blocked"
-                      defaultChecked={discogsSaleBlocked}
-                      className="mt-1 h-4 w-4"
-                    />
-                    <span>
-                      <span className="block text-sm font-semibold text-[#F4EFE6]">
-                        Not sold / blocked from Discogs marketplace
-                      </span>
-                      <span className="mt-1 block text-xs leading-5 text-[#B8AA96]">
-                        Use this when Discogs pricing is intentionally unavailable,
-                        so the system does not treat missing market data as a problem.
-                      </span>
-                    </span>
-                  </label>
-
-                  <label className="mt-4 block">
-                    <div className="mb-1 text-xs uppercase tracking-wide text-[#8E8170]">
-                      Discogs Blocked Reason
-                    </div>
-                    <input
-                      type="text"
-                      name="discogs_sale_blocked_reason"
-                      defaultValue={discogsSaleBlockedReason}
-                      placeholder="Optional: blocked from sale, promo-only, no sales history, marketplace unavailable..."
-                      className="w-full rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2 text-sm text-[#F4EFE6]"
-                    />
-                  </label>
-                </div>
-
-                <TextArea label="Notes" name="notes" defaultValue={getValue(record, "notes")} />
+                <TextArea
+                  label="Notes"
+                  name="notes"
+                  defaultValue={getValue(record, "notes")}
+                />
 
                 <SaveButton />
               </form>
             </Section>
 
-            <Section title="Grading & Manual Value Fields">
+            {/* COLLECTOR DETAILS */}
+            <Section title="Collector Archive Details">
               <form action={updateCollectorDetails} className="space-y-5">
-                <input type="hidden" name="id" value={String(getValue(record, "id"))} />
-                <input type="hidden" name="returnTo" value={returnPath} />
+                <input
+                  type="hidden"
+                  name="id"
+                  value={String(getValue(record, "id"))}
+                />
+
+                <input
+                  type="hidden"
+                  name="returnTo"
+                  value={returnPath}
+                />
 
                 <Grid>
-                  <SelectField label="Media Grade" name="media_grade" defaultValue={getValue(record, "media_grade")} />
-                  <SelectField label="Sleeve Grade" name="sleeve_grade" defaultValue={getValue(record, "sleeve_grade")} />
-                  <Field label="Purchase Price" name="purchase_price" defaultValue={getValue(record, "purchase_price")} />
-                  <Field label="Current Value" name="current_value" defaultValue={getValue(record, "current_value")} />
-                  <Field label="eBay Last Sold" name="ebay_last_sold_price" defaultValue={getValue(record, "ebay_last_sold_price")} />
-                  <Field label="eBay Last Sold Date" name="ebay_last_sold_date" defaultValue={getValue(record, "ebay_last_sold_date")} type="date" />
-                  <Field label="eBay Comp Count" name="ebay_sold_comp_count" defaultValue={getValue(record, "ebay_sold_comp_count")} />
-                  <Field label="eBay Low Sold" name="ebay_low_sold_price" defaultValue={getValue(record, "ebay_low_sold_price")} />
-                  <Field label="eBay Median Sold" name="ebay_median_sold_price" defaultValue={getValue(record, "ebay_median_sold_price")} />
-                  <Field label="eBay High Sold" name="ebay_high_sold_price" defaultValue={getValue(record, "ebay_high_sold_price")} />
+                  <SelectField
+                    label="Media Grade"
+                    name="media_grade"
+                    defaultValue={getValue(
+                      record,
+                      "media_grade"
+                    )}
+                  />
+
+                  <SelectField
+                    label="Sleeve Grade"
+                    name="sleeve_grade"
+                    defaultValue={getValue(
+                      record,
+                      "sleeve_grade"
+                    )}
+                  />
+
+                  <Field
+                    label="Purchase Price"
+                    name="purchase_price"
+                    defaultValue={getValue(
+                      record,
+                      "purchase_price"
+                    )}
+                  />
+
+                  <Field
+                    label="Current Value"
+                    name="current_value"
+                    defaultValue={getValue(
+                      record,
+                      "current_value"
+                    )}
+                  />
                 </Grid>
 
-                <TextArea label="eBay Notes / Source" name="ebay_notes" defaultValue={getValue(record, "ebay_notes")} />
-                <TextArea label="Grading Notes" name="grading_notes" defaultValue={getValue(record, "grading_notes")} />
+                <TextArea
+                  label="Collector Notes"
+                  name="grading_notes"
+                  defaultValue={getValue(
+                    record,
+                    "grading_notes"
+                  )}
+                />
 
                 <SaveButton />
               </form>
             </Section>
 
+            {/* SNAPSHOT */}
             <Section title="Archive Snapshot">
-              <div className="grid gap-3 md:grid-cols-2">
-                <Read label="Media Grade" value={getValue(record, "media_grade")} />
-                <Read label="Sleeve Grade" value={getValue(record, "sleeve_grade")} />
-                <Read label="Purchase Price" value={money(getValue(record, "purchase_price"))} />
-                <Read label="Current Value" value={money(getValue(record, "current_value"))} />
-                <Read label="Collector Intelligence Estimate" value={money(getValue(record, "estimated_value"))} />
-                <Read label="Value Confidence" value={getValue(record, "value_confidence_score")} />
-                <Read label="Value Signal" value={getValue(record, "value_signal")} />
-                <Read label="Manual Comp Price" value={money(getValue(record, "manual_comp_price"))} />
-                <Read label="Manual Comp Note" value={getValue(record, "manual_comp_note")} />
-                <Read label="eBay Last Sold" value={money(getValue(record, "ebay_last_sold_price"))} />
-                <Read label="eBay Average Sold" value={money(getValue(record, "ebay_avg_sold_price"))} />
-                <Read label="eBay Sold Count" value={getValue(record, "ebay_sold_count")} />
-                <Read label="eBay Comp URL" value={getValue(record, "ebay_comp_url")} />
-                <Read label="Discogs Low" value={money(getValue(record, "discogs_low_price"))} />
-                <Read label="Discogs Median" value={money(getValue(record, "discogs_median_price"))} />
-                <Read label="Discogs High" value={money(getValue(record, "discogs_high_price"))} />
-                <Read label="Discogs Copies for Sale" value={forSale === null ? "Not pulled yet" : forSale} />
-                <Read label="Discogs Last Sold" value={formatDate(getValue(record, "discogs_last_sold_date"))} />
-                <Read label="Original eBay Last Sold Date" value={getValue(record, "ebay_last_sold_date")} />
-                <Read label="Original eBay Comp Count" value={getValue(record, "ebay_sold_comp_count")} />
-                <Read label="Original eBay Low Sold" value={money(getValue(record, "ebay_low_sold_price"))} />
-                <Read label="Original eBay Median Sold" value={money(getValue(record, "ebay_median_sold_price"))} />
-                <Read label="Original eBay High Sold" value={money(getValue(record, "ebay_high_sold_price"))} />
-                <Read label="eBay Notes / Source" value={getValue(record, "ebay_notes")} />
-                <Read label="Original Median Price" value={money(getValue(record, "median_price"))} />
-                <Read label="Discogs Release ID" value={getValue(record, "discogs_release_id")} />
-                <Read label="Discogs Master ID" value={getValue(record, "discogs_master_id")} />
-                <Read label="Discogs URL" value={getValue(record, "discogs_url")} />
-                <Read label="Discogs Sale Blocked" value={discogsSaleBlocked ? "Yes" : "No"} />
-                <Read label="Discogs Blocked Reason" value={discogsSaleBlockedReason} />
-                <Read label="Value Source" value={getValue(record, "value_source")} />
+              <div className="grid gap-4 md:grid-cols-3">
+                <Read
+                  label="Estimated Value"
+                  value={estimatedValue}
+                />
+
+                <Read
+                  label="Discogs Median"
+                  value={money(
+                    getValue(record, "discogs_median_price")
+                  )}
+                />
+
+                <Read
+                  label="Discogs High"
+                  value={money(
+                    getValue(record, "discogs_high_price")
+                  )}
+                />
+
+                <Read
+                  label="Discogs Low"
+                  value={money(
+                    getValue(record, "discogs_low_price")
+                  )}
+                />
+
+                <Read
+                  label="Last Sold"
+                  value={formatDate(
+                    getValue(
+                      record,
+                      "discogs_last_sold_date"
+                    )
+                  )}
+                />
+
+                <Read
+                  label="Copies For Sale"
+                  value={forSale ?? "—"}
+                />
+
+                <Read
+                  label="Value Source"
+                  value={getValue(record, "value_source")}
+                />
+
+                <Read
+                  label="Last Refreshed"
+                  value={formatDate(
+                    getValue(record, "value_last_updated")
+                  )}
+                />
+
+                <Read
+                  label="Discogs Release ID"
+                  value={getValue(
+                    record,
+                    "discogs_release_id"
+                  )}
+                />
               </div>
             </Section>
           </div>
@@ -600,50 +813,125 @@ export default async function RecordDetailPage({
   );
 }
 
-function Section({ title, children }: SectionProps) {
+/* ============================================================================
+   UI COMPONENTS
+============================================================================ */
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-2xl border border-[#3A3328] bg-[#1A1815] p-5 shadow-lg">
-      <h3 className="mb-4 text-lg font-semibold text-[#C7A45D]">{title}</h3>
+    <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-xl backdrop-blur-xl">
+      <h3 className="mb-6 text-2xl font-black tracking-tight text-[#F4EFE6]">
+        {title}
+      </h3>
+
       {children}
     </section>
   );
 }
 
-function Grid({ children }: GridProps) {
-  return <div className="grid gap-4 md:grid-cols-2">{children}</div>;
+function Grid({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <div className="grid gap-5 md:grid-cols-2">{children}</div>;
 }
 
-function Field({ label, name, defaultValue, type = "text", helpText }: FieldProps) {
+function Field({
+  label,
+  name,
+  defaultValue,
+  type = "text",
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string | number | boolean | null;
+  type?: string;
+}) {
   return (
     <label>
-      <div className="mb-1 text-xs uppercase tracking-wide text-[#8E8170]">
+      <div className="mb-2 text-xs uppercase tracking-[0.18em] text-[#8E8170]">
         {label}
       </div>
+
       <input
         type={type}
         name={name}
-        defaultValue={defaultValue == null ? "" : String(defaultValue)}
-        className="w-full rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2 text-sm text-[#F4EFE6]"
+        defaultValue={
+          defaultValue == null ? "" : String(defaultValue)
+        }
+        className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-sm text-white outline-none transition focus:border-[#C7A45D]/60"
       />
-      {helpText ? (
-        <div className="mt-1 text-xs text-[#B8AA96]">{helpText}</div>
-      ) : null}
     </label>
   );
 }
 
-function SelectField({ label, name, defaultValue }: SelectFieldProps) {
-  const grades = ["", "Mint", "Near Mint", "NM", "VG+", "VG", "Good", "Fair", "Poor"];
+function TextArea({
+  label,
+  name,
+  defaultValue,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string | number | boolean | null;
+}) {
+  return (
+    <label>
+      <div className="mb-2 text-xs uppercase tracking-[0.18em] text-[#8E8170]">
+        {label}
+      </div>
+
+      <textarea
+        rows={5}
+        name={name}
+        defaultValue={
+          defaultValue == null ? "" : String(defaultValue)
+        }
+        className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-sm text-white outline-none transition focus:border-[#C7A45D]/60"
+      />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  name,
+  defaultValue,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string | number | boolean | null;
+}) {
+  const grades = [
+    "",
+    "Mint",
+    "Near Mint",
+    "NM",
+    "VG+",
+    "VG",
+    "Good",
+    "Fair",
+    "Poor",
+  ];
 
   return (
     <label>
-      <div className="mb-1 text-xs uppercase tracking-wide text-[#8E8170]">
+      <div className="mb-2 text-xs uppercase tracking-[0.18em] text-[#8E8170]">
         {label}
       </div>
+
       <select
         name={name}
-        defaultValue={defaultValue == null ? "" : String(defaultValue)}
-        className="w-full rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2 text-sm text-[#F4EFE6]"
+        defaultValue={
+          defaultValue == null ? "" : String(defaultValue)
+        }
+        className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-sm text-white outline-none transition focus:border-[#C7A45D]/60"
       >
         {grades.map((grade) => (
           <option key={grade} value={grade}>
@@ -655,39 +943,72 @@ function SelectField({ label, name, defaultValue }: SelectFieldProps) {
   );
 }
 
-function TextArea({ label, name, defaultValue }: TextAreaProps) {
-  return (
-    <label>
-      <div className="mb-1 text-xs uppercase tracking-wide text-[#8E8170]">
-        {label}
-      </div>
-      <textarea
-        name={name}
-        defaultValue={defaultValue == null ? "" : String(defaultValue)}
-        rows={4}
-        className="w-full rounded-xl border border-[#3A3328] bg-[#11100E] px-3 py-2 text-sm text-[#F4EFE6]"
-      />
-    </label>
-  );
-}
-
 function SaveButton() {
   return (
-    <button className="rounded-xl bg-[#C7A45D] px-4 py-2 text-sm font-semibold text-black hover:bg-[#D8B86A]">
+    <button className="rounded-2xl bg-[#C7A45D] px-6 py-4 text-sm font-black text-black transition hover:bg-[#D8B86A]">
       Save Changes
     </button>
   );
 }
 
-function Read({ label, value }: ReadProps) {
+function Read({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | number | boolean | null;
+}) {
   return (
-    <div className="flex min-h-[82px] flex-col justify-between rounded-xl border border-[#3A3328] bg-[#11100E] p-4">
-      <div className="text-[10px] uppercase leading-tight tracking-wide text-[#8E8170]">
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+      <div className="text-[10px] uppercase tracking-[0.18em] text-[#8E8170]">
         {label}
       </div>
-      <div className="mt-2 break-words text-sm leading-relaxed">
-        {displayValue(value)}
+
+      <div className="mt-3 text-sm leading-7 text-white">
+        {value == null || value === ""
+          ? "—"
+          : String(value)}
       </div>
+    </div>
+  );
+}
+
+function SignalCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-xl backdrop-blur-xl">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-[#8E8170]">
+        {label}
+      </p>
+
+      <p className="mt-3 text-3xl font-black">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function MomentumCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-3 text-xl font-black text-white">
+        {value}
+      </p>
     </div>
   );
 }
