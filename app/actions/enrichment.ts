@@ -92,11 +92,23 @@ export async function enrichDiscogsMetadata() {
 
       failureCount++;
 
-      console.error(
-        "RECORD ENRICH FAILED:",
-        record.id,
-        error
-      );
+console.error(
+  "RECORD ENRICH FAILED:",
+  record.id,
+  error
+);
+
+console.error(
+  "❌ ENRICHMENT FAILURE:",
+  {
+    recordId: record.id,
+
+    error:
+      error instanceof Error
+        ? error.message
+        : error,
+  }
+);
 
     }
 

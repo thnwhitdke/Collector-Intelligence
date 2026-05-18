@@ -1,29 +1,64 @@
 import { processEnrichmentQueue } from "@/app/actions/process-enrichment";
-export async function GET() {
-  try {
-    console.log("🚀 Starting enrichment queue processing...");
 
-    const result = await processEnrichmentQueue(25);
+import { queueMissingMetadataRecords } from "@/app/actions/enrichment";
+
+export async function GET() {
+
+  try {
+
+    console.log(
+      "🔍 Scanning for incomplete records..."
+    );
+
+    const queueResult =
+      await queueMissingMetadataRecords(
+        25
+      );
+
+    console.log(
+      "🧠 Queue population result:",
+      queueResult
+    );
+
+    console.log(
+      "🚀 Starting enrichment queue processing..."
+    );
+
+    const result =
+      await processEnrichmentQueue(25);
+
+    console.log(
+      "✅ Enrichment processing complete:",
+      result
+    );
 
     return Response.json({
       success: true,
-      timestamp: new Date().toISOString(),
-      processed: result?.processed ?? 0,
-      failed: result?.failed ?? 0,
-      remaining: result?.remaining ?? 0,
-      message: "Enrichment queue processed successfully",
+      queueResult,
+      result,
+      timestamp:
+        new Date().toISOString(),
     });
+
   } catch (error: any) {
-    console.error("❌ Cron enrichment error:", error);
+
+    console.error(
+      "❌ Cron enrichment error:",
+      error
+    );
 
     return Response.json(
       {
         success: false,
-        error: error.message || "Unknown error",
+        error:
+          error.message ||
+          "Unknown error",
       },
       {
         status: 500,
       }
     );
+
   }
+
 }

@@ -3,7 +3,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { createClient } from '@supabase/supabase-js'
-import { enrichSingleRecord } from "@/app/actions/discogs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,7 +48,11 @@ type QueueRecord = {
   discogs_release_id: string | null
   label: string | null
   year_released: string | null
+  rarity_score?: number
+  market_momentum?: number
   value_pull_status: string | null
+  market_num_for_sale: number | null
+  value_last_updated: string | null
 }
 
 const fallbackCover =
@@ -107,17 +110,20 @@ export default function ValueDashboardPage() {
     const currentPage = reset ? 0 : page
 
     let query = supabase
-      .from('records_clean')
+      .from('records_clean_safe')
       .select('*')
 
     if (search.trim()) {
       query = query.or(
-  `artist.ilike.%${search}%,title.ilike.%${search}%,label.ilike.%${search}%`
-)
+        `artist.ilike.%${search}%,title.ilike.%${search}%,label.ilike.%${search}%`,
+      )
     }
 
     if (statusFilter !== 'all') {
-      query = query.eq('value_pull_status', statusFilter)
+      query = query.eq(
+        'value_pull_status',
+        statusFilter,
+      )
     }
 
     const { data, error } = await query.range(
@@ -126,14 +132,45 @@ export default function ValueDashboardPage() {
     )
 
     if (error) {
-      console.error('Supabase Query Error:', error)
-      setLastAction(`Supabase error: ${error.message}`)
+      console.error(
+        'Supabase Query Error:',
+        error,
+      )
+
+      setLastAction(
+        `Supabase error: ${error.message}`,
+      )
+
       setLoading(false)
+
       return
     }
 
-    const normalized: QueueRecord[] = (data || []).map(
-      (record: any, index: number) => ({
+    const normalized: QueueRecord[] = (
+      data || []
+    ).map((record: any, index: number) => {
+      const marketSupply =
+        record.market_num_for_sale || 0
+
+      const rarityScore =
+        marketSupply === 0
+          ? 100
+          : Math.max(
+              1,
+              Math.round(100 / marketSupply),
+            )
+
+      const numericValue = Number(
+        String(record.estimated_value || '0')
+          .replace('$', '')
+          .replace(',', ''),
+      )
+
+      const marketMomentum = Math.round(
+        numericValue * (rarityScore / 10),
+      )
+
+      return {
         id: String(record.id || index),
 
         artist:
@@ -160,30 +197,52 @@ export default function ValueDashboardPage() {
           : 'Unknown',
 
         discogs_release_id:
-          record.discogs_release_id || 'Unavailable',
+          record.discogs_release_id ||
+          'Unavailable',
 
-        label: record.label || 'Unknown Label',
+        label:
+          record.label || 'Unknown Label',
 
         year_released: String(
-          record.year_released || record.year || '',
+          record.year_released ||
+            record.year ||
+            '',
         ),
 
         value_pull_status:
-          record.value_pull_status || 'needs_updates',
-      }),
-    )
+          record.value_pull_status ||
+          'needs_updates',
+
+        market_num_for_sale:
+          marketSupply,
+
+        rarity_score: rarityScore,
+
+        market_momentum: marketMomentum,
+
+        value_last_updated:
+          record.value_last_updated ||
+          null,
+      }
+    })
 
     if (reset) {
       setRecords(normalized)
     } else {
-      setRecords((prev) => [...prev, ...normalized])
+      setRecords((prev) => [
+        ...prev,
+        ...normalized,
+      ])
     }
 
-    setHasMore(normalized.length === PAGE_SIZE)
+    setHasMore(
+      normalized.length === PAGE_SIZE,
+    )
+
     setPage(currentPage + 1)
 
     setLastAction(
-      `Loaded ${normalized.length} additional records.`,
+      `Loaded ${normalized.length} records.`,
     )
 
     setLoading(false)
@@ -199,7 +258,8 @@ export default function ValueDashboardPage() {
       return
     }
 
-    const imageUrl = URL.createObjectURL(file)
+    const imageUrl =
+      URL.createObjectURL(file)
 
     setUploadedCovers((prev) => ({
       ...prev,
@@ -207,32 +267,82 @@ export default function ValueDashboardPage() {
     }))
   }
 
+  const totalCollectionValue = records.reduce(
+    (sum, record) => {
+      const numeric = Number(
+        String(
+          record.estimated_value || '0',
+        )
+          .replace('$', '')
+          .replace(',', ''),
+      )
+
+      return (
+        sum + (isNaN(numeric) ? 0 : numeric)
+      )
+    },
+    0,
+  )
+
+  const highestValueRecord = [...records]
+    .sort((a, b) => {
+      const aValue = Number(
+        String(
+          a.estimated_value || '0',
+        ).replace('$', ''),
+      )
+
+      const bValue = Number(
+        String(
+          b.estimated_value || '0',
+        ).replace('$', ''),
+      )
+
+      return bValue - aValue
+    })[0]
+
+  const totalForSale = records.reduce(
+    (sum, record) =>
+      sum +
+      (record.market_num_for_sale || 0),
+    0,
+  )
+
   const metrics = [
+    {
+      label: 'Collection Value',
+      value: `$${totalCollectionValue.toFixed(
+        2,
+      )}`,
+      icon: <IconTrending />,
+      accent:
+        'from-emerald-400 to-green-500',
+    },
+
+    {
+      label: 'Most Valuable Artist',
+      value: highestValueRecord
+        ? highestValueRecord.artist
+        : 'Unknown',
+      icon: <IconSparkles />,
+      accent:
+        'from-yellow-400 to-orange-500',
+    },
+
+    {
+      label: 'Market Listings',
+      value: String(totalForSale),
+      icon: <IconDatabase />,
+      accent:
+        'from-cyan-400 to-blue-500',
+    },
+
     {
       label: 'Records Loaded',
       value: String(records.length),
       icon: <IconActivity />,
-      accent: 'from-yellow-400 to-orange-500',
-    },
-    {
-      label: 'Search Results',
-      value: String(records.length),
-      icon: <IconTrending />,
-      accent: 'from-emerald-400 to-green-500',
-    },
-    {
-      label: 'Missing Covers',
-      value: String(records.filter((r) => !r.cover_url).length),
-      icon: <IconImage />,
-      accent: 'from-fuchsia-400 to-purple-500',
-    },
-    {
-      label: 'Metadata Issues',
-      value: String(
-        records.filter((r) => !r.artist || !r.title).length,
-      ),
-      icon: <IconDatabase />,
-      accent: 'from-cyan-400 to-blue-500',
+      accent:
+        'from-fuchsia-400 to-purple-500',
     },
   ]
 
@@ -262,8 +372,9 @@ export default function ValueDashboardPage() {
               </h1>
 
               <p className="mt-6 max-w-3xl text-lg text-zinc-400">
-                Search, analyze, and manage your collection
-                with enterprise-grade collector intelligence.
+                Enterprise-grade collector
+                intelligence and valuation
+                analytics.
               </p>
             </div>
 
@@ -301,7 +412,6 @@ export default function ValueDashboardPage() {
         </motion.section>
 
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-
           {metrics.map((metric) => (
             <div
               key={metric.label}
@@ -331,67 +441,21 @@ export default function ValueDashboardPage() {
           ))}
         </section>
 
-        <section className="rounded-[38px] border border-white/10 bg-[#050505]/95 p-6">
-
-          <div className="grid gap-4 xl:grid-cols-[1fr_260px_220px]">
-
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setPage(0)
-                  loadRecords(true)
-                }
-              }}
-              placeholder="Search artist, title, label..."
-              className="h-16 rounded-2xl border border-white/10 bg-black/50 px-6 text-lg text-white outline-none"
-            />
-
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value)
-                setPage(0)
-
-                setTimeout(() => {
-                  loadRecords(true)
-                }, 0)
-              }}
-              className="h-16 rounded-2xl border border-white/10 bg-black/50 px-5 text-white outline-none"
-            >
-              <option value="all">All Records</option>
-              <option value="needs_updates">
-                Needs Updates
-              </option>
-              <option value="rare_no_sales_history">
-                Rare / No Sales History
-              </option>
-              <option value="up_to_date">
-                Fully Updated
-              </option>
-            </select>
-
-            <div className="flex items-center justify-center rounded-[28px] border border-yellow-400/15 bg-yellow-400/10 text-4xl font-black text-white">
-              {records.length}
-            </div>
-          </div>
-        </section>
-
-        {loading && (
-          <div className="rounded-3xl border border-yellow-400/20 bg-yellow-400/10 p-8 text-xl font-bold text-yellow-200">
-            Loading records...
-          </div>
-        )}
-
         <section className="grid gap-6 pb-12">
-
           {records.map((record, index) => (
             <motion.article
               key={record.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.002 }}
+              initial={{
+                opacity: 0,
+                y: 10,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+              transition={{
+                delay: index * 0.002,
+              }}
               className="overflow-hidden rounded-[34px] border border-white/10 bg-[#050505]/95 p-5"
             >
               <div className="grid items-start gap-5 xl:grid-cols-[140px_1fr_260px]">
@@ -400,11 +464,16 @@ export default function ValueDashboardPage() {
 
                   <img
                     src={
-                      uploadedCovers[record.id] ||
+                      uploadedCovers[
+                        record.id
+                      ] ||
                       record.cover_url ||
                       fallbackCover
                     }
-                    alt={record.title || 'Record'}
+                    alt={
+                      record.title ||
+                      'Record'
+                    }
                     className="h-full w-full object-cover"
                     loading="lazy"
                   />
@@ -431,7 +500,10 @@ export default function ValueDashboardPage() {
                   </h2>
 
                   <p className="mt-4 text-zinc-400">
-                    {[record.label, record.year_released]
+                    {[
+                      record.label,
+                      record.year_released,
+                    ]
                       .filter(Boolean)
                       .join(' • ')}
                   </p>
@@ -444,57 +516,64 @@ export default function ValueDashboardPage() {
                   </div>
 
                   <div className="mt-2 text-2xl font-black text-white">
-                    #{record.discogs_release_id}
+                    #
+                    {
+                      record.discogs_release_id
+                    }
                   </div>
 
                   <div className="mt-4 text-3xl font-black text-yellow-300">
-                    {record.estimated_value}
+                    {
+                      record.estimated_value
+                    }
                   </div>
 
-                  <div className="mt-5 flex flex-wrap gap-3">
-
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-cyan-200 hover:bg-cyan-400/20">
-
-                      <IconImage />
-                      Upload Cover
-
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(event) =>
-                          handleCoverUpload(
-                            record.id,
-                            event,
-                          )
-                        }
-                      />
-                    </label>
+                  <div className="mt-2 text-sm text-zinc-400">
+                    {
+                      record.market_num_for_sale
+                    }{' '}
+                    currently for sale
                   </div>
+
+                  <div className="mt-4">
+                    <div className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+                      Rarity Score
+                    </div>
+
+                    <div className="mt-1 text-2xl font-black text-fuchsia-300">
+                      {
+                        record.rarity_score
+                      }
+                      /100
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+                      Market Momentum
+                    </div>
+
+                    <div className="mt-1 text-2xl font-black text-emerald-300">
+                      {
+                        record.market_momentum
+                      }
+                    </div>
+                  </div>
+
+                  <div className="mt-4 text-xs text-zinc-500">
+                    Last updated:{' '}
+                    {record.value_last_updated
+                      ? new Date(
+                          record.value_last_updated,
+                        ).toLocaleDateString()
+                      : 'Unknown'}
+                  </div>
+
                 </div>
               </div>
             </motion.article>
           ))}
         </section>
-
-        <div className="flex items-center justify-center pb-24">
-
-          {hasMore && !loading && (
-            <button
-              onClick={() => loadRecords(false)}
-              className="flex items-center gap-3 rounded-2xl border border-yellow-400/20 bg-yellow-400/10 px-8 py-4 text-sm font-black uppercase tracking-[0.25em] text-yellow-200 transition hover:bg-yellow-400/20"
-            >
-              <IconLoad />
-              Load More Records
-            </button>
-          )}
-
-          {!hasMore && (
-            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-8 py-4 text-sm font-black uppercase tracking-[0.25em] text-emerald-200">
-              End Of Collection Reached
-            </div>
-          )}
-        </div>
       </div>
     </main>
   )

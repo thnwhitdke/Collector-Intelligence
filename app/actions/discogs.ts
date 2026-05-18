@@ -56,51 +56,276 @@ export async function enrichSingleRecord(
     // BUILD SEARCH QUERY
     // =========================
 
-   const rawArtist =
-  record.artist || "";
+    const rawArtist =
+      record.artist || "";
 
-const rawTitle =
-  record.album ||
-  record.title ||
-  "";
+    const rawTitle =
+      record.album ||
+      record.title ||
+      "";
 
-const normalizedArtist =
-  rawArtist
-    .replace(/\s+/g, " ")
-    .trim();
+    const normalizeString = (
+      value: string
+    ) => {
 
-const normalizedTitle =
-  rawTitle
-    .replace(/\s+/g, " ")
-    .replace(/["']/g, "")
-    .trim();
+      return value
 
-const canonicalDisplayTitle =
-  `${normalizedArtist} - ${normalizedTitle}`;
+        // Remove parentheses
+        .replace(/\(.*?\)/g, "")
 
-const artist =
-  normalizedArtist;
+        // Remove brackets
+        .replace(/\[.*?\]/g, "")
 
-const title =
-  normalizedTitle;
+        // Remove quotes
+        .replace(/["']/g, "")
 
-const query =
-  encodeURIComponent(
-    `${artist} ${title}`
-  );
+        // Remove junk metadata
+        .replace(
+          /\b(LP|VINYL|REMASTERED|REISSUE|STEREO|MONO|LIMITED|EDITION)\b/gi,
+          ""
+        )
 
-    console.log(
-      "DISCOGS QUERY:",
-      query
-    );
+        // Normalize whitespace
+        .replace(/\s+/g, " ")
+
+        // Trim
+        .trim();
+
+    };
+
+    const normalizedArtist =
+      normalizeString(
+        rawArtist
+      );
+
+    const normalizedTitle =
+      normalizeString(
+        rawTitle
+      );
+
+    const canonicalDisplayTitle =
+      `${normalizedArtist} - ${normalizedTitle}`;
+
+    const artist =
+      normalizedArtist;
+
+    const title =
+      normalizedTitle;
+
+    // =========================
+    // FUZZY QUERY STRATEGY
+    // =========================
+
+    const queries = [
+
+      // BEST MATCH
+      `${artist} ${title}`,
+
+      // ARTIST ONLY
+      artist,
+
+      // TITLE ONLY
+      title,
+
+      // CLEANED FALLBACK
+      `${artist}`
+        .replace(/-/g, " ")
+        .trim() +
+
+        " " +
+
+        `${title}`
+          .replace(/-/g, " ")
+          .trim(),
+
+    ];
 
     // =========================
     // DISCOGS SEARCH
     // =========================
 
-    const response =
+    let data: any = null;
+
+    let successfulQuery = "";
+
+    for (const query of queries) {
+
+      console.log(
+        "🔎 Trying Discogs query:",
+        query
+      );
+
+      const encodedQuery =
+        encodeURIComponent(
+          query
+        );
+
+      const response =
+        await fetch(
+          `https://api.discogs.com/database/search?q=${encodedQuery}&type=release`,
+          {
+            headers: {
+              Authorization:
+                `Discogs token ${process.env.DISCOGS_TOKEN}`,
+
+              "User-Agent":
+                "CollectorIntelligence/1.0",
+            },
+
+            cache: "no-store",
+          }
+        );
+
+      console.log(
+        "DISCOGS RESPONSE STATUS:",
+        response.status
+      );
+
+      if (!response.ok) {
+
+        continue;
+
+      }
+
+      data =
+        await response.json();
+
+      console.log(
+        "DISCOGS RESULTS COUNT:",
+        data.results?.length || 0
+      );
+
+      if (
+        data.results &&
+        data.results.length > 0
+      ) {
+
+        successfulQuery =
+          query;
+
+        console.log(
+          "✅ MATCH FOUND:",
+          successfulQuery
+        );
+
+        break;
+
+      }
+
+    }
+
+    if (
+      !data?.results ||
+      data.results.length === 0
+    ) {
+
+      console.error(
+        "❌ ALL FUZZY MATCHES FAILED",
+        {
+          recordId: record.id,
+
+          rawArtist,
+
+          rawTitle,
+
+          normalizedArtist,
+
+          normalizedTitle,
+
+          attemptedQueries:
+            queries,
+        }
+      );
+
+    const failureReason = {
+  type: "no_match",
+
+  artist: normalizedArtist,
+
+  title: normalizedTitle,
+
+  attemptedQueries: queries,
+};
+
+console.error(
+  "❌ ALL FUZZY MATCHES FAILED",
+  failureReason
+);
+
+throw new Error(
+  JSON.stringify(failureReason)
+);
+
+    }
+
+    // =========================
+    // BEST MATCH
+    // =========================
+
+    const match =
+      data.results[0];
+      let confidenceScore = 100;
+
+// Lower confidence if fallback query used
+
+if (
+  successfulQuery !==
+  `${artist} ${title}`
+) {
+
+  confidenceScore -= 20;
+
+}
+
+// Lower confidence if title mismatch
+
+if (
+  !match.title
+    ?.toLowerCase()
+    .includes(
+      title.toLowerCase()
+    )
+) {
+
+  confidenceScore -= 15;
+
+}
+
+// Lower confidence if artist mismatch
+
+if (
+  !match.title
+    ?.toLowerCase()
+    .includes(
+      artist.toLowerCase()
+    )
+) {
+
+  confidenceScore -= 15;
+
+}
+
+console.log(
+  "🎯 CONFIDENCE SCORE:",
+  confidenceScore
+);
+
+    console.log(
+      "DISCOGS MATCH FOUND:",
+      {
+        id: match.id,
+        title: match.title,
+        cover: match.cover_image,
+      }
+    );
+
+    // =========================
+    // FETCH FULL RELEASE
+    // =========================
+
+    const releaseResponse =
       await fetch(
-        `https://api.discogs.com/database/search?q=${query}&type=release`,
+        `https://api.discogs.com/releases/${match.id}`,
         {
           headers: {
             Authorization:
@@ -114,92 +339,26 @@ const query =
         }
       );
 
-    console.log(
-      "DISCOGS RESPONSE STATUS:",
-      response.status
-    );
+    let releaseData: any = null;
 
-    if (!response.ok) {
+    if (releaseResponse.ok) {
 
-      throw new Error(
-        `Discogs API error: ${response.status}`
+      releaseData =
+        await releaseResponse.json();
+
+      console.log(
+        "FULL RELEASE DATA:",
+        {
+          id: releaseData.id,
+          images:
+            releaseData.images?.length || 0,
+          year:
+            releaseData.year,
+        }
       );
 
     }
 
-    const data =
-      await response.json();
-
-    console.log(
-      "DISCOGS RESULTS COUNT:",
-      data.results?.length || 0
-    );
-
-    if (
-      !data.results ||
-      data.results.length === 0
-    ) {
-
-      throw new Error(
-        "No Discogs matches found"
-      );
-
-    }
-
-    // =========================
-    // BEST MATCH
-    // =========================
-
-    const match =
-      data.results[0];
-
-    console.log(
-      "DISCOGS MATCH FOUND:",
-      {
-        id: match.id,
-        title: match.title,
-        cover: match.cover_image,
-      }
-    );
-// =========================
-// FETCH FULL RELEASE
-// =========================
-
-const releaseResponse =
-  await fetch(
-    `https://api.discogs.com/releases/${match.id}`,
-    {
-      headers: {
-        Authorization:
-          `Discogs token ${process.env.DISCOGS_TOKEN}`,
-
-        "User-Agent":
-          "CollectorIntelligence/1.0",
-      },
-
-      cache: "no-store",
-    }
-  );
-
-let releaseData: any = null;
-
-if (releaseResponse.ok) {
-
-  releaseData =
-    await releaseResponse.json();
-
-  console.log(
-    "FULL RELEASE DATA:",
-    {
-      id: releaseData.id,
-      images:
-        releaseData.images?.length || 0,
-      year:
-        releaseData.year,
-    }
-  );
-
-}
     // =========================
     // UPDATE RECORD
     // =========================
@@ -209,30 +368,33 @@ if (releaseResponse.ok) {
       normalized_artist:
         normalizedArtist,
 
-normalized_title:
-  normalizedTitle,
+      normalized_title:
+        normalizedTitle,
 
-canonical_display_title:
-  canonicalDisplayTitle,
+      canonical_display_title:
+        canonicalDisplayTitle,
+
+      confidence_score:
+        confidenceScore,
 
       discogs_release_id:
         match.id || null,
 
-discogs_image_url:
-  releaseData?.images?.[0]?.uri ||
-  match.cover_image ||
-  match.thumb ||
-  null,
+      discogs_image_url:
+        releaseData?.images?.[0]?.uri ||
+        match.cover_image ||
+        match.thumb ||
+        null,
 
-discogs_thumbnail_url:
-  releaseData?.images?.[0]?.uri150 ||
-  match.thumb ||
-  null,
+      discogs_thumbnail_url:
+        releaseData?.images?.[0]?.uri150 ||
+        match.thumb ||
+        null,
 
-  genre:
-  releaseData?.genres?.join(", ") ||
-  match.genre?.join(", ") ||
-  null,
+      genre:
+        releaseData?.genres?.join(", ") ||
+        match.genre?.join(", ") ||
+        null,
 
       label:
         match.label?.[0] ||
@@ -240,12 +402,13 @@ discogs_thumbnail_url:
 
       country:
         match.country || null,
-        year:
-  releaseData?.year || null,
 
-style:
-  releaseData?.styles?.join(", ") ||
-  null,
+      year:
+        releaseData?.year || null,
+
+      style:
+        releaseData?.styles?.join(", ") ||
+        null,
 
       enrichment_status:
         "completed",
@@ -257,6 +420,15 @@ style:
 
       last_self_heal_reason:
         "Discogs autonomous enrichment",
+      review_status:
+
+      confidenceScore >= 90
+        ? "trusted"
+
+      : confidenceScore >= 70
+      ? "review"
+
+      : "suspicious",
 
     };
 
@@ -301,6 +473,7 @@ style:
         "record_enriched",
 
       entityType: "record",
+
       entityId: record.id,
 
       title:
@@ -309,68 +482,58 @@ style:
       description:
         `${record.artist} - ${record.album}`,
 
-    metadata: {
+      metadata: {
 
-  canonical_display_title:
-    canonicalDisplayTitle,
+        canonical_display_title:
+          canonicalDisplayTitle,
 
-  artist:
-    normalizedArtist,
+        confidence_score:
+          confidenceScore,
 
-  title:
-    normalizedTitle,
+        artist:
+          normalizedArtist,
 
-  artwork:
-    releaseData?.images?.[0]?.uri ||
+        title:
+          normalizedTitle,
 
-    match.cover_image ||
+        artwork:
+          releaseData?.images?.[0]?.uri ||
+          match.cover_image ||
+          match.thumb ||
+          null,
 
-    match.thumb ||
+        thumbnail:
+          releaseData?.images?.[0]?.uri150 ||
+          match.thumb ||
+          null,
 
-    null,
+        discogs_release_id:
+          match.id,
 
-  thumbnail:
-    releaseData?.images?.[0]?.uri150 ||
+        year:
+          releaseData?.year ||
+          null,
 
-    match.thumb ||
+        genre:
+          releaseData?.genres ||
+          match.genre ||
+          [],
 
-    null,
+        style:
+          releaseData?.styles ||
+          [],
 
-  discogs_release_id:
-    match.id,
+        country:
+          releaseData?.country ||
+          match.country ||
+          null,
 
-  year:
-    releaseData?.year ||
+        label:
+          releaseData?.labels?.[0]?.name ||
+          match.label?.[0] ||
+          null,
 
-    null,
-
-  genre:
-    releaseData?.genres ||
-
-    match.genre ||
-
-    [],
-
-  style:
-    releaseData?.styles ||
-
-    [],
-
-  country:
-    releaseData?.country ||
-
-    match.country ||
-
-    null,
-
-  label:
-    releaseData?.labels?.[0]?.name ||
-
-    match.label?.[0] ||
-
-    null,
-
-},
+      },
 
       status: "success",
     });
@@ -397,10 +560,6 @@ style:
       "ENRICHMENT FAILED:",
       error
     );
-
-    // =========================
-    // ATTEMPT FAILURE LOG
-    // =========================
 
     try {
 
@@ -445,11 +604,6 @@ style:
 
           status: "error",
         });
-
-        console.log(
-          "FAILURE LOG WRITTEN:",
-          recordId
-        );
 
       }
 
