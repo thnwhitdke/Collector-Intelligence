@@ -239,9 +239,13 @@ function normalizeReleaseForWantList(
     format: formats,
     cover_url: firstImageUrl(release),
     discogs_url:
-      typeof release.uri === "string"
-        ? `https://www.discogs.com${release.uri}`
-        : `https://www.discogs.com/release/${releaseId}`,
+  typeof release.uri === "string"
+    ? (
+        release.uri.startsWith("http")
+          ? release.uri
+          : `https://www.discogs.com${release.uri}`
+      )
+    : `https://www.discogs.com/release/${releaseId}`,
     discogs_low_price: marketplace.lowestPrice,
     discogs_median_price: null,
     discogs_high_price: null,
