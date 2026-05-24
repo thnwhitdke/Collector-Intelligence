@@ -6,6 +6,7 @@ import {
   type MissingCoverRecord,
 } from "../../actions/value-queue";
 import EnrichmentQueueActions from "./EnrichmentQueueActions";
+import CINavigation from '@/app/components/CINavigation'
 
 function formatMoney(value: string | number | null | undefined) {
   if (value === null || value === undefined || String(value).trim() === "") {
@@ -142,8 +143,13 @@ export default async function ValueQueuePage() {
   }, 0);
 
   return (
-    <main className="min-h-screen bg-[#0E0C0A] px-6 py-8 text-[#F4EFE6]">
-      <div className="mx-auto max-w-7xl space-y-8">
+  <main className="min-h-screen bg-[#0E0C0A] px-6 py-8 text-[#F4EFE6]">
+
+    <CINavigation />
+
+    <div className="mx-auto max-w-7xl space-y-8">
+
+      <section className="overflow-hidden rounded-[34px] border border-[#3A3328] bg-[radial-gradient(circle_at_top_left,_rgba(199,164,93,0.16),_transparent_32%),linear-gradient(135deg,_#0E0C0A,_#17130F_58%,_#272017)] p-6 shadow-2xl shadow-black/40"></section>
         <section className="overflow-hidden rounded-[34px] border border-[#3A3328] bg-[radial-gradient(circle_at_top_left,_rgba(199,164,93,0.16),_transparent_32%),linear-gradient(135deg,_#0E0C0A,_#17130F_58%,_#272017)] p-6 shadow-2xl shadow-black/40">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>

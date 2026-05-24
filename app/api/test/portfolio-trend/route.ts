@@ -1,36 +1,42 @@
 // ======================================================
 // Collector Intelligence
-// Premium Cron Processor
-// Queue Processor Integration
+// Portfolio Trend Test Route
+// Portfolio Intelligence Test
 // ======================================================
 
 import { NextResponse } from 'next/server'
+
 import {
-  processQueueBatch
-} from '@/app/services/automation/queueProcessor'
+  getPortfolioTrend
+} from '@/app/services/analytics/portfolioTrendService'
 
 export async function GET() {
+
   try {
-    const result =
-      await processQueueBatch(25)
+
+    const trend =
+      await getPortfolioTrend()
 
     return NextResponse.json({
-      success: result.success,
-      processed: result.processed,
-      failed: result.failed,
-      timestamp: new Date().toISOString()
+      success: true,
+      trend
     })
+
   } catch (error) {
+
     console.error(error)
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Cron failure'
+        error:
+          'Portfolio trend test failed'
       },
       {
         status: 500
       }
     )
+
   }
+
 }

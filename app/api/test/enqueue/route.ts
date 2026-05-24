@@ -1,36 +1,41 @@
 // ======================================================
 // Collector Intelligence
-// Premium Cron Processor
-// Queue Processor Integration
+// Queue Test Endpoint
 // ======================================================
 
 import { NextResponse } from 'next/server'
+
 import {
-  processQueueBatch
-} from '@/app/services/automation/queueProcessor'
+  enqueueRecordEnrichment
+} from '@/app/services/enrichment/enqueueService'
 
 export async function GET() {
+
   try {
+
+    // Test using record ID 1
     const result =
-      await processQueueBatch(25)
+      await enqueueRecordEnrichment(1)
 
     return NextResponse.json({
-      success: result.success,
-      processed: result.processed,
-      failed: result.failed,
-      timestamp: new Date().toISOString()
+      success: true,
+      result
     })
+
   } catch (error) {
+
     console.error(error)
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Cron failure'
+        error: 'Enqueue failed'
       },
       {
         status: 500
       }
     )
+
   }
+
 }

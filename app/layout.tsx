@@ -1,10 +1,7 @@
+// app/layout.tsx
+
 import "./globals.css";
-
-export const metadata = {
-  title: "Collector Intelligence",
-  description: "Manage your collection",
-};
-
+import AutoRefresh from "@/app/components/AutoRefresh";
 export default function RootLayout({
   children,
 }: {
@@ -12,7 +9,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AutoRefresh />
+        {children}
+      </body>
     </html>
   );
 }

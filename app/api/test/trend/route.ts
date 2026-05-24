@@ -1,36 +1,42 @@
 // ======================================================
 // Collector Intelligence
-// Premium Cron Processor
-// Queue Processor Integration
+// Trend Test Route
+// Historical Intelligence Test
 // ======================================================
 
 import { NextResponse } from 'next/server'
+
 import {
-  processQueueBatch
-} from '@/app/services/automation/queueProcessor'
+  getRecordTrend
+} from '@/app/services/analytics/trendService'
 
 export async function GET() {
+
   try {
-    const result =
-      await processQueueBatch(25)
+
+    // Test record
+    const trend =
+      await getRecordTrend(1)
 
     return NextResponse.json({
-      success: result.success,
-      processed: result.processed,
-      failed: result.failed,
-      timestamp: new Date().toISOString()
+      success: true,
+      trend
     })
+
   } catch (error) {
+
     console.error(error)
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Cron failure'
+        error: 'Trend test failed'
       },
       {
         status: 500
       }
     )
+
   }
+
 }

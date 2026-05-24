@@ -361,7 +361,9 @@ export default function ReportsAnalyticsPage() {
 
                     <div className="text-right">
                       <div className="text-2xl font-black text-yellow-300">
-                        {record.value}
+                        $
+                        {record.estimated_value?.toFixed(2) ||
+                        "0.00"}
                       </div>
 
                       <div className="mt-1 text-sm font-bold text-emerald-400">

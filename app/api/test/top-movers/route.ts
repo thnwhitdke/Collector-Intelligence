@@ -1,36 +1,42 @@
 // ======================================================
 // Collector Intelligence
-// Premium Cron Processor
-// Queue Processor Integration
+// Top Movers Test Route
+// Historical Movers Intelligence
 // ======================================================
 
 import { NextResponse } from 'next/server'
+
 import {
-  processQueueBatch
-} from '@/app/services/automation/queueProcessor'
+  getTopMovers
+} from '@/app/services/analytics/topMoversService'
 
 export async function GET() {
+
   try {
-    const result =
-      await processQueueBatch(25)
+
+    const movers =
+      await getTopMovers(10)
 
     return NextResponse.json({
-      success: result.success,
-      processed: result.processed,
-      failed: result.failed,
-      timestamp: new Date().toISOString()
+      success: true,
+      movers
     })
+
   } catch (error) {
+
     console.error(error)
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Cron failure'
+        error:
+          'Top movers test failed'
       },
       {
         status: 500
       }
     )
+
   }
+
 }

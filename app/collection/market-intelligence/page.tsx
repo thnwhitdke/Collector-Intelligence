@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/src/lib/supabase/server";
 import LiveMarketFeed from "@/app/components/LiveMarketFeed";
+import CINavigation from '@/app/components/CINavigation'
 
 type SearchParams = {
   q?: string;
@@ -357,8 +358,13 @@ let query = supabase
   }).length;
 
   return (
-    <main className="min-h-screen bg-[#0b1118] px-6 py-8 text-slate-100">
-      <div className="mx-auto flex max-w-7xl flex-col gap-8">
+  <main className="min-h-screen bg-[#0b1118] px-6 py-8 text-slate-100">
+
+    <CINavigation />
+
+    <div className="mx-auto flex max-w-7xl flex-col gap-8">
+
+      <header className="rounded-[2rem] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-8 shadow-2xl"></header>
         <header className="rounded-[2rem] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-8 shadow-2xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
