@@ -1,5 +1,4 @@
 // app/collection/want-list/page.tsx
-// FULL PREMIUM WANT LIST COHESION REPLACEMENT
 
 import Link from "next/link";
 import CINavigation from "@/app/components/CINavigation";
@@ -74,17 +73,9 @@ function demandLabel(
     return "Unknown";
   }
 
-  if (ratio >= 5) {
-    return "Fever Demand";
-  }
-
-  if (ratio >= 2) {
-    return "High Demand";
-  }
-
-  if (ratio >= 1) {
-    return "Balanced";
-  }
+  if (ratio >= 5) return "Fever Demand";
+  if (ratio >= 2) return "High Demand";
+  if (ratio >= 1) return "Balanced";
 
   return "Low Demand";
 }
@@ -99,17 +90,9 @@ function rarityLabel(
     return "Unknown";
   }
 
-  if (forSale <= 2) {
-    return "Ultra Rare";
-  }
-
-  if (forSale <= 10) {
-    return "Scarce";
-  }
-
-  if (forSale <= 25) {
-    return "Limited";
-  }
+  if (forSale <= 2) return "Ultra Rare";
+  if (forSale <= 10) return "Scarce";
+  if (forSale <= 25) return "Limited";
 
   return "Available";
 }
@@ -120,8 +103,10 @@ function priorityClass(
   switch (priority) {
     case "High":
       return "border-red-500/30 bg-red-500/10 text-red-200";
+
     case "Low":
       return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+
     default:
       return "border-amber-500/30 bg-amber-500/10 text-amber-100";
   }
@@ -151,8 +136,6 @@ export default async function WantListPage() {
       <CINavigation />
 
       <section className="mx-auto max-w-7xl px-6 py-8">
-        {/* HERO */}
-
         <section className="relative overflow-hidden rounded-[38px] border border-[#352819] bg-gradient-to-br from-[#16110B] via-[#0C0A07] to-[#050403] p-8 shadow-[0_18px_80px_rgba(0,0,0,.55)]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(199,164,93,.12),transparent_35%)]" />
 
@@ -172,26 +155,8 @@ export default async function WantListPage() {
                 visibility.
               </p>
             </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/collection"
-                className="rounded-2xl border border-[#4A3A1E] bg-[#15110B] px-5 py-3 text-sm font-bold text-[#D8B65A]"
-              >
-                Collection
-              </Link>
-
-              <Link
-                href="/collection/market-intelligence"
-                className="rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/10 px-5 py-3 text-sm font-bold text-fuchsia-100"
-              >
-                Market Intelligence
-              </Link>
-            </div>
           </div>
         </section>
-
-        {/* KPI */}
 
         <section className="mt-8 grid gap-4 md:grid-cols-3">
           <Metric
@@ -217,18 +182,10 @@ export default async function WantListPage() {
           />
         </section>
 
-        {/* ADD */}
-
         <section className="mt-8 rounded-[34px] border border-[#32281D] bg-[#0F0C09] p-6 shadow-2xl">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-[#D8B65A]">
-              Acquisition Intake
-            </p>
-
-            <h2 className="mt-3 text-3xl font-black">
-              Add Want Target
-            </h2>
-          </div>
+          <h2 className="text-3xl font-black">
+            Add Want Target
+          </h2>
 
           <form
             action={
@@ -248,15 +205,9 @@ export default async function WantListPage() {
               defaultValue="Medium"
               className="rounded-3xl border border-[#3A3025] bg-[#090705] px-5 py-4"
             >
-              <option>
-                High
-              </option>
-              <option>
-                Medium
-              </option>
-              <option>
-                Low
-              </option>
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
             </select>
 
             <input
@@ -274,8 +225,6 @@ export default async function WantListPage() {
           </form>
         </section>
 
-        {/* LIST */}
-
         <section className="mt-10 grid gap-5">
           {items.map((item) => {
             const demand =
@@ -284,9 +233,13 @@ export default async function WantListPage() {
               );
 
             const internalRecordHref =
-  item.record_id
-    ? `/collection/${item.record_id}`
-    : null;
+              item.record_id
+                ? `/collection/${item.record_id}`
+                : null;
+
+            const discogsHref =
+              item.discogs_url ??
+              `https://www.discogs.com/release/${item.discogs_release_id}`;
 
             return (
               <article
@@ -294,8 +247,6 @@ export default async function WantListPage() {
                 className="overflow-hidden rounded-[34px] border border-[#2D241B] bg-gradient-to-br from-[#120F0C] to-[#090705]"
               >
                 <div className="grid gap-6 p-6 lg:grid-cols-[140px_1fr_250px]">
-                  {/* COVER */}
-
                   <div>
                     {item.cover_url ? (
                       <img
@@ -314,8 +265,6 @@ export default async function WantListPage() {
                       </div>
                     )}
                   </div>
-
-                  {/* BODY */}
 
                   <div>
                     <div className="flex flex-wrap gap-2">
@@ -343,37 +292,17 @@ export default async function WantListPage() {
                     </div>
 
                     <h2 className="mt-4 text-3xl font-black">
-                      {item.title ??
-                        "Unknown Release"}
+                      {item.title}
                     </h2>
 
                     <p className="mt-2 text-lg text-[#D8C39B]">
-                      {item.artist ??
-                        "Unknown Artist"}
+                      {item.artist}
                     </p>
 
                     <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                      <Info
-                        label="Label"
-                        value={
-                          item.label
-                        }
-                      />
-
-                      <Info
-                        label="Format"
-                        value={
-                          item.format
-                        }
-                      />
-
-                      <Info
-                        label="Year"
-                        value={
-                          item.year_released
-                        }
-                      />
-
+                      <Info label="Label" value={item.label} />
+                      <Info label="Format" value={item.format} />
+                      <Info label="Year" value={item.year_released} />
                       <Info
                         label="Added"
                         value={compactDate(
@@ -383,19 +312,6 @@ export default async function WantListPage() {
                     </div>
 
                     <div className="mt-6 rounded-3xl border border-[#2E2418] bg-[#0B0907] p-5">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.3em] text-[#D8B65A]">
-                            Acquisition Intelligence
-                          </p>
-
-                          <p className="mt-2 text-sm text-[#8E8170]">
-                            Market supply, pricing, and
-                            demand pressure.
-                          </p>
-                        </div>
-                      </div>
-
                       <div className="mt-5 grid gap-4 md:grid-cols-3">
                         <MetricMini
                           label="Lowest Price"
@@ -421,18 +337,8 @@ export default async function WantListPage() {
                           }
                         />
                       </div>
-
-                      {item.notes ? (
-                        <div className="mt-4 rounded-2xl border border-[#241C13] bg-[#0F0B08] p-4 text-sm text-[#B8AA96]">
-                          {
-                            item.notes
-                          }
-                        </div>
-                      ) : null}
                     </div>
                   </div>
-
-                  {/* ACTIONS */}
 
                   <div className="flex flex-col gap-3">
                     {internalRecordHref ? (
@@ -445,23 +351,28 @@ export default async function WantListPage() {
                         View CI Record
                       </Link>
                     ) : (
-                      <div className="rounded-2xl border border-[#3A3025] bg-[#100D09] px-4 py-3 text-center text-xs text-[#8E8170]">
-                        External Intelligence Target
-                      </div>
-                    )}
-
-                    {item.discogs_url ? (
                       <a
                         href={
-                          item.discogs_url
+                          discogsHref
                         }
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-2xl border border-[#4A3A1E] bg-[#15110C] px-4 py-3 text-center text-sm font-bold text-[#D8B65A]"
+                        className="rounded-2xl border border-[#3A3025] bg-[#100D09] px-4 py-3 text-center text-sm font-bold text-[#D8B65A]"
                       >
-                        Discogs Release
+                        External Intelligence
                       </a>
-                    ) : null}
+                    )}
+
+                    <a
+                      href={
+                        discogsHref
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-2xl border border-[#4A3A1E] bg-[#15110C] px-4 py-3 text-center text-sm font-bold text-[#D8B65A]"
+                    >
+                      Discogs Release
+                    </a>
 
                     {item.marketplace_url ? (
                       <a
@@ -484,9 +395,7 @@ export default async function WantListPage() {
                       <input
                         type="hidden"
                         name="id"
-                        value={
-                          item.id
-                        }
+                        value={item.id}
                       />
 
                       <input
@@ -498,6 +407,7 @@ export default async function WantListPage() {
                       />
 
                       <button
+                        type="submit"
                         className="w-full rounded-2xl border border-[#4A3A1E] bg-[#14100B] px-4 py-3 text-sm font-bold text-[#D8B65A]"
                       >
                         Refresh Intelligence
@@ -512,12 +422,13 @@ export default async function WantListPage() {
                       <input
                         type="hidden"
                         name="id"
-                        value={
-                          item.id
-                        }
+                        value={item.id}
                       />
 
-                      <button className="w-full rounded-2xl border border-[#274427] bg-[#0E160E] px-4 py-3 text-sm font-bold text-[#9DE18C]">
+                      <button
+                        type="submit"
+                        className="w-full rounded-2xl border border-[#274427] bg-[#0E160E] px-4 py-3 text-sm font-bold text-[#9DE18C]"
+                      >
                         Mark Purchased
                       </button>
                     </form>
@@ -530,12 +441,13 @@ export default async function WantListPage() {
                       <input
                         type="hidden"
                         name="id"
-                        value={
-                          item.id
-                        }
+                        value={item.id}
                       />
 
-                      <button className="w-full rounded-2xl border border-[#4A2727] bg-[#170D0D] px-4 py-3 text-sm font-bold text-[#E1A08C]">
+                      <button
+                        type="submit"
+                        className="w-full rounded-2xl border border-[#4A2727] bg-[#170D0D] px-4 py-3 text-sm font-bold text-[#E1A08C]"
+                      >
                         Delete
                       </button>
                     </form>
