@@ -167,7 +167,33 @@ export default function AddRecordForm({ onSuccess }: Props) {
   Search
 </button>
 
+</div>
+)}
+<div className="mt-4 space-y-2">     
+{mode === "barcode" && (
+  <div className="mb-5">
+    <BarcodeScanner
+      onScan={(code) => {
+        setSearch(code);
+        setMode("discogs");
+      }}
+    />
+  </div>
+)}
+        placeholder="Search Discogs..."
+        className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-white"
+      />
 
+      <button
+        type="button"
+        onClick={runSearch}
+        className="rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950"
+      >
+        Search
+      </button>
+    </div>
+
+    <div className="mt-4 space-y-2">
       {results.map((r) => (
         <div
           key={r.id}
@@ -201,18 +227,6 @@ export default function AddRecordForm({ onSuccess }: Props) {
     </div>
   </div>
 )}
-
-{mode === "barcode" && (
-  <div className="mb-5">
-    <BarcodeScanner
-      onScan={(code) => {
-        setSearch(code);
-        setMode("discogs");
-      }}
-    />
-  </div>
-)}
-
           <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
             <Field>
               <Label htmlFor="artist">Artist</Label>
