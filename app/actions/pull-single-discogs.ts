@@ -159,6 +159,10 @@ export async function pullSingleDiscogsValue(formData: FormData) {
   const high = Number(values[values.length - 1].toFixed(2));
   const median = Number(values[Math.floor(values.length / 2)].toFixed(2));
 
+  let exactLowestPrice: number | null = null;
+
+
+  
   let forSale: number | null = null;
   let lastSoldDate: string | null = null;
 
@@ -177,17 +181,29 @@ export async function pullSingleDiscogsValue(formData: FormData) {
     if (statsRes.ok) {
       const stats = await statsRes.json();
 
-      forSale =
-        typeof stats.num_for_sale === "number" ? stats.num_for_sale : null;
-
       lastSoldDate =
-        typeof stats.last_sold_date === "string" ? stats.last_sold_date : null;
+        typeof stats.last_sold_date === "string"
+          ? stats.last_sold_date
+          : null;
     }
-  } catch {
-    // Stats are helpful but not required.
+
+    console.log(
+      "PSMI MODE",
+      "browser-market-intelligence-required"
+    );
+
+    forSale = null;
+    exactLowestPrice = null;
+
+  } catch (error) {
+    console.error(
+      "MARKET FETCH ERROR",
+      error
+    );
   }
 
-    const spread = high - low;
+  const spread = high - low;
+
 
   const activityDays =
     lastSoldDate
@@ -463,7 +479,7 @@ const collectorIQScore =
       discogs_low_price: low,
       discogs_median_price: median,
       discogs_high_price: high,
-      estimated_value: median,
+      estimated_value: exactLowestPrice ?? median,
       value_source: "Discogs single-record pull",
       value_last_updated: now,
       discogs_for_sale: forSale,

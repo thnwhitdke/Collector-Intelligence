@@ -84,12 +84,12 @@ async function fetchDiscogsRelease(
       headers: getDiscogsHeaders(),
       cache: "no-store",
     },
-  )
+  );
 
   if (!response.ok) {
     throw new Error(
       `Discogs release lookup failed: ${response.status}`,
-    )
+    );
   }
 
   return (
@@ -97,13 +97,75 @@ async function fetchDiscogsRelease(
   ) as Record<
     string,
     unknown
-  >
+  >;
 }
+
+async function fetchDiscogsListingCount(
+  releaseId: number,
+) {
+  try {
+    const response = await fetch(
+      `${DISCOGS_API_BASE}/marketplace/listings?release_id=${releaseId}&page=1&per_page=1`,
+      {
+        headers: getDiscogsHeaders(),
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) {
+      console.error(
+        "Discogs listing lookup failed:",
+        response.status,
+        await response.text(),
+      );
+
+      return 0;
+    }
+
+    const json =
+      (await response.json()) as Record<
+        string,
+        unknown
+      >;
+
+    const pagination =
+      json.pagination &&
+      typeof json.pagination ===
+        "object"
+        ? (
+            json.pagination as Record<
+              string,
+              unknown
+            >
+          )
+        : null;
+
+ return (
+  toNumber(
+    pagination?.items,
+  ) ?? 0
+);
+
+return (
+  toNumber(
+    pagination?.items,
+  ) ?? 0
+);
+  } catch (error) {
+    console.error(
+      "Discogs listing lookup crashed:",
+      error,
+    );
+
+    return 0;
+  }
+}
+
 async function fetchDiscogsMarketplace(
   releaseId: number,
 ) {
   const marketplaceUrl =
-    `https://www.discogs.com/sell/release/${releaseId}`
+    `https://www.discogs.com/sell/release/${releaseId}`;
 
   try {
     const response = await fetch(
@@ -112,28 +174,27 @@ async function fetchDiscogsMarketplace(
         headers: getDiscogsHeaders(),
         cache: "no-store",
       },
-    )
+    );
 
     if (!response.ok) {
       console.error(
         "Discogs marketplace lookup failed:",
         response.status,
         await response.text(),
-      )
+      );
 
       return {
-        forSaleCount: 0,
         lowestPrice: null,
         currency: "USD",
         marketplaceUrl,
-      }
+      };
     }
 
     const json =
       (await response.json()) as Record<
         string,
         unknown
-      >
+      >;
 
     const lowestPrice =
       json.lowest_price &&
@@ -145,46 +206,43 @@ async function fetchDiscogsMarketplace(
               unknown
             >
           )
-        : null
+        : null;
 
     return {
-      forSaleCount:
-        toNumber(
-          json.num_for_sale,
-        ) ?? 0,
-
       lowestPrice:
         toNumber(
           lowestPrice?.value,
         ),
-
       currency:
         typeof lowestPrice?.currency ===
         "string"
           ? lowestPrice.currency
           : "USD",
-
       marketplaceUrl,
-    }
+    };
   } catch (error) {
     console.error(
       "Discogs marketplace lookup crashed:",
       error,
-    )
+    );
 
     return {
-      forSaleCount: 0,
       lowestPrice: null,
       currency: "USD",
       marketplaceUrl,
-    }
+    };
   }
 }
 
 function normalizeReleaseForWantList(
   releaseId: number,
   release: Record<string, unknown>,
-  marketplace: Awaited<ReturnType<typeof fetchDiscogsMarketplace>>
+  marketplace: Awaited<
+    ReturnType<
+      typeof fetchDiscogsMarketplace
+    >
+  >,
+  listingCount: number,
 ) {
   const artists = Array.isArray(release.artists)
     ? release.artists
@@ -250,7 +308,8 @@ function normalizeReleaseForWantList(
     discogs_median_price: null,
     discogs_high_price: null,
     estimated_value: marketplace.lowestPrice,
-    marketplace_for_sale_count: marketplace.forSaleCount,
+    marketplace_for_sale_count:
+    listingCount,
     marketplace_lowest_price: marketplace.lowestPrice,
     marketplace_currency: marketplace.currency,
     marketplace_url: marketplace.marketplaceUrl,
@@ -393,12 +452,21 @@ export async function addDiscogsReleaseToWantList(formData: FormData) {
   }
 
   const release = await fetchDiscogsRelease(releaseId);
-  const marketplace = await fetchDiscogsMarketplace(releaseId);
-  const normalized = normalizeReleaseForWantList(
+  const marketplace =
+  await fetchDiscogsMarketplace(
     releaseId,
-    release,
-    marketplace
   );
+
+const listingCount =
+  await fetchDiscogsListingCount(
+    releaseId,
+  );
+  const normalized = normalizeReleaseForWantList(
+  releaseId,
+  release,
+  marketplace,
+  listingCount,
+);
 
   const { error } = await supabase.from("want_list").upsert(
     {
@@ -440,12 +508,21 @@ export async function refreshWantListItem(formData: FormData) {
   }
 
   const release = await fetchDiscogsRelease(releaseId);
-  const marketplace = await fetchDiscogsMarketplace(releaseId);
-  const normalized = normalizeReleaseForWantList(
+  const marketplace =
+  await fetchDiscogsMarketplace(
     releaseId,
-    release,
-    marketplace
   );
+
+const listingCount =
+  await fetchDiscogsListingCount(
+    releaseId,
+  );
+  const normalized = normalizeReleaseForWantList(
+  releaseId,
+  release,
+  marketplace,
+  listingCount,
+);
 
   const { error } = await supabase
     .from("want_list")

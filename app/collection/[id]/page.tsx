@@ -18,6 +18,7 @@ import {
 
 import ValueIntelligenceCard from "../../components/ValueIntelligenceCard";
 import ManualValueCompForm from "../../components/ManualValueCompForm";
+import MarketplaceVerification from "../../components/MarketplaceVerification";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -444,6 +445,16 @@ export default async function RecordDetailPage({
                 }}
               />
             </section>
+
+            <MarketplaceVerification
+  recordId={String(record.id)}
+  releaseId={String(
+    getText(
+      record,
+      "discogs_release_id"
+    )
+  )}
+/>
 
             {/* MOMENTUM */}
             <section className="rounded-[32px] border border-cyan-400/20 bg-cyan-400/5 p-6">

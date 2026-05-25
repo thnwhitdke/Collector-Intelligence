@@ -57,21 +57,33 @@ export default function CollectionPage() {
 
   const [showDuplicatesOnly, setShowDuplicatesOnly] =
     useState(false);
+    const [userId, setUserId] =
+  useState<string | null>(null);
 
-  async function loadCollectionMetrics() {
+  async function loadCollectionMetrics(
+  currentUserId: string,
+) {
     try {
       const { count } = await supabase
         .from("records_clean_safe")
-        .select("*", {
-          count: "exact",
-          head: true,
-        });
+.select("*", {
+  count: "exact",
+  head: true,
+})
+.eq(
+  "user_id",
+  currentUserId,
+);
 
       setCollectionCount(count || 0);
 
       const { data: values } = await supabase
         .from("records_clean_safe")
-        .select("estimated_value");
+.select("estimated_value")
+.eq(
+  "user_id",
+  currentUserId,
+);
 
       const total =
         values?.reduce(
@@ -85,26 +97,30 @@ export default function CollectionPage() {
 
       setPortfolioValue(total);
 
-      const { data: leaders } = await supabase
-        .from("records_clean_safe")
-        .select(`
-          id,
-          artist,
-          title,
-          year,
-          label,
-          estimated_value,
-          discogs_image_url
-        `)
-        .not(
-          "estimated_value",
-          "is",
-          null,
-        )
-        .order("estimated_value", {
-          ascending: false,
-        })
-        .limit(5);
+const { data: leaders } = await supabase
+  .from("records_clean_safe")
+  .select(`
+    id,
+    artist,
+    title,
+    year,
+    label,
+    estimated_value,
+    discogs_image_url
+  `)
+  .eq(
+    "user_id",
+    currentUserId,
+  )
+  .not(
+    "estimated_value",
+    "is",
+    null,
+  )
+  .order("estimated_value", {
+    ascending: false,
+  })
+  .limit(5);
 
       setTopEstimated(
         (leaders || []) as CollectionRecord[],
@@ -114,32 +130,39 @@ export default function CollectionPage() {
     }
   }
 
-  async function searchCollection(
-    searchTerm: string,
-  ) {
+async function searchCollection(
+  searchTerm: string,
+  currentUserId?: string,
+) {
     try {
       setLoading(true);
 
-      let query = supabase
-        .from("records_clean_safe")
-        .select(
-          `
-          id,
-          artist,
-          title,
-          year,
-          label,
-          estimated_value,
-          discogs_image_url
-        `,
-          {
-            count: "exact",
-          },
-        )
-        .order("id", {
-          ascending: false,
-        })
-        .limit(1000);
+let query = supabase
+  .from("records_clean_safe")
+  .select(
+    `
+    id,
+    artist,
+    title,
+    year,
+    label,
+    estimated_value,
+    discogs_image_url
+    `,
+    {
+      count: "exact",
+    },
+  )
+  .eq(
+    "user_id",
+    currentUserId ||
+      userId ||
+      "",
+  )
+  .order("id", {
+    ascending: false,
+  })
+  .limit(1000);
 
       if (searchTerm.trim()) {
         const term =
@@ -178,7 +201,21 @@ export default function CollectionPage() {
 
   useEffect(() => {
     async function initialize() {
-      await loadCollectionMetrics();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error || !user) {
+        console.error("User auth failed:", error,
+        );
+        return;  
+      }
+      setUserId(user.id);
+
+await loadCollectionMetrics(
+  user.id,
+);
 
       const savedQuery =
         sessionStorage.getItem(
@@ -198,11 +235,15 @@ export default function CollectionPage() {
 
       if (savedQuery) {
         setSearchQuery(savedQuery);
-        await searchCollection(
-          savedQuery,
-        );
+       await searchCollection(
+  savedQuery,
+  user.id,
+);
       } else {
-        await searchCollection("");
+        await searchCollection(
+  "",
+  user.id,
+);
       }
     }
 
@@ -236,9 +277,10 @@ export default function CollectionPage() {
       JSON.stringify(updated),
     );
 
-    await searchCollection(
-      cleaned,
-    );
+   await searchCollection(
+  cleaned,
+  userId || undefined,
+);
 
     setTimeout(() => {
       resultsRef.current?.scrollIntoView(
