@@ -9,11 +9,6 @@ import { createClient } from "@/src/lib/supabase/client";
 import CINavigation from "../components/CINavigation";
 import AddRecordSlideOver from "./AddRecordSlideOver";
 
-import AutoRefresh from "../components/AutoRefresh";
-import MarketTicker from "../components/MarketTicker";
-import LiveMarketFeed from "../components/LiveMarketFeed";
-
-
 type CollectionRecord = {
   id: number;
   artist: string | null;
@@ -62,12 +57,8 @@ export default function CollectionPage() {
 
   const [showDuplicatesOnly, setShowDuplicatesOnly] =
     useState(false);
-
-  const [tickerIndex, setTickerIndex] =
-    useState(0);
-
-  const [userId, setUserId] =
-    useState<string | null>(null);
+    const [userId, setUserId] =
+  useState<string | null>(null);
 
   async function loadCollectionMetrics(
   currentUserId: string,
@@ -198,6 +189,9 @@ let query = supabase
         (data || []) as CollectionRecord[],
       );
 
+      if (count !== null) {
+        setCollectionCount(count);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -255,26 +249,6 @@ await loadCollectionMetrics(
 
     initialize();
   }, []);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    const interval = setInterval(async () => {
-      console.log("CI live refresh...");
-
-      await loadCollectionMetrics(userId);
-
-      await searchCollection(
-        searchQuery,
-        userId,
-      );
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, [
-    userId,
-    searchQuery,
-  ]);
 
   async function handleSearch() {
     const cleaned =
@@ -351,62 +325,6 @@ await loadCollectionMetrics(
       showDuplicatesOnly,
     ]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTickerIndex(
-        (prev) => (prev + 1) % 4,
-      );
-    }, 4000);
-
-    return () =>
-      clearInterval(interval);
-  }, []);
-
-  const tickerMessages = [
-    `Portfolio Value ${money(portfolioValue)}`,
-    `${collectionCount} Records Indexed`,
-    `${topEstimated.length} Value Leaders Active`,
-    `Collector Intelligence Online`,
-  ];
-
-  const enrichmentCoverage =
-    useMemo(() => {
-      if (!collectionRecords.length)
-        return 0;
-
-      const enriched =
-        collectionRecords.filter(
-          (r) =>
-            r.discogs_image_url,
-        ).length;
-
-      return Math.round(
-        (enriched /
-          collectionRecords.length) *
-          100,
-      );
-    }, [collectionRecords]);
-
-  const avgValue =
-    useMemo(() => {
-      if (!collectionRecords.length)
-        return 0;
-
-      const total =
-        collectionRecords.reduce(
-          (sum, r) =>
-            sum +
-            Number(
-              r.estimated_value ||
-                0,
-            ),
-          0,
-        );
-
-      return total /
-        collectionRecords.length;
-    }, [collectionRecords]);
-
   const duplicateCount =
     useMemo(() => {
       const counts =
@@ -470,179 +388,7 @@ await loadCollectionMetrics(
           </div>
         </section>
 
-        <section className="mt-5 overflow-hidden rounded-3xl border border-[#3A2C18] bg-[#110D09] px-6 py-4 shadow-xl">
-          <div className="flex items-center gap-3">
-            <div className="h-2 w-2 rounded-full bg-[#D8B65A] animate-pulse" />
-
-            <p className="text-xs uppercase tracking-[0.35em] text-[#8E8170]">
-              Live Intelligence
-            </p>
-
-            <div className="text-sm font-semibold text-[#E7D4AE] transition-all">
-              {tickerMessages[tickerIndex]}
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-8 rounded-[34px] border border-[#2E251B] bg-[linear-gradient(135deg,_#12100C,_#0A0907)] p-5 shadow-2xl">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.32em] text-[#D8B65A]">
-                Live Market Intelligence
-              </p>
-
-              <h2 className="mt-2 text-2xl font-black">
-                Collector Activity Feed
-              </h2>
-            </div>
-
-            <div className="rounded-full border border-[#3A3025] bg-[#11100C] px-3 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#D8B65A]">
-              LIVE
-            </div>
-          </div>
-
-          <LiveMarketFeed />
-        </section>
-
-        <section className="mt-8 grid gap-4 md:grid-cols-4">
-          <MetricCard
-            label="Archive Size"
-            value={String(
-              collectionCount,
-            )}
-          />
-
-          <MetricCard
-            label="Portfolio Value"
-            value={money(
-              portfolioValue,
-            )}
-            accent
-          />
-
-          <MetricCard
-            label="Enrichment"
-            value={`${enrichmentCoverage}%`}
-          />
-
-          <MetricCard
-            label="Avg Record Value"
-            value={money(avgValue)}
-          />
-        </section>
-
-        <section className="mt-5 grid gap-4 md:grid-cols-3">
-          <MetricCard
-            label="Duplicates"
-            value={String(
-              duplicateCount,
-            )}
-          />
-
-          <MetricCard
-            label="Value Leaders"
-            value={String(
-              topEstimated.length,
-            )}
-          />
-
-          <MetricCard
-            label="CI Status"
-            value="ONLINE"
-            accent
-          />
-        </section>
-
-        {/* legacy metric layer removed */}
-
-        {topEstimated.length > 0 ? (
-  <section className="mt-10">
-    <div className="mb-6 flex items-end justify-between">
-      <div>
-        <p className="text-xs uppercase tracking-[0.35em] text-[#B48A4D]">
-          Market Signal Layer
-        </p>
-
-        <h2 className="mt-2 text-3xl font-black">
-          Portfolio Market Leaders
-        </h2>
-
-        <p className="mt-2 text-sm text-[#8E8170]">
-          Highest-value holdings leading portfolio intelligence.
-        </p>
-      </div>
-
-      <Link
-        href="/collection/market-leaders"
-        className="rounded-2xl border border-[#3A3025] bg-[#15110B] px-4 py-3 text-sm font-bold text-[#D8B65A]"
-      >
-        Full Market Ranking
-      </Link>
-    </div>
-
-    <div className="grid gap-5 md:grid-cols-5">
-      {topEstimated.map(
-        (record, index) => (
-          <Link
-            key={record.id}
-            href={`/collection/${record.id}`}
-            className="group overflow-hidden rounded-[32px] border border-[#2B2118] bg-gradient-to-br from-[#130F0B] to-[#090705] transition duration-300 hover:-translate-y-2 hover:border-[#D8B65A]/40"
-          >
-            <div className="relative">
-              <img
-                src={
-                  record.discogs_image_url ||
-                  "https://picsum.photos/500/500"
-                }
-                alt={
-                  record.title ||
-                  "Record"
-                }
-                className="aspect-square w-full object-cover transition duration-500 group-hover:scale-105"
-              />
-
-              <div className="absolute left-3 top-3 rounded-full border border-[#D8B65A]/30 bg-black/60 px-3 py-1 text-[11px] font-black text-[#F3D28D]">
-                #{index + 1}
-              </div>
-            </div>
-
-            <div className="p-5">
-              <p className="text-[11px] uppercase tracking-[0.25em] text-[#B48A4D]">
-                Market Leader
-              </p>
-
-              <p className="mt-2 line-clamp-2 text-lg font-black text-white">
-                {record.title}
-              </p>
-
-              <p className="mt-2 text-sm text-[#9D8E78]">
-                {record.artist}
-              </p>
-
-              <div className="mt-5 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] uppercase text-[#756A5B]">
-                    Estimated Value
-                  </p>
-
-                  <p className="mt-1 text-xl font-black text-[#E5C67A]">
-                    {money(record.estimated_value)}
-                  </p>
-                </div>
-
-                <div className="rounded-full border border-[#3A3025] px-3 py-2 text-xs font-bold text-[#D8B65A]">
-                  View
-                </div>
-              </div>
-            </div>
-          </Link>
-        )
-      )}
-    </div>
-  </section>
-) : null}
-
-<section className="mt-8 rounded-[34px] border border-[#32281D] bg-[#0F0C09] p-6 shadow-2xl">
+        <section className="mt-8 grid gap-4 md:grid-cols-3">
           <MetricCard
             label="Archive Size"
             value={String(
@@ -721,62 +467,66 @@ await loadCollectionMetrics(
           </div>
         </section>
 
-        
+        {topEstimated.length > 0 ? (
+          <section className="mt-8">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-2xl font-black">
+                Value Leaders
+              </h2>
 
+              <Link
+                href="/collection/market-leaders"
+                className="text-sm font-bold text-[#D8B65A]"
+              >
+                View Full Ranking
+              </Link>
+            </div>
 
+            <div className="grid gap-4 md:grid-cols-5">
+              {topEstimated.map(
+                (record) => (
+                  <Link
+                    key={record.id}
+                    href={`/collection/${record.id}`}
+                    className="overflow-hidden rounded-3xl border border-[#2D241B] bg-[#0D0A08]"
+                  >
+                    <img
+                      src={
+                        record.discogs_image_url ||
+                        "https://picsum.photos/500/500"
+                      }
+                      alt={
+                        record.title ||
+                        "Record"
+                      }
+                      className="aspect-square w-full object-cover"
+                    />
 
-        <section className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-[#2D241B] bg-[#100D09] p-5">
-            <p className="text-xs uppercase tracking-[0.25em] text-[#8E8170]">
-              Highest Holding
-            </p>
+                    <div className="p-4">
+                      <p className="text-xs uppercase text-[#B48A4D]">
+                        {
+                          record.artist
+                        }
+                      </p>
 
-            <p className="mt-3 text-2xl font-black text-[#E5C67A]">
-              {topEstimated[0]
-                ? money(
-                    topEstimated[0]
-                      .estimated_value,
-                  )
-                : "$0"}
-            </p>
+                      <p className="mt-2 line-clamp-2 font-black">
+                        {
+                          record.title
+                        }
+                      </p>
 
-            <p className="mt-2 text-sm text-[#8E8170]">
-              {topEstimated[0]?.title ||
-                "No leader detected"}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-[#2D241B] bg-[#100D09] p-5">
-            <p className="text-xs uppercase tracking-[0.25em] text-[#8E8170]">
-              Portfolio Average
-            </p>
-
-            <p className="mt-3 text-2xl font-black text-white">
-              {money(avgValue)}
-            </p>
-
-            <p className="mt-2 text-sm text-[#8E8170]">
-              Mean holding value
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-[#2D241B] bg-[#100D09] p-5">
-            <p className="text-xs uppercase tracking-[0.25em] text-[#8E8170]">
-              Collection Signal
-            </p>
-
-            <p className="mt-3 text-2xl font-black text-[#D8B65A]">
-              {duplicateCount > 50
-                ? "Dense"
-                : "Balanced"}
-            </p>
-
-            <p className="mt-2 text-sm text-[#8E8170]">
-              Based on duplicate density
-            </p>
-          </div>
-        </section>
-
+                      <p className="mt-2 text-sm text-[#A89782]">
+                        {money(
+                          record.estimated_value,
+                        )}
+                      </p>
+                    </div>
+                  </Link>
+                ),
+              )}
+            </div>
+          </section>
+        ) : null}
 
         <section
           ref={resultsRef}
@@ -806,33 +556,17 @@ await loadCollectionMetrics(
                   href={`/collection/${record.id}`}
                   className="overflow-hidden rounded-[30px] border border-[#2D241B] bg-gradient-to-br from-[#120F0C] to-[#090705] transition hover:-translate-y-1 hover:border-[#D0B06C]/30"
                 >
-                  <div className="relative">
-                    <img
-                      src={
-                        record.discogs_image_url ||
-                        "https://picsum.photos/500/500"
-                      }
+                  <img
+                    src={
+                      record.discogs_image_url ||
+                      "https://picsum.photos/500/500"
+                    }
                     alt={
                       record.title ||
                       "Record"
                     }
                     className="aspect-square w-full object-cover"
                   />
-
-                  <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-                    <div className="rounded-full bg-black/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-[#E7C980]">
-                      Collection Asset
-                    </div>
-
-                    {record.estimated_value &&
-                    record.estimated_value >
-                      avgValue ? (
-                      <div className="rounded-full bg-[#D8B65A]/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-black">
-                        Value Leader
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
 
                   <div className="p-5">
                     <p className="text-xs uppercase tracking-[0.2em] text-[#B48A4D]">

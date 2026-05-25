@@ -484,26 +484,6 @@ await loadCollectionMetrics(
           </div>
         </section>
 
-        <section className="mt-8 rounded-[34px] border border-[#2E251B] bg-[linear-gradient(135deg,_#12100C,_#0A0907)] p-5 shadow-2xl">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.32em] text-[#D8B65A]">
-                Live Market Intelligence
-              </p>
-
-              <h2 className="mt-2 text-2xl font-black">
-                Collector Activity Feed
-              </h2>
-            </div>
-
-            <div className="rounded-full border border-[#3A3025] bg-[#11100C] px-3 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#D8B65A]">
-              LIVE
-            </div>
-          </div>
-
-          <LiveMarketFeed />
-        </section>
-
         <section className="mt-8 grid gap-4 md:grid-cols-4">
           <MetricCard
             label="Archive Size"

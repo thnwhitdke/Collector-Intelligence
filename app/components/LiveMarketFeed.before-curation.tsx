@@ -196,27 +196,9 @@ if (collectorIQ >= 70) {
     }
   });
 
-  const strongestByTitle = new Map();
-
-  items
+  return items
     .sort((a, b) => b.change - a.change)
-    .forEach((item) => {
-      const key =
-        `${item.artist}-${item.title}`;
-
-      if (
-        !strongestByTitle.has(key)
-      ) {
-        strongestByTitle.set(
-          key,
-          item
-        );
-      }
-    });
-
-  return Array.from(
-    strongestByTitle.values()
-  ).slice(0, 5);
+    .slice(0, 12);
 }
 
 export default function LiveMarketFeed() {
@@ -277,7 +259,6 @@ export default function LiveMarketFeed() {
           No live market intelligence available.
         </div>
       ) : (
-        <div className="max-h-[520px] overflow-y-auto space-y-4 pr-2">
         <div className="space-y-4">
           {feed.map((item) => (
             <div
@@ -314,7 +295,6 @@ export default function LiveMarketFeed() {
               </div>
             </div>
           ))}
-        </div>
         </div>
       )}
     </div>
