@@ -4,8 +4,9 @@
 // Supabase Queue Pull Layer
 // ======================================================
 
-import { createClient } from
-  '@/src/lib/supabase/server'
+import {
+  createAdminClient
+} from '@/src/lib/supabase/admin'
 
 export type QueueItem = {
   id: string
@@ -20,7 +21,7 @@ export async function getQueuedJobs(
 ): Promise<QueueItem[]> {
 
   const supabase =
-    await createClient()
+    createAdminClient()
 
   const { data, error } =
     await supabase
@@ -32,7 +33,7 @@ export async function getQueuedJobs(
         status,
         priority
       `)
-      .eq('status', 'queued')
+      .eq('status', 'pending')
       .order('priority', {
         ascending: false
       })

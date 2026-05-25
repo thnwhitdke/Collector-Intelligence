@@ -4,15 +4,17 @@
 // Market Memory Engine
 // ======================================================
 
-import { createClient }
-from '@/src/lib/supabase/server'
+import {
+  createAdminClient
+}
+from '@/src/lib/supabase/admin'
 
 export async function snapshotValueHistory(
   recordId: number
 ) {
 
   const supabase =
-    await createClient()
+    createAdminClient()
 
   const { data: record, error }
     = await supabase

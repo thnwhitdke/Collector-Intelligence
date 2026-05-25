@@ -203,11 +203,44 @@ export default function AddRecordForm({ onSuccess }: Props) {
 )}
 
 {mode === "barcode" && (
-  <div className="mb-5">
+  <div className="mb-5 space-y-3">
+
+    <input
+      autoFocus
+      value={search}
+      onChange={(e) =>
+        setSearch(e.target.value)
+      }
+      onKeyDown={async (e) => {
+        if (e.key !== "Enter") return;
+
+        try {
+          const matches =
+            await searchDiscogsMatches(search);
+
+          setResults(matches);
+          setMode("discogs");
+        } catch (err) {
+          console.error(err);
+        }
+      }}
+      placeholder="Scan with Bluetooth scanner or enter UPC..."
+      className="w-full rounded-xl bg-slate-900 px-4 py-3 text-white border border-cyan-500/20"
+    />
+
     <BarcodeScanner
-      onScan={(code) => {
+      onScan={async (code) => {
         setSearch(code);
         setMode("discogs");
+
+        try {
+          const matches =
+            await searchDiscogsMatches(code);
+
+          setResults(matches);
+        } catch (err) {
+          console.error(err);
+        }
       }}
     />
   </div>

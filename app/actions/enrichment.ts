@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "../../src/lib/supabase/server";
+import { createAdminClient } from "../../src/lib/supabase/admin";
 
 import {
   enrichSingleRecord,
@@ -17,7 +17,7 @@ export async function enrichDiscogsMetadata() {
   );
 
   const supabase =
-    await createClient();
+    createAdminClient();
 
   // =========================
   // GET RECORDS NEEDING ENRICHMENT
@@ -140,7 +140,7 @@ export async function queueMissingMetadataRecords(
 ) {
 
   const supabase =
-    await createClient();
+    createAdminClient();
 
   // =========================
   // FIND INCOMPLETE RECORDS

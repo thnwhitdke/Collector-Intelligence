@@ -81,7 +81,7 @@ export default function BarcodeScanner({ onScan }: Props) {
           .catch(() => {});
       }
     };
-  }, [cameraId, onScan]);
+  }, [cameraId]);
 
   return (
     <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-4">

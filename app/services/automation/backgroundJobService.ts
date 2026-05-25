@@ -4,15 +4,16 @@
 // Cron Diagnostics + Job Tracking
 // ======================================================
 
-import { createClient }
-from '@/src/lib/supabase/server'
+import {
+  createAdminClient
+} from '@/src/lib/supabase/admin'
 
 export async function createBackgroundJob(
   jobType: string
 ) {
 
   const supabase =
-    await createClient()
+    createAdminClient()
 
   const { data, error } =
     await supabase
@@ -40,7 +41,7 @@ export async function completeBackgroundJob(
 ) {
 
   const supabase =
-    await createClient()
+    createAdminClient()
 
   const { error } =
     await supabase

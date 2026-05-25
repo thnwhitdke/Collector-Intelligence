@@ -1,81 +1,38 @@
 "use server";
 
-import { createClient } from "../../src/lib/supabase/server";
+import { createAdminClient }
+from "../../src/lib/supabase/admin";
 
 type ActivityInput = {
-  userId: string;
-
   activityType: string;
-
-  entityType?: string;
-  entityId?: string;
-
-  title: string;
-
-  description?: string;
-
-  metadata?: any;
-
-  status?: "success" | "warning" | "error";
+  recordId?: string | number;
 };
 
 export async function logActivity({
-  userId,
   activityType,
-  entityType,
-  entityId,
-  title,
-  description,
-  metadata = {},
-  status = "success",
+  recordId,
 }: ActivityInput) {
 
   try {
 
-    console.log(
-      "LOG ACTIVITY START",
-      {
-        userId,
-        activityType,
-        entityType,
-        entityId,
-      }
-    );
-
     const supabase =
-      await createClient();
+      createAdminClient();
 
     const {
-      data,
       error,
     } = await supabase
       .from("activity_log")
       .insert({
-        user_id: userId,
-
         activity_type:
           activityType,
-
-        entity_type:
-          entityType || null,
-
-        entity_id:
-          entityId || null,
-
-        title,
-
-        description,
-
-        metadata,
-
-        status,
-      })
-      .select();
+        record_id:
+          recordId || null,
+      });
 
     if (error) {
 
       console.error(
-        "ACTIVITY LOG INSERT FAILED:",
+        "ACTIVITY LOG FAILED:",
         error
       );
 
@@ -83,12 +40,10 @@ export async function logActivity({
         success: false,
         error,
       };
-
     }
 
     console.log(
-      "ACTIVITY LOG SUCCESS:",
-      data
+      "ACTIVITY LOG SUCCESS"
     );
 
     return {
