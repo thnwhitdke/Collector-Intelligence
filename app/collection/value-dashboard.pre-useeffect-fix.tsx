@@ -76,8 +76,6 @@ type PortfolioTrend = {
   direction: string
 }
 
-type DashboardRecord = Record<string, string | number | null>
-
 const fallbackCover =
   'https://upload.wikimedia.org/wikipedia/en/b/ba/Radioheadokcomputer.png'
 
@@ -347,6 +345,64 @@ const [portfolioTrend, setPortfolioTrend] =
     null
   )
 
+React.useEffect(() => {
+  loadRecords(true)
+}, [search, statusFilter])
+
+React.useEffect(() => {
+  loadIntelligence()
+}, [])
+
+React.useEffect(() => {
+
+  const handleScroll = () => {
+
+    if (
+      loading ||
+      !hasMore
+    ) {
+      return
+    }
+
+    const scrollPosition =
+      window.innerHeight +
+      window.scrollY
+
+    const triggerPoint =
+      document.documentElement
+        .scrollHeight - 1200
+
+    if (
+      scrollPosition >=
+      triggerPoint
+    ) {
+
+      console.log(
+        '[Infinite Scroll] Loading next page',
+        page,
+      )
+
+      loadRecords(false)
+    }
+  }
+
+  window.addEventListener(
+    'scroll',
+    handleScroll,
+  )
+
+  return () =>
+    window.removeEventListener(
+      'scroll',
+      handleScroll,
+    )
+
+}, [
+  loading,
+  hasMore,
+  page,
+])
+
 
 const loadIntelligence = useCallback(async () => {
 
@@ -436,52 +492,41 @@ const loadIntelligence = useCallback(async () => {
 
     const normalized: QueueRecord[] = (
       data || []
-    ).map((record: DashboardRecord, index: number) => {
+    ).map((record: any, index: number) => {
     
 
       return {
         id: String(record.id || index),
 
-        artist: String(
+        artist:
           record.artist ||
           record.artist_name ||
           record.primary_artist ||
-          'Unknown Artist'
-        ),
+          'Unknown Artist',
 
-        title: String(
+        title:
           record.title ||
           record.release_title ||
           record.album_title ||
-          'Unknown Release'
-        ),
+          'Unknown Release',
 
         cover_url:
           record.cover_url ||
           record.cover_image ||
           record.image_url ||
-          record.album_art_url
-            ? String(
-                record.cover_url ||
-                record.cover_image ||
-                record.image_url ||
-                record.album_art_url
-              )
-            : null,
+          record.album_art_url ||
+          null,
 
         estimated_value: record.estimated_value
           ? `$${record.estimated_value}`
           : 'Unknown',
 
-        discogs_release_id: String(
+        discogs_release_id:
           record.discogs_release_id ||
-          'Unavailable'
-        ),
+          'Unavailable',
 
-        label: String(
-          record.label ||
-          'Unknown Label'
-        ),
+        label:
+          record.label || 'Unknown Label',
 
         year_released: String(
           record.year_released ||
@@ -489,44 +534,30 @@ const loadIntelligence = useCallback(async () => {
             '',
         ),
 
-        value_pull_status: String(
+        value_pull_status:
           record.value_pull_status ||
-          'needs_updates'
-        ),
+          'needs_updates',
 
         market_num_for_sale:
-  record.market_num_for_sale != null
-    ? Number(record.market_num_for_sale)
-    : 0,
+  record.market_num_for_sale || 0,
 
 rarity_index:
-  record.rarity_index != null
-    ? Number(record.rarity_index)
-    : 0,
+  record.rarity_index || 0,
 
 market_momentum:
-  record.market_momentum != null
-    ? String(record.market_momentum)
-    : null,
+  record.market_momentum || null,
 
 collector_iq_score:
-  record.collector_iq_score != null
-    ? Number(record.collector_iq_score)
-    : null,
+  record.collector_iq_score || null,
 
 market_trend:
-  record.market_trend != null
-    ? String(record.market_trend)
-    : null,
+  record.market_trend || null,
   market_signal:
-  record.market_signal != null
-    ? String(record.market_signal)
-    : null,
+  record.market_signal || null,
 
         value_last_updated:
-          record.value_last_updated != null
-            ? String(record.value_last_updated)
-            : null,
+          record.value_last_updated ||
+          null,
       }
     })
 
@@ -557,74 +588,7 @@ setHasMore(
     setLoading(false)
   }, [loading, page, search, statusFilter, records.length, hasMore])
 
-  React.useEffect(() => {
-  const timer = setTimeout(() => {
-    loadRecords(true)
-  }, 0)
-
-  return () => clearTimeout(timer)
-}, [search, statusFilter, loadRecords])
-
-React.useEffect(() => {
-  const timer = setTimeout(() => {
-    loadIntelligence()
-  }, 0)
-
-  return () => clearTimeout(timer)
-}, [loadIntelligence])
-
-React.useEffect(() => {
-
-  const handleScroll = () => {
-
-    if (
-      loading ||
-      !hasMore
-    ) {
-      return
-    }
-
-    const scrollPosition =
-      window.innerHeight +
-      window.scrollY
-
-    const triggerPoint =
-      document.documentElement
-        .scrollHeight - 1200
-
-    if (
-      scrollPosition >=
-      triggerPoint
-    ) {
-
-      console.log(
-        '[Infinite Scroll] Loading next page',
-        page,
-      )
-
-      loadRecords(false)
-    }
-  }
-
-  window.addEventListener(
-    'scroll',
-    handleScroll,
-  )
-
-  return () =>
-    window.removeEventListener(
-      'scroll',
-      handleScroll,
-    )
-
-}, [
-  loading,
-  hasMore,
-  page,
-  loadRecords,
-])
-
-function handleCoverUpload(
+  function handleCoverUpload(
     recordId: string,
     event: React.ChangeEvent<HTMLInputElement>,
   ) {

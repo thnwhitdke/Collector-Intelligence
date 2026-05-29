@@ -11,6 +11,9 @@ export type ValueInput = {
   purchasePrice?: number | null;
   conditionGrade?: string | null;
   valueLastUpdated?: string | null;
+
+  marketNumForSale?: number | null;
+  marketForSaleRatio?: number | null;
 };
 
 export type ValueIntelligenceResult = {
@@ -19,178 +22,544 @@ export type ValueIntelligenceResult = {
   signal: string;
   badges: string[];
   insight: string;
+
+  rarityScore: number;
+  marketMomentum: string;
+  collectorIqScore: number;
+
   sourceSummary: {
     discogs: number | null;
     ebay: number | null;
     manual: number | null;
     conditionMultiplier: number;
     purchasePrice: number | null;
+    marketNumForSale: number | null;
+    marketForSaleRatio: number | null;
   };
 };
 
-function validNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
+function validNumber(
+  value: unknown,
+): number | null {
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+    return value;
+  }
 
-  if (typeof value === "string") {
+  if (
+    typeof value === "string"
+  ) {
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
+
+    return Number.isFinite(parsed)
+      ? parsed
+      : null;
   }
 
   return null;
 }
 
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
+function roundMoney(
+  value: number,
+): number {
+  return (
+    Math.round(value * 100) / 100
+  );
 }
 
-function getConditionMultiplier(conditionGrade?: string | null): number {
-  const grade = conditionGrade?.trim().toUpperCase();
+function getConditionMultiplier(
+  conditionGrade?: string | null,
+): number {
+  const grade =
+    conditionGrade
+      ?.trim()
+      .toUpperCase();
 
   if (!grade) return 1;
 
-  if (["M", "MINT", "SEALED"].includes(grade)) return 1.15;
-  if (["NM", "NEAR MINT", "NM-"].includes(grade)) return 1.08;
-  if (["VG+", "VERY GOOD PLUS"].includes(grade)) return 1;
-  if (["VG", "VERY GOOD"].includes(grade)) return 0.85;
-  if (["G+", "GOOD PLUS"].includes(grade)) return 0.65;
-  if (["G", "GOOD"].includes(grade)) return 0.5;
-  if (["F", "FAIR", "P", "POOR"].includes(grade)) return 0.3;
+  if (
+    ["M", "MINT", "SEALED"]
+      .includes(grade)
+  ) {
+    return 1.15;
+  }
+
+  if (
+    [
+      "NM",
+      "NEAR MINT",
+      "NM-",
+    ].includes(grade)
+  ) {
+    return 1.08;
+  }
+
+  if (
+    [
+      "VG+",
+      "VERY GOOD PLUS",
+    ].includes(grade)
+  ) {
+    return 1;
+  }
+
+  if (
+    [
+      "VG",
+      "VERY GOOD",
+    ].includes(grade)
+  ) {
+    return 0.85;
+  }
+
+  if (
+    [
+      "G+",
+      "GOOD PLUS",
+    ].includes(grade)
+  ) {
+    return 0.65;
+  }
+
+  if (
+    ["G", "GOOD"]
+      .includes(grade)
+  ) {
+    return 0.5;
+  }
+
+  if (
+    [
+      "F",
+      "FAIR",
+      "P",
+      "POOR",
+    ].includes(grade)
+  ) {
+    return 0.3;
+  }
 
   return 1;
 }
 
-function isStale(dateString?: string | null): boolean {
-  if (!dateString) return true;
+function isStale(
+  dateString?: string | null,
+): boolean {
+  if (!dateString) {
+    return true;
+  }
 
-  const updated = new Date(dateString);
-  if (Number.isNaN(updated.getTime())) return true;
+  const updated =
+    new Date(dateString);
+
+  if (
+    Number.isNaN(
+      updated.getTime(),
+    )
+  ) {
+    return true;
+  }
 
   const now = new Date();
-  const ninetyDays = 1000 * 60 * 60 * 24 * 90;
 
-  return now.getTime() - updated.getTime() > ninetyDays;
+  const ninetyDays =
+    1000 *
+    60 *
+    60 *
+    24 *
+    90;
+
+  return (
+    now.getTime() -
+      updated.getTime() >
+    ninetyDays
+  );
 }
 
-export function calculateValueIntelligence(
-  input: ValueInput,
-): ValueIntelligenceResult {
-  const discogsLow = validNumber(input.discogsLowPrice);
-  const discogsMedian = validNumber(input.discogsMedianPrice);
-  const discogsHigh = validNumber(input.discogsHighPrice);
-
-  const ebayLast = validNumber(input.ebayLastSoldPrice);
-  const ebayAverage = validNumber(input.ebayAvgSoldPrice);
-  const ebaySoldCount = validNumber(input.ebaySoldCount);
-
-  const manualComp = validNumber(input.manualCompPrice);
-  const purchasePrice = validNumber(input.purchasePrice);
-
-  const conditionMultiplier = getConditionMultiplier(input.conditionGrade);
-
-  const discogsValue = discogsMedian ?? discogsHigh ?? discogsLow;
-  const ebayValue = ebayAverage ?? ebayLast;
-
-  const sources: { name: string; value: number; baseWeight: number }[] = [];
-
-  if (discogsValue !== null) {
-    sources.push({ name: "discogs", value: discogsValue, baseWeight: 40 });
-  }
-
-  if (ebayValue !== null) {
-    sources.push({ name: "ebay", value: ebayValue, baseWeight: 35 });
-  }
-
-  if (manualComp !== null) {
-    sources.push({ name: "manual", value: manualComp, baseWeight: 20 });
-  }
-
-  let estimatedValue: number | null = null;
-
-  if (sources.length > 0) {
-    const totalWeight = sources.reduce((sum, source) => sum + source.baseWeight, 0);
-
-    const weightedValue =
-      sources.reduce((sum, source) => {
-        return sum + source.value * (source.baseWeight / totalWeight);
-      }, 0) * conditionMultiplier;
-
-    estimatedValue = roundMoney(weightedValue);
-  }
-
-  let confidenceScore = 0;
-  const badges: string[] = [];
-
-  if (discogsValue !== null) confidenceScore += 25;
-  if (ebayValue !== null) confidenceScore += 30;
-  if (manualComp !== null) confidenceScore += 20;
-  if (input.conditionGrade) confidenceScore += 10;
-  if (ebaySoldCount !== null && ebaySoldCount >= 3) confidenceScore += 10;
-  if (!isStale(input.valueLastUpdated)) confidenceScore += 5;
-
-  confidenceScore = Math.min(confidenceScore, 100);
-
-  if (discogsValue !== null && ebayValue !== null) {
-    badges.push("Strong Market Signal");
-  }
-
-  if (discogsValue !== null && ebayValue === null) {
-    badges.push("Discogs Only");
-  }
-
-  if (ebayValue === null) {
-    badges.push("Needs eBay Sold Comp");
-  }
-
-  if (manualComp !== null) {
-    badges.push("Manual Comp Present");
-  }
-
-  if (input.conditionGrade) {
-    badges.push(`Condition: ${input.conditionGrade}`);
-  }
-
-  if (isStale(input.valueLastUpdated)) {
-    badges.push("Price Data Stale");
+function calculateRarity(
+  marketNumForSale: number | null,
+): number {
+  if (
+    marketNumForSale === null
+  ) {
+    return 0;
   }
 
   if (
-    estimatedValue !== null &&
-    purchasePrice !== null &&
-    purchasePrice > 0 &&
-    estimatedValue >= purchasePrice * 1.5
+    marketNumForSale <= 1
   ) {
-    badges.push("Undervalued Purchase");
+    return 95;
   }
 
-  if (estimatedValue !== null && estimatedValue >= 100 && confidenceScore < 60) {
-    badges.push("High Value / Low Confidence");
+  if (
+    marketNumForSale <= 3
+  ) {
+    return 85;
   }
 
-  let signal = "Needs More Data";
-
-  if (confidenceScore >= 80) signal = "Strong Confidence";
-  else if (confidenceScore >= 60) signal = "Good Confidence";
-  else if (confidenceScore >= 40) signal = "Moderate Confidence";
-  else if (confidenceScore >= 20) signal = "Low Confidence";
-
-  let insight = "More pricing evidence is needed before this record has a reliable estimated value.";
-
-  if (estimatedValue !== null && purchasePrice !== null && estimatedValue > purchasePrice) {
-    insight = `This item appears to be above your purchase price by about $${roundMoney(
-      estimatedValue - purchasePrice,
-    ).toFixed(2)}.`;
+  if (
+    marketNumForSale <= 10
+  ) {
+    return 70;
   }
 
-  if (estimatedValue !== null && purchasePrice !== null && estimatedValue < purchasePrice) {
-    insight = `This item is currently estimated below your purchase price by about $${roundMoney(
-      purchasePrice - estimatedValue,
-    ).toFixed(2)}.`;
+  if (
+    marketNumForSale <= 25
+  ) {
+    return 50;
   }
 
-  if (discogsValue !== null && ebayValue !== null) {
+  return 25;
+}
+
+function calculateMomentum(
+  ratio: number | null,
+): string {
+  if (
+    ratio === null
+  ) {
+    return "Unknown";
+  }
+
+  if (ratio < 0.05) {
+    return "Strong";
+  }
+
+  if (ratio < 0.15) {
+    return "Healthy";
+  }
+
+  if (ratio < 0.3) {
+    return "Stable";
+  }
+
+  return "Soft";
+}
+
+export function
+calculateValueIntelligence(
+  input: ValueInput,
+): ValueIntelligenceResult {
+
+  const discogsLow =
+    validNumber(
+      input.discogsLowPrice,
+    );
+
+  const discogsMedian =
+    validNumber(
+      input.discogsMedianPrice,
+    );
+
+  const discogsHigh =
+    validNumber(
+      input.discogsHighPrice,
+    );
+
+  const ebayLast =
+    validNumber(
+      input.ebayLastSoldPrice,
+    );
+
+  const ebayAverage =
+    validNumber(
+      input.ebayAvgSoldPrice,
+    );
+
+  const ebaySoldCount =
+    validNumber(
+      input.ebaySoldCount,
+    );
+
+  const manualComp =
+    validNumber(
+      input.manualCompPrice,
+    );
+
+  const purchasePrice =
+    validNumber(
+      input.purchasePrice,
+    );
+
+  const marketNumForSale =
+    validNumber(
+      input.marketNumForSale,
+    );
+
+  const marketForSaleRatio =
+    validNumber(
+      input.marketForSaleRatio,
+    );
+
+  const conditionMultiplier =
+    getConditionMultiplier(
+      input.conditionGrade,
+    );
+
+  const discogsValue =
+    discogsMedian ??
+    discogsHigh ??
+    discogsLow;
+
+  const ebayValue =
+    ebayAverage ??
+    ebayLast;
+
+  const sources: {
+    name: string;
+    value: number;
+    baseWeight: number;
+  }[] = [];
+
+  if (
+    discogsValue !== null
+  ) {
+    sources.push({
+      name: "discogs",
+      value: discogsValue,
+      baseWeight: 40,
+    });
+  }
+
+  if (
+    ebayValue !== null
+  ) {
+    sources.push({
+      name: "ebay",
+      value: ebayValue,
+      baseWeight: 35,
+    });
+  }
+
+  if (
+    manualComp !== null
+  ) {
+    sources.push({
+      name: "manual",
+      value: manualComp,
+      baseWeight: 20,
+    });
+  }
+
+  let estimatedValue:
+    | number
+    | null = null;
+
+  if (
+    sources.length > 0
+  ) {
+    const totalWeight =
+      sources.reduce(
+        (
+          sum,
+          source,
+        ) =>
+          sum +
+          source.baseWeight,
+        0,
+      );
+
+    const weighted =
+      sources.reduce(
+        (
+          sum,
+          source,
+        ) =>
+          sum +
+          source.value *
+            (
+              source.baseWeight /
+              totalWeight
+            ),
+        0,
+      ) *
+      conditionMultiplier;
+
+    estimatedValue =
+      roundMoney(
+        weighted,
+      );
+  }
+
+  const rarityScore =
+    calculateRarity(
+      marketNumForSale,
+    );
+
+  const marketMomentum =
+    calculateMomentum(
+      marketForSaleRatio,
+    );
+
+  let confidenceScore = 0;
+
+  const badges: string[] =
+    [];
+
+  if (
+    discogsValue !== null
+  ) {
+    confidenceScore += 25;
+  }
+
+  if (
+    ebayValue !== null
+  ) {
+    confidenceScore += 30;
+  }
+
+  if (
+    manualComp !== null
+  ) {
+    confidenceScore += 20;
+  }
+
+  if (
+    input.conditionGrade
+  ) {
+    confidenceScore += 10;
+  }
+
+  if (
+    ebaySoldCount !==
+      null &&
+    ebaySoldCount >= 3
+  ) {
+    confidenceScore += 10;
+  }
+
+  if (
+    rarityScore >= 70
+  ) {
+    confidenceScore += 5;
+  }
+
+  if (
+    !isStale(
+      input.valueLastUpdated,
+    )
+  ) {
+    confidenceScore += 5;
+  }
+
+  confidenceScore =
+    Math.min(
+      confidenceScore,
+      100,
+    );
+
+  if (
+    rarityScore >= 80
+  ) {
+    badges.push(
+      "Rare Pressing",
+    );
+  }
+
+  badges.push(
+    `Momentum: ${marketMomentum}`,
+  );
+
+  let signal =
+    "Needs More Data";
+
+  if (
+    confidenceScore >= 80
+  ) {
+    signal =
+      "Strong Confidence";
+  } else if (
+    confidenceScore >=
+    60
+  ) {
+    signal =
+      "Good Confidence";
+  } else if (
+    confidenceScore >=
+    40
+  ) {
+    signal =
+      "Moderate Confidence";
+  } else if (
+    confidenceScore >=
+    20
+  ) {
+    signal =
+      "Low Confidence";
+  }
+
+  let insight =
+    "Collector intelligence is still developing for this item.";
+
+  if (
+    rarityScore >= 80
+  ) {
     insight =
-      "This estimate is stronger because it uses more than one market source instead of relying on a single price signal.";
+      "Low market supply suggests this item may have stronger scarcity characteristics.";
   }
+
+  if (
+    marketMomentum ===
+    "Strong"
+  ) {
+    insight =
+      "Market pressure appears favorable with relatively low supply pressure.";
+  }
+
+  let collectorIqScore = 0;
+
+  collectorIqScore +=
+    rarityScore * 0.30;
+
+  collectorIqScore +=
+    confidenceScore * 0.20;
+
+  collectorIqScore +=
+    (
+      marketMomentum ===
+      "Strong"
+        ? 20
+        : marketMomentum ===
+          "Soft"
+        ? 10
+        : 0
+    );
+
+  collectorIqScore +=
+    (
+      marketForSaleRatio !==
+        null &&
+      marketForSaleRatio <
+        2
+        ? 15
+        : marketForSaleRatio !==
+            null &&
+          marketForSaleRatio <
+            10
+        ? 8
+        : 0
+    );
+
+  collectorIqScore +=
+    estimatedValue !==
+      null &&
+    estimatedValue >= 50
+      ? 15
+      : estimatedValue !==
+          null &&
+        estimatedValue >= 20
+      ? 8
+      : 0;
+
+  collectorIqScore =
+    Math.min(
+      100,
+      Math.round(
+        collectorIqScore
+      )
+    );
 
   return {
     estimatedValue,
@@ -198,12 +567,21 @@ export function calculateValueIntelligence(
     signal,
     badges,
     insight,
+
+    rarityScore,
+    marketMomentum,
+    collectorIqScore,
+
     sourceSummary: {
-      discogs: discogsValue,
+      discogs:
+        discogsValue,
       ebay: ebayValue,
-      manual: manualComp,
+      manual:
+        manualComp,
       conditionMultiplier,
       purchasePrice,
+      marketNumForSale,
+      marketForSaleRatio,
     },
   };
 }

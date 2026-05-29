@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "../../src/lib/supabase/server";
-import { refreshValueIntelligence } from "@/app/actions/value-intelligence";
 
 /**
  * MARKET INTELLIGENCE ENGINE v2
@@ -94,29 +93,6 @@ export async function syncMarketValues(limit = 25) {
 
         const marketData = await response.json();
 
-        const releaseResponse = await fetch(
-          "https://api.discogs.com/releases/" +
-            record.discogs_release_id,
-          {
-            headers: {
-              "User-Agent": "CollectorIntelligence/1.0",
-            },
-            cache: "no-store",
-          }
-        );
-
-        let releaseData: Record<string, unknown> = {};
-
-        if (releaseResponse.ok) {
-          releaseData =
-            await releaseResponse.json();
-        }
-
-        console.log(
-          "RELEASE DATA:",
-          JSON.stringify(releaseData, null, 2)
-        );
-
         console.log(
           "MARKET DATA:",
           JSON.stringify(marketData, null, 2)
@@ -142,9 +118,7 @@ export async function syncMarketValues(limit = 25) {
           null;
 
         const numForSale =
-          releaseData["num_for_sale"] ??
-          marketData.num_for_sale ??
-          0;
+          marketData.num_for_sale ?? 0;
 
         /**
          * Smart value logic
@@ -187,16 +161,6 @@ export async function syncMarketValues(limit = 25) {
          * Persist intelligence
          */
 
-        console.log(
-          "SUPPLY SIGNAL:",
-          {
-            artist: record.artist,
-            title: record.title,
-            numForSale,
-            forSaleRatio,
-          }
-        );
-
         const { error: updateError } =
           await supabase
             .from("records_clean_safe")
@@ -229,10 +193,6 @@ export async function syncMarketValues(limit = 25) {
         if (updateError) {
           throw updateError;
         }
-
-        await refreshValueIntelligence(
-          String(record.id)
-        );
 
         updated++;
 

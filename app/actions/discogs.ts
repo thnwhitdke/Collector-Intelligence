@@ -467,75 +467,11 @@ console.log(
     // =========================
 
     await logActivity({
-      userId: record.user_id,
-
       activityType:
         "record_enriched",
 
-      entityType: "record",
-
-      entityId: record.id,
-
-      title:
-        "Record enriched from Discogs",
-
-      description:
-        `${record.artist} - ${record.album}`,
-
-      metadata: {
-
-        canonical_display_title:
-          canonicalDisplayTitle,
-
-        confidence_score:
-          confidenceScore,
-
-        artist:
-          normalizedArtist,
-
-        title:
-          normalizedTitle,
-
-        artwork:
-          releaseData?.images?.[0]?.uri ||
-          match.cover_image ||
-          match.thumb ||
-          null,
-
-        thumbnail:
-          releaseData?.images?.[0]?.uri150 ||
-          match.thumb ||
-          null,
-
-        discogs_release_id:
-          match.id,
-
-        year:
-          releaseData?.year ||
-          null,
-
-        genre:
-          releaseData?.genres ||
-          match.genre ||
-          [],
-
-        style:
-          releaseData?.styles ||
-          [],
-
-        country:
-          releaseData?.country ||
-          match.country ||
-          null,
-
-        label:
-          releaseData?.labels?.[0]?.name ||
-          match.label?.[0] ||
-          null,
-
-      },
-
-      status: "success",
+      recordId:
+        record.id
     });
 
     console.log(
@@ -577,32 +513,11 @@ console.log(
       if (record) {
 
         await logActivity({
-          userId:
-            record.user_id,
-
           activityType:
             "enrichment_failed",
 
-          entityType:
-            "record",
-
-          entityId:
-            record.id,
-
-          title:
-            "Discogs enrichment failed",
-
-          description:
-            `${record.artist} - ${record.album}`,
-
-          metadata: {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Unknown error",
-          },
-
-          status: "error",
+          recordId:
+            record.id
         });
 
       }

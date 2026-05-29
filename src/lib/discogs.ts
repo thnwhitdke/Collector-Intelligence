@@ -7,10 +7,26 @@ type DiscogsImage = {
   type?: string;
 };
 
+export type DiscogsIdentifier = {
+  type?: string;
+  value?: string;
+  description?: string;
+};
+
+export type DiscogsTrack = {
+  position?: string;
+  type_?: string;
+  title?: string;
+  duration?: string;
+  artists?: { name?: string }[];
+};
+
 type DiscogsReleaseResponse = {
   id?: number;
   title?: string;
   images?: DiscogsImage[];
+  identifiers?: DiscogsIdentifier[];
+  tracklist?: DiscogsTrack[];
 };
 
 function getDiscogsHeaders() {
@@ -42,9 +58,9 @@ export function extractDiscogsReleaseIdFromUrl(
   return match[1];
 }
 
-export async function fetchDiscogsReleaseCoverUrl(
+async function fetchDiscogsRelease(
   releaseId: string
-): Promise<string | null> {
+): Promise<DiscogsReleaseResponse | null> {
   if (!releaseId) return null;
 
   const headers = getDiscogsHeaders();
@@ -67,9 +83,15 @@ export async function fetchDiscogsReleaseCoverUrl(
     throw new Error(`Discogs release lookup failed with status ${response.status}.`);
   }
 
-  const data = (await response.json()) as DiscogsReleaseResponse;
+  return (await response.json()) as DiscogsReleaseResponse;
+}
 
-  if (!data.images || data.images.length === 0) {
+export async function fetchDiscogsReleaseCoverUrl(
+  releaseId: string
+): Promise<string | null> {
+  const data = await fetchDiscogsRelease(releaseId);
+
+  if (!data?.images || data.images.length === 0) {
     return null;
   }
 
@@ -80,4 +102,37 @@ export async function fetchDiscogsReleaseCoverUrl(
   if (first?.uri) return first.uri;
 
   return null;
+}
+
+export async function fetchDiscogsRunoutIdentifiers(
+  releaseId: string
+): Promise<DiscogsIdentifier[]> {
+  const data = await fetchDiscogsRelease(releaseId);
+
+  if (!data?.identifiers || data.identifiers.length === 0) {
+    return [];
+  }
+
+  return data.identifiers.filter((identifier) => {
+    const type = identifier.type?.toLowerCase() ?? "";
+    return (
+      type.includes("matrix") ||
+      type.includes("runout") ||
+      type.includes("matrix / runout")
+    );
+  });
+}
+
+export async function fetchDiscogsTracklist(
+  releaseId: string
+): Promise<DiscogsTrack[]> {
+  const data = await fetchDiscogsRelease(releaseId);
+
+  if (!data?.tracklist || data.tracklist.length === 0) {
+    return [];
+  }
+
+  return data.tracklist.filter((track) => {
+    return track.type_ === "track" && !!track.title;
+  });
 }

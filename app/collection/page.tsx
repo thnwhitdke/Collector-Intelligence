@@ -22,6 +22,7 @@ type CollectionRecord = {
   label: string | null;
   estimated_value: number | null;
   discogs_image_url: string | null;
+  cover_url: string | null;
 };
 
 function money(value: number | null | undefined) {
@@ -115,7 +116,8 @@ const { data: leaders } = await supabase
     year,
     label,
     estimated_value,
-    discogs_image_url
+    discogs_image_url,
+    cover_url
   `)
   .eq(
     "user_id",
@@ -128,8 +130,14 @@ const { data: leaders } = await supabase
   )
   .order("estimated_value", {
     ascending: false,
+    nullsFirst: false,
   })
   .limit(5);
+
+      console.log(
+        "TOP ESTIMATED DEBUG",
+        leaders
+      );
 
       setTopEstimated(
         (leaders || []) as CollectionRecord[],
@@ -217,6 +225,11 @@ let query = supabase
         );
         return;  
       }
+      console.log(
+        "CI USER DEBUG",
+        user.id
+      );
+
       setUserId(user.id);
 
 await loadCollectionMetrics(
@@ -591,6 +604,7 @@ await loadCollectionMetrics(
             <div className="relative">
               <img
                 src={
+                  record.cover_url ||
                   record.discogs_image_url ||
                   "https://picsum.photos/500/500"
                 }

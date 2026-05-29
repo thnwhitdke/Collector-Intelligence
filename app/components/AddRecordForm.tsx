@@ -183,15 +183,29 @@ export default function AddRecordForm({ onSuccess }: Props) {
 
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
+              const parts =
+                (r.title || "").split(" - ");
+
+              const artist =
+                parts.length > 1
+                  ? parts[0]
+                  : "";
+
+              const album =
+                parts.length > 1
+                  ? parts.slice(1).join(" - ")
+                  : r.title || "";
+
               setPreview((prev) => ({
                 ...prev,
-                title: r.title || "",
+                artist,
+                title: album,
                 year: r.year || "",
                 format: r.format || "",
                 discogs_release_id: r.id || "",
-              }))
-            }
+              }));
+            }}
             className="mt-2 rounded-lg bg-fuchsia-500 px-3 py-2 text-sm text-white"
           >
             Import

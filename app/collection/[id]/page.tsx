@@ -222,7 +222,15 @@ export default async function RecordDetailPage({
 
   const estimatedValue = money(getValue(record, "estimated_value"));
 
-  const forSale = getNumber(record, "discogs_for_sale");
+  const forSale =
+    getNumber(
+      record,
+      "market_num_for_sale"
+    ) ??
+    getNumber(
+      record,
+      "discogs_for_sale"
+    );
 
   const marketSignal = getMarketSignal(forSale);
 

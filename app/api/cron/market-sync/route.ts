@@ -12,13 +12,13 @@ export async function GET() {
       success: true,
       result,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(err);
 
     return NextResponse.json(
       {
         success: false,
-        error: err.message,
+        error: err instanceof Error ? err.message : "Unknown error",
       },
       {
         status: 500,

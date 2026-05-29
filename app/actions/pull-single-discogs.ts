@@ -181,6 +181,16 @@ export async function pullSingleDiscogsValue(formData: FormData) {
     if (statsRes.ok) {
       const stats = await statsRes.json();
 
+      forSale =
+        typeof stats.num_for_sale === "number"
+          ? stats.num_for_sale
+          : null;
+
+      exactLowestPrice =
+        typeof stats.lowest_price?.value === "number"
+          ? stats.lowest_price.value
+          : null;
+
       lastSoldDate =
         typeof stats.last_sold_date === "string"
           ? stats.last_sold_date
@@ -189,11 +199,12 @@ export async function pullSingleDiscogsValue(formData: FormData) {
 
     console.log(
       "PSMI MODE",
-      "browser-market-intelligence-required"
+      "marketplace-stats-live",
+      {
+        forSale,
+        exactLowestPrice
+      }
     );
-
-    forSale = null;
-    exactLowestPrice = null;
 
   } catch (error) {
     console.error(

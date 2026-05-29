@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS market_changes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  record_id uuid REFERENCES records(id) ON DELETE CASCADE,
+  record_id uuid REFERENCES records_clean_safe(id) ON DELETE CASCADE,
 
   title text,
   artist text,

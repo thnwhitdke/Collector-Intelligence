@@ -37,7 +37,9 @@ export async function refreshValueIntelligence(recordId: string) {
       manual_comp_price,
       purchase_price,
       condition_grade,
-      value_last_updated
+      value_last_updated,
+      market_num_for_sale,
+      market_for_sale_ratio
       `,
     )
     .eq("id", recordId)
@@ -62,6 +64,8 @@ export async function refreshValueIntelligence(recordId: string) {
       typeof record.value_last_updated === "string"
         ? record.value_last_updated
         : null,
+    marketNumForSale: toNumber(record.market_num_for_sale),
+    marketForSaleRatio: toNumber(record.market_for_sale_ratio),
   });
 
   const { error: updateError } = await supabase
@@ -71,6 +75,10 @@ export async function refreshValueIntelligence(recordId: string) {
       value_confidence_score: result.confidenceScore,
       value_signal: result.signal,
       value_badges: result.badges,
+      rarity_score: result.rarityScore,
+      market_momentum: result.marketMomentum,
+      collector_iq_score: result.collectorIqScore,
+      valuation_confidence: result.confidenceScore,
       value_last_updated: new Date().toISOString(),
     })
     .eq("id", recordId);
