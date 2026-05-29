@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CINavigation from "@/app/components/CINavigation";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../src/lib/supabase/server";
@@ -164,6 +165,7 @@ export default async function Page({ searchParams }: PageProps) {
 
   return (
     <main className="min-h-screen bg-[#0f1411] px-6 py-8 text-stone-100">
+      <CINavigation />
       <div className="mx-auto max-w-7xl space-y-8">
         <header className="rounded-[2rem] border border-stone-700 bg-[#151a16] p-8">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-amber-300">
