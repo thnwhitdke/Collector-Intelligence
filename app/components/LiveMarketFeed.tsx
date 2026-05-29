@@ -111,7 +111,28 @@ export default function LiveMarketFeed() {
     return () => clearInterval(interval);
   }, []);
 
-  const featured = feed.slice(0, 3);
+  const featured = (() => {
+    if (feed.length <= 3) return feed;
+
+    const thin = feed.find((item) =>
+      item.message.toLowerCase().includes("thin market")
+    );
+
+    const volatile = feed.find((item) =>
+      item.message.toLowerCase().includes("volatile") ||
+      item.message.toLowerCase().includes("spread")
+    );
+
+    const recent = feed.find(
+      (item) =>
+        item.id !== thin?.id &&
+        item.id !== volatile?.id
+    );
+
+    return [thin, volatile, recent]
+      .filter((item): item is FeedItem => Boolean(item))
+      .slice(0, 3);
+  })();
   const latestTimestamp = feed[0]?.timestamp ?? null;
 
   const tickerItems = useMemo(() => {
