@@ -85,8 +85,11 @@ export default function LiveMarketFeed() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   async function loadFeed() {
+    setRefreshing(true);
+
     try {
       const response = await fetch("/api/market-feed", {
         cache: "no-store",
@@ -100,6 +103,7 @@ export default function LiveMarketFeed() {
       console.error("Market feed failed", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -163,9 +167,10 @@ export default function LiveMarketFeed() {
 
           <button
             onClick={loadFeed}
-            className="rounded-full border border-[#3A3020] bg-black/30 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#D8B65A] transition hover:border-[#D8B65A]/40"
+            disabled={refreshing}
+            className="rounded-full border border-[#3A3020] bg-black/30 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#D8B65A] transition hover:border-[#D8B65A]/40 disabled:opacity-50"
           >
-            Refresh
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
       </div>
