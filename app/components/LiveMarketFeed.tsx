@@ -86,6 +86,7 @@ export default function LiveMarketFeed() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [rotationIndex, setRotationIndex] = useState(0);
 
   async function loadFeed() {
     setRefreshing(true);
@@ -99,6 +100,7 @@ export default function LiveMarketFeed() {
 
       setFeed(data.feed || []);
       setLastRefresh(new Date());
+      setRotationIndex((current) => current + 1);
     } catch (error) {
       console.error("Market feed failed", error);
     } finally {
@@ -118,25 +120,41 @@ export default function LiveMarketFeed() {
   const featured = (() => {
     if (feed.length <= 3) return feed;
 
-    const thin = feed.find((item) =>
+    const sorted = [...feed];
+
+    const offset = rotationIndex % sorted.length;
+    const rotated = [
+      ...sorted.slice(offset),
+      ...sorted.slice(0, offset),
+    ];
+
+    const thin = rotated.find((item) =>
       item.message.toLowerCase().includes("thin market")
     );
 
-    const volatile = feed.find((item) =>
+    const volatile = rotated.find((item) =>
       item.message.toLowerCase().includes("volatile") ||
       item.message.toLowerCase().includes("spread")
     );
 
-    const recent = feed.find(
+    const recent = rotated.find(
       (item) =>
         item.id !== thin?.id &&
         item.id !== volatile?.id
     );
 
-    return [thin, volatile, recent]
+    const fallback = rotated.filter(
+      (item) =>
+        item.id !== thin?.id &&
+        item.id !== volatile?.id &&
+        item.id !== recent?.id
+    );
+
+    return [thin, volatile, recent, ...fallback]
       .filter((item): item is FeedItem => Boolean(item))
       .slice(0, 3);
   })();
+
   const latestTimestamp = feed[0]?.timestamp ?? null;
 
   const tickerItems = useMemo(() => {
