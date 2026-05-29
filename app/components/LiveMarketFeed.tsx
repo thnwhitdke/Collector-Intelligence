@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type FeedItem = {
   id: string;
@@ -11,58 +11,35 @@ type FeedItem = {
   message: string;
   change: number;
   timestamp?: string | null;
-  source?: string;
 };
-
-function getStatusEmoji(color: string) {
-  switch (color) {
-    case "blue":
-      return "🔵";
-    case "green":
-      return "🟢";
-    case "orange":
-      return "🟠";
-    case "red":
-      return "🔴";
-    default:
-      return "⚪";
-  }
-}
-
-function formatTime(timestamp?: string | null) {
-  if (!timestamp) return "";
-
-  try {
-    return new Date(timestamp).toLocaleString();
-  } catch {
-    return "";
-  }
-}
 
 export default function LiveMarketFeed() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadFeed() {
-      try {
-        const response = await fetch("/api/market-feed", {
+  async function loadFeed() {
+    try {
+      const response = await fetch(
+        "/api/market-feed",
+        {
           cache: "no-store",
-        });
+        }
+      );
 
-        const data = await response.json();
+      const data = await response.json();
 
-        setFeed(data.feed || []);
-      } catch (error) {
-        console.error(
-          "Failed to load market feed",
-          error
-        );
-      } finally {
-        setLoading(false);
-      }
+      setFeed(data.feed || []);
+    } catch (error) {
+      console.error(
+        "Market feed failed",
+        error
+      );
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     loadFeed();
 
     const interval = setInterval(
@@ -74,104 +51,126 @@ export default function LiveMarketFeed() {
       clearInterval(interval);
   }, []);
 
-  return (
-    <div className="rounded-3xl border border-white/10 bg-black/30 p-6 backdrop-blur-xl">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">
-            Live Market Intelligence
-          </h2>
+  const tickerText = useMemo(() => {
+    return feed
+      .map(
+        (item) =>
+          `${item.artist} — ${item.title} · ${item.message}`
+      )
+      .join("   ✦   ");
+  }, [feed]);
 
-          <p className="mt-1 text-sm text-zinc-400">
-            Real collector movement and market signals
+  const featured = feed.slice(0, 3);
+
+  return (
+    <section className="rounded-[32px] border border-[#2A2418] bg-[#0B0A08] p-5 shadow-2xl">
+
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.35em] text-[#D8B65A]">
+            Live Market Intelligence
           </p>
+
+          <h2 className="mt-2 text-3xl font-black text-white">
+            Collector Activity Feed
+          </h2>
         </div>
 
-        <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-400">
-          LIVE FEED
+        <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-400">
+          LIVE
         </div>
       </div>
 
-      {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="animate-pulse rounded-2xl border border-white/5 bg-white/5 p-5"
-            >
-              <div className="h-4 w-1/3 rounded bg-white/10" />
-              <div className="mt-3 h-3 w-2/3 rounded bg-white/10" />
+      <div className="overflow-hidden rounded-2xl border border-emerald-500/10 bg-[#10100E]">
+        <div className="flex items-center gap-3 border-b border-white/5 px-4 py-3">
+          <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">
+            Market Ticker
+          </p>
+
+          <p className="text-xs text-zinc-500">
+            Auto-refresh every 60 sec
+          </p>
+        </div>
+
+        <div className="relative overflow-hidden py-3">
+          {loading ? (
+            <div className="px-4 text-sm text-zinc-500">
+              Loading intelligence...
             </div>
-          ))}
+          ) : (
+            <div className="whitespace-nowrap animate-[ticker_45s_linear_infinite] px-4 text-sm text-zinc-300">
+              {tickerText || "No market intelligence available"}
+            </div>
+          )}
         </div>
-      ) : feed.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-zinc-400">
-          No live market intelligence available.
-        </div>
-      ) : (
-        <div className="max-h-[520px] overflow-y-auto space-y-4 pr-2">
-          {feed.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.05]"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 text-sm font-semibold tracking-wide text-zinc-300">
-                    <span>
-                      {getStatusEmoji(item.color)}
-                    </span>
+      </div>
 
-                    <span>
-                      {item.status}
-                    </span>
-                  </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-3">
+        {featured.map((item) => (
+          <div
+            key={item.id}
+            className="rounded-3xl border border-[#2A2418] bg-[#11100D] p-4"
+          >
+            <div className="flex items-center justify-between">
+              <div
+                className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em]
+                ${
+                  item.color === "red"
+                    ? "bg-red-500/10 text-red-300"
+                    : item.color === "orange"
+                    ? "bg-orange-500/10 text-orange-300"
+                    : item.color === "green"
+                    ? "bg-emerald-500/10 text-emerald-300"
+                    : "bg-cyan-500/10 text-cyan-300"
+                }`}
+              >
+                {item.status}
+              </div>
 
-                  <h3 className="mt-2 text-xl font-bold text-white">
-                    {item.artist}
-                    {" — "}
-                    {item.title}
-                  </h3>
-
-                  <p className="mt-2 text-sm text-zinc-400">
-                    {item.message}
-                  </p>
-
-                  {item.timestamp ? (
-                    <p className="mt-3 text-xs text-zinc-500">
-                      {formatTime(
-                        item.timestamp
-                      )}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div
-                  className={`rounded-xl px-3 py-2 text-lg font-bold ${
-                    item.color === "red"
-                      ? "bg-red-500/10 text-red-400"
-                      : item.color ===
-                        "orange"
-                      ? "bg-orange-500/10 text-orange-300"
-                      : item.color ===
-                        "green"
-                      ? "bg-emerald-500/10 text-emerald-400"
-                      : "bg-cyan-500/10 text-cyan-300"
-                  }`}
-                >
-                  {item.message
-                    .toLowerCase()
-                    .includes(
-                      "thin market"
-                    )
-                    ? `${item.change} left`
-                    : `Spread ${item.change}%`}
-                </div>
+              <div className="text-xs text-zinc-500">
+                {item.timestamp
+                  ? new Date(
+                      item.timestamp
+                    ).toLocaleTimeString()
+                  : ""}
               </div>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+
+            <h3 className="mt-4 text-lg font-black text-white">
+              {item.artist}
+            </h3>
+
+            <p className="text-sm text-zinc-400">
+              {item.title}
+            </p>
+
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              {item.message}
+            </p>
+
+            <div className="mt-4 inline-flex rounded-2xl border border-[#3A3020] bg-black/30 px-3 py-2 text-sm font-black text-[#D8B65A]">
+              {item.message
+                .toLowerCase()
+                .includes("thin market")
+                ? `${item.change} left`
+                : `Spread ${item.change}%`}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <style jsx>{`
+        @keyframes ticker {
+          0% {
+            transform: translateX(100%);
+          }
+          100% {
+            transform: translateX(-100%);
+          }
+        }
+      `}</style>
+    </section>
   );
 }
