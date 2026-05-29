@@ -51,10 +51,8 @@ export async function GET() {
   const ids = Array.from(
     new Set(
       (historyRows ?? [])
-        .map((r) =>
-          String(r.record_id)
-        )
-        .filter(Boolean)
+        .map((r) => Number(r.record_id))
+        .filter((id) => Number.isFinite(id))
     )
   );
 
