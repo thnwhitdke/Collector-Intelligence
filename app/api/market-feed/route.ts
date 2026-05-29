@@ -1,19 +1,13 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createClient } from "@supabase/supabase-js";
 
-function toNumber(value: unknown) {
-  const parsed =
-    typeof value === "number"
-      ? value
-      : Number(String(value ?? "").replace(/[$,]/g, ""));
-
-  return Number.isFinite(parsed) ? parsed : null;
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function GET() {
-  const supabase = createAdminClient();
-
-  const { data: historyRows, error: historyError } = await supabase
+  const { data, error } = await supabase
     .from("market_history")
     .select(`
       id,
@@ -23,87 +17,119 @@ export async function GET() {
       discogs_high_price,
       discogs_for_sale,
       market_signal,
-      captured_at
+      captured_at,
+      records_clean_safe (
+        artist,
+        title
+      )
     `)
-    .order("captured_at", { ascending: false })
-    .limit(50);
+    .order("captured_at", {
+      ascending: false,
+    })
+    .limit(200);
 
-  if (historyError) {
+  if (error) {
+    console.error(
+      "MARKET FEED ERROR:",
+      error
+    );
+
     return NextResponse.json(
-      { error: historyError.message },
-      { status: 500 }
+      {
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
     );
   }
 
-  const recordIds = Array.from(
-    new Set(
-      (historyRows ?? [])
-        .map((row) => String(row.record_id))
-        .filter(Boolean)
-    )
-  );
+  const seen = new Set();
 
-  const { data: records } = recordIds.length
-    ? await supabase
-        .from("records_clean_safe")
-        .select("id, artist, title")
-        .in("id", recordIds)
-    : { data: [] };
+  const diversified = (data || []).filter((row: any) => {
+    const artist =
+      row.records_clean_safe?.artist || "Unknown";
 
-  const recordMap = new Map(
-    (records ?? []).map((record) => [
-      String(record.id),
-      record,
-    ])
-  );
+    const title =
+      row.records_clean_safe?.title || "Unknown";
 
-  const feed = (historyRows ?? [])
-    .map((row) => {
-      const record = recordMap.get(String(row.record_id));
+    const key = `${artist}-${title}`;
 
-      const low = toNumber(row.discogs_low_price);
-      const median = toNumber(row.discogs_median_price);
-      const high = toNumber(row.discogs_high_price);
-      const forSale = toNumber(row.discogs_for_sale);
+    if (seen.has(key)) {
+      return false;
+    }
 
-      let status: "LIVE" | "ALERT" | "TRENDING" = "LIVE";
-      let color: "blue" | "green" | "orange" | "red" = "blue";
-      let change = 0;
-      let message = row.market_signal || "Market snapshot captured";
+    seen.add(key);
+    return true;
+  });
 
-      if (forSale !== null && forSale <= 2) {
-        status = "ALERT";
+  const feed = diversified.slice(0, 40).map(
+    (row: any, index: number) => {
+      const artist =
+        row.records_clean_safe?.artist ||
+        "Unknown Artist";
+
+      const title =
+        row.records_clean_safe?.title ||
+        "Unknown Title";
+
+      const low =
+        Number(row.discogs_low_price) || 0;
+
+      const median =
+        Number(row.discogs_median_price) || 0;
+
+      const high =
+        Number(row.discogs_high_price) || 0;
+
+      const forSale =
+        Number(row.discogs_for_sale) || 0;
+
+      let color = "green";
+      let status = "TRENDING";
+      let message = "";
+
+      if (
+        String(row.market_signal)
+          .toLowerCase()
+          .includes("thin")
+      ) {
         color = "orange";
-        message = `${message} · Thin market: ${forSale} listed`;
-        change = forSale;
-      } else if (high !== null && median !== null && median > 0 && high > median) {
         status = "ALERT";
+        message = `${row.market_signal} · Thin market: ${forSale} listed`;
+      } else if (high > median * 1.5) {
         color = "red";
-        change = Math.round(((high - median) / median) * 100);
-        message = `${message} · High spread: $${median} → $${high}`;
-      } else if (median !== null && low !== null && low > 0 && median > low) {
-        status = "TRENDING";
+        status = "ALERT";
+        message = `${row.market_signal} · High spread: $${low} → $${median}`;
+      } else {
         color = "green";
-        change = Math.round(((median - low) / low) * 100);
-        message = `${message} · Median above low: $${low} → $${median}`;
+        status = "TRENDING";
+        message = `${row.market_signal} · Market active`;
       }
 
       return {
-        id: `history-${row.id}`,
+        id: `history-${row.id}-${index}`,
         status,
         color,
-        artist: record?.artist ?? "Unknown Artist",
-        title: record?.title ?? `Record ${row.record_id}`,
+        artist,
+        title,
         message,
-        change,
+        change:
+          high && median
+            ? Math.round(
+                ((high - median) /
+                  Math.max(median, 1)) *
+                  100
+              )
+            : 0,
         timestamp: row.captured_at,
         source: "market_history",
       };
-    })
-    .slice(0, 10);
+    }
+  );
 
   return NextResponse.json({
     feed,
-    source: "market_history",
+    source: "market_history_diversified",
   });
 }
