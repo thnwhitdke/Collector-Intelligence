@@ -1,5 +1,7 @@
 // app/collection/want-list/page.tsx
 
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import CINavigation from "@/app/components/CINavigation";
 import WantAlertFeed from "@/app/components/WantAlertFeed";
