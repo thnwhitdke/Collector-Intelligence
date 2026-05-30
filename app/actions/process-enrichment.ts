@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/src/lib/supabase/server";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 import { enrichSingleRecord } from "./discogs";
 import { logEnrichmentActivity } from "./activity-log";
 
@@ -8,7 +8,7 @@ const RETRY_DELAY_MINUTES = 15;
 
 export async function processEnrichmentQueue(limit = 10) {
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const nowIso = new Date().toISOString();
 
