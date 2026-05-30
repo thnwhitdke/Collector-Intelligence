@@ -48,7 +48,41 @@ function redirectBack(id: string, status: string, returnTo: string): never {
   redirect(buildDetailRedirect(id, status, returnTo));
 }
 
+
 export async function pullSingleDiscogsValue(formData: FormData) {
+
+  const result =
+    await pullSingleDiscogsCore(
+      formData
+    );
+
+  const id = String(
+    formData.get("id") || ""
+  );
+
+  const returnTo = String(
+    formData.get("returnTo") ||
+    "/collection"
+  );
+
+  if (
+    result &&
+    typeof result === "object" &&
+    "status" in result
+  ) {
+    redirectBack(
+      id,
+      String(
+        result.status
+      ),
+      returnTo
+    );
+  }
+
+  return result;
+}
+
+export async function pullSingleDiscogsCore(formData: FormData) {
   const supabase = await createClient();
 
   const id = String(formData.get("id") || "").trim();
@@ -563,5 +597,9 @@ if (historyError) {
   revalidatePath("/collection/value-dashboard");
   revalidatePath("/collection/value-queue");
 
-  redirectBack(id, "updated", returnTo);
+  return {
+    ok: true,
+    id,
+    status: "updated"
+  };
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
-import { pullSingleDiscogsValue } from "./pull-single-discogs";
+import { pullSingleDiscogsCore } from "./pull-single-discogs";
 
 export async function recomputeIntelligence(
   limit = 25
@@ -61,14 +61,19 @@ export async function recomputeIntelligence(
         new FormData();
 
       formData.set(
-        "recordId",
+        "id",
         String(
           record.id
         )
       );
 
+      formData.set(
+        "returnTo",
+        "/collection"
+      );
+
       const result =
-        await pullSingleDiscogsValue(
+        await pullSingleDiscogsCore(
           formData
         );
 
