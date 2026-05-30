@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LocalTime from "@/app/components/LocalTime";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
 type Props = {
@@ -129,14 +130,14 @@ export default async function WantAlertFeed({ userId }: Props) {
   }
 
   const latestRows = Array.from(latestByWant.values()).slice(0, 3);
-  const wantIds = latestRows.map((h) => h.want_id);
+  const wantIds = latestRows.map((h) => Number(h.want_id));
 
   const { data: wants } = await supabase
     .from("want_list")
     .select("id, artist, title, cover_url, marketplace_url, discogs_url, record_id")
     .in("id", wantIds);
 
-  const wantMap = new Map((wants || []).map((w) => [w.id, w]));
+  const wantMap = new Map((wants || []).map((w) => [String(w.id), w]));
 
   return (
     <section className="mt-8 rounded-[30px] border border-red-500/20 bg-gradient-to-br from-[#170B0B] via-[#100908] to-[#080605] p-5 shadow-[0_12px_50px_rgba(180,20,20,.12)]">
@@ -163,7 +164,7 @@ export default async function WantAlertFeed({ userId }: Props) {
       <div className="mt-5 grid gap-3">
         {latestRows.map((row) => {
           const previous = previousByWant.get(row.want_id);
-          const want = wantMap.get(row.want_id);
+          const want = wantMap.get(String(row.want_id));
           const marketplace = row.marketplace_url || want?.marketplace_url || null;
 
           return (
@@ -215,12 +216,7 @@ export default async function WantAlertFeed({ userId }: Props) {
 
               <div className="flex flex-col gap-2 md:items-end">
                 <p className="text-[10px] uppercase tracking-[0.16em] text-[#8F8170]">
-                  {new Date(row.captured_at).toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+                  <LocalTime value={row.captured_at} />
                 </p>
 
                 <Link
