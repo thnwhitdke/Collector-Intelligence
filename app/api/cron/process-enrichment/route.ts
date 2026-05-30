@@ -1,36 +1,35 @@
-// ======================================================
-// Collector Intelligence
-// Premium Cron Processor
-// Queue Processor Integration
-// ======================================================
-
-import { NextResponse } from 'next/server'
-import {
-  processQueueBatch
-} from '@/app/services/automation/queueProcessor'
+import { NextResponse } from "next/server";
+import { processEnrichmentQueue } from "@/app/actions/process-enrichment";
 
 export async function GET() {
   try {
-    const result =
-      await processQueueBatch(25)
+    const result = await processEnrichmentQueue(25);
 
     return NextResponse.json({
-      success: result.success,
+      success: !result.error,
+      job: "process-enrichment",
+      timestamp: new Date().toISOString(),
       processed: result.processed,
       failed: result.failed,
-      timestamp: new Date().toISOString()
-    })
+      remaining: result.remaining ?? 0,
+      error: result.error,
+    });
   } catch (error) {
-    console.error(error)
+    console.error(error);
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Cron failure'
+        job: "process-enrichment",
+        timestamp: new Date().toISOString(),
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown process-enrichment cron failure.",
       },
       {
-        status: 500
+        status: 500,
       }
-    )
+    );
   }
 }
