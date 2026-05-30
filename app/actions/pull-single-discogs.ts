@@ -97,7 +97,7 @@ export async function pullSingleDiscogsCore(formData: FormData) {
     process.env.DISCOGS_USER_AGENT ?? "CollectorIntelligence/1.0";
 
   if (!token) {
-    redirectBack(id, "missing-discogs-token", returnTo);
+    return { ok:false, id, status:"missing-discogs-token" };
   }
 
   const { data: record, error: recordError } = await supabase
@@ -107,7 +107,7 @@ export async function pullSingleDiscogsCore(formData: FormData) {
     .single();
 
   if (recordError || !record) {
-    redirectBack(id, "record-not-found", returnTo);
+    return { ok:false, id, status:"record-not-found" };
   }
 
   const { discogs_release_id: releaseIdRaw, artist } = record as RecordRow;
@@ -123,7 +123,7 @@ export async function pullSingleDiscogsCore(formData: FormData) {
       })
       .eq("id", id);
 
-    redirectBack(id, "missing-discogs-release-id", returnTo);
+    return { ok:false, id, status:"missing-discogs-release-id" };
   }
 
   const priceRes = await fetch(
@@ -147,7 +147,7 @@ export async function pullSingleDiscogsCore(formData: FormData) {
       })
       .eq("id", id);
 
-    redirectBack(id, `discogs-price-fetch-failed-${priceRes.status}`, returnTo);
+    return { ok:false, id, status:`discogs-price-fetch-failed-${priceRes.status}` };
   }
 
   const suggestions = (await priceRes.json()) as Record<
@@ -167,7 +167,7 @@ export async function pullSingleDiscogsCore(formData: FormData) {
       })
       .eq("id", id);
 
-    redirectBack(id, "no-discogs-value-available", returnTo);
+    return { ok:false, id, status:"no-discogs-value-available" };
   }
 
   const values = entries
@@ -186,7 +186,7 @@ export async function pullSingleDiscogsCore(formData: FormData) {
       })
       .eq("id", id);
 
-    redirectBack(id, "no-usable-discogs-values", returnTo);
+    return { ok:false, id, status:"no-usable-discogs-values" };
   }
 
   const low = Number(values[0].toFixed(2));
@@ -588,7 +588,7 @@ if (historyError) {
       })
       .eq("id", id);
 
-    redirectBack(id, "database-update-failed", returnTo);
+    return { ok:false, id, status:"database-update-failed" };
   }
 
   revalidatePath(`/collection/${id}`);
