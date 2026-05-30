@@ -22,6 +22,19 @@ type FeedItem = {
   timestamp?: string | null;
 };
 
+function formatArtistName(name: string) {
+  const trimmed = String(name || "").trim();
+
+  if (!trimmed.includes(",")) return trimmed;
+
+  const [last, ...rest] = trimmed.split(",");
+  const first = rest.join(",").trim();
+
+  if (!first || !last) return trimmed;
+
+  return `${first} ${last}`.replace(/\s+/g, " ").trim();
+}
+
 function getSignalLabel(item: FeedItem) {
   if (item.signalType === "hot_market") return "Hot Market";
   if (item.signalType === "buy_watch") return "Buy Watch";
@@ -102,6 +115,7 @@ export default function LiveMarketFeed() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [latestSignalAt, setLatestSignalAt] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [rotationIndex, setRotationIndex] = useState(0);
 
@@ -116,6 +130,7 @@ export default function LiveMarketFeed() {
       const data = await response.json();
 
       setFeed(data.feed || []);
+      setLatestSignalAt(data.latestSignalAt || null);
       setLastRefresh(new Date());
       setRotationIndex((current) => current + 1);
     } catch (error) {
@@ -186,7 +201,7 @@ export default function LiveMarketFeed() {
     return [...selected, ...fallback].slice(0, 6);
   })();
 
-  const latestTimestamp = feed[0]?.timestamp ?? null;
+  const latestTimestamp = latestSignalAt ?? feed[0]?.timestamp ?? null;
 
   const tickerItems = useMemo(() => {
     return feed.slice(0, 8);
@@ -267,7 +282,7 @@ export default function LiveMarketFeed() {
                       {getSignalLabel(item)}
                     </span>
                     <span className="text-zinc-300">
-                      {item.artist} — {item.title}
+                      {formatArtistName(item.artist)} — {item.title}
                     </span>
                   </div>
                 );
@@ -300,7 +315,7 @@ export default function LiveMarketFeed() {
               </div>
 
               <h3 className="mt-4 text-lg font-black text-white">
-                {item.artist}
+                {formatArtistName(item.artist)}
               </h3>
 
               <p className="text-sm text-zinc-400">{item.title}</p>
