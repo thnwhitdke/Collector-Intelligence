@@ -19,6 +19,7 @@ import {
 import ValueIntelligenceCard from "../../components/ValueIntelligenceCard";
 import ManualValueCompForm from "../../components/ManualValueCompForm";
 import MarketplaceVerification from "../../components/MarketplaceVerification";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -262,8 +263,10 @@ export default async function RecordDetailPage({
       ) || ""
     ).trim();
 
+  const trackSupabase = createAdminClient();
+
   const { data: trackRows } = discogsReleaseId
-    ? await supabase
+    ? await trackSupabase
         .from("release_tracks")
         .select(`
           discogs_release_id,
