@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createClient } from "@/src/lib/supabase/server";
 
 function toNumber(value: unknown) {
   const parsed =
@@ -45,7 +45,18 @@ function pushSignal(items: FeedItem[], item: FeedItem) {
 }
 
 export async function GET() {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({
+      feed: [],
+      source: "market_feed_user_isolated_no_user",
+    });
+  }
 
   const { data: historyRows, error } = await supabase
     .from("market_history")
@@ -91,6 +102,7 @@ export async function GET() {
           market_momentum
         `)
         .in("id", ids)
+        .eq("user_id", user.id)
     : { data: [] };
 
   const recordMap = new Map((records ?? []).map((r) => [String(r.id), r]));
