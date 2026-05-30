@@ -581,62 +581,7 @@ export default function CollectionPage() {
           ) : null}
         </section>
 
-        {topEstimated.length > 0 ? (
-          <section className="mt-10">
-            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-[#B48A4D]">
-                  Portfolio Intelligence
-                </p>
-
-                <h2 className="mt-2 text-3xl font-black">
-                  Value Leaders
-                </h2>
-              </div>
-
-              <Link
-                href="/collection/market-leaders"
-                className="rounded-2xl border border-[#3A3025] bg-[#15110B] px-4 py-3 text-sm font-bold text-[#D8B65A]"
-              >
-                Full Market Ranking
-              </Link>
-            </div>
-
-            <div className="grid gap-5 md:grid-cols-5">
-              {topEstimated.map((record, index) => (
-                <Link
-                  key={record.id}
-                  href={`/collection/${record.id}`}
-                  className="group overflow-hidden rounded-[32px] border border-[#2B2118] bg-gradient-to-br from-[#130F0B] to-[#090705] transition duration-300 hover:-translate-y-2 hover:border-[#D8B65A]/40"
-                >
-                  <CoverImage record={record} />
-
-                  <div className="p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] uppercase tracking-[0.25em] text-[#B48A4D]">
-                        Leader #{index + 1}
-                      </p>
-
-                      <p className="font-black text-[#E5C67A]">
-                        {money(record.estimated_value)}
-                      </p>
-                    </div>
-
-                    <p className="mt-3 line-clamp-2 text-lg font-black text-white">
-                      {record.title}
-                    </p>
-
-                    <p className="mt-2 text-sm text-[#9D8E78]">
-                      {record.artist}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <section ref={resultsRef} className="mt-10">
+                <section ref={resultsRef} className="mt-10">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-[#B48A4D]">
