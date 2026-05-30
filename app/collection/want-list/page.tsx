@@ -251,8 +251,9 @@ export default async function WantListPage() {
 
             return (
               <article
+                id={`want-${item.id}`}
                 key={item.id}
-                className="overflow-hidden rounded-[34px] border border-[#2D241B] bg-gradient-to-br from-[#120F0C] to-[#090705]"
+                className="scroll-mt-28 overflow-hidden rounded-[34px] border border-[#2D241B] bg-gradient-to-br from-[#120F0C] to-[#090705]"
               >
                 <div className="grid gap-6 p-6 lg:grid-cols-[140px_1fr_250px]">
                   <div>
