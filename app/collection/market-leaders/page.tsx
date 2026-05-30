@@ -10,6 +10,7 @@ export default async function MarketLeadersPage() {
       id,
       artist,
       title,
+      discogs_thumbnail_url,
       collector_iq_score,
       market_momentum,
       supply_pressure,
@@ -28,6 +29,7 @@ export default async function MarketLeadersPage() {
       id,
       artist,
       title,
+      discogs_thumbnail_url,
       volatility_score,
       market_momentum
     `)
@@ -42,6 +44,7 @@ export default async function MarketLeadersPage() {
       id,
       artist,
       title,
+      discogs_thumbnail_url,
       rarity_index,
       supply_pressure
     `)
@@ -56,6 +59,7 @@ export default async function MarketLeadersPage() {
       id,
       artist,
       title,
+      discogs_thumbnail_url,
       collector_velocity,
       market_momentum
     `)
@@ -147,6 +151,48 @@ export default async function MarketLeadersPage() {
   );
 }
 
+
+function getIntelLabel(row: any) {
+  const momentum = String(
+    row.market_momentum || ""
+  ).toLowerCase();
+
+  const volatility = Number(
+    row.volatility_score || 0
+  );
+
+  const demand = Number(
+    row.demand_score || 0
+  );
+
+  const supply = Number(
+    row.supply_pressure || 0
+  );
+
+  if (volatility >= 70)
+    return "Extreme Volatility";
+
+  if (volatility >= 40)
+    return "High Volatility";
+
+  if (supply >= 70)
+    return "Supply Pressure";
+
+  if (demand >= 70)
+    return "Collector Demand";
+
+  if (momentum.includes("acceler"))
+    return "Bullish Momentum";
+
+  if (momentum.includes("stable"))
+    return "Stable Market";
+
+  if (momentum.includes("flat"))
+    return "Dormant";
+
+  return "Market Active";
+}
+
 function LeaderboardCard({
   title,
   rows,
@@ -199,14 +245,20 @@ function LeaderboardCard({
 
         {rows.map((row, index) => (
 
-          <div
+          <a
             key={row.id}
+            href={`/collection/${row.id}`}
             className="
+              block
               rounded-2xl
               border
               border-white/10
               bg-black/30
               p-4
+              transition
+              hover:border-cyan-400/30
+              hover:bg-cyan-400/[0.04]
+              hover:scale-[1.01]
             "
           >
 
@@ -218,6 +270,22 @@ function LeaderboardCard({
                 gap-4
               "
             >
+
+              {row.discogs_thumbnail_url && (
+                <img
+                  src={row.discogs_thumbnail_url}
+                  alt={row.title}
+                  className="
+                    mb-3
+                    h-16
+                    w-16
+                    rounded-xl
+                    object-cover
+                    border
+                    border-white/10
+                  "
+                />
+              )}
 
               <div>
 
@@ -299,12 +367,12 @@ function LeaderboardCard({
                   text-slate-300
                 "
               >
-                {row.market_momentum}
+                {getIntelLabel(row)}
               </div>
 
             )}
 
-          </div>
+          </a>
 
         ))}
 
