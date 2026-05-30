@@ -1,5 +1,5 @@
-import { createClient }
-from "../../../src/lib/supabase/server";
+import CINavigation from "@/app/components/CINavigation";
+import { createClient } from "../../../src/lib/supabase/server";
 
 export default async function
 MarketIntelligenceDashboard() {
@@ -67,6 +67,8 @@ MarketIntelligenceDashboard() {
       text-white
       p-8
     ">
+
+      <CINavigation />
 
       {/* HEADER */}
 

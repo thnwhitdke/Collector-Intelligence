@@ -1,5 +1,7 @@
 "use client";
 
+import CINavigation from "@/app/components/CINavigation";
+
 import { useEffect, useState, type ReactNode } from "react";
 
 import {

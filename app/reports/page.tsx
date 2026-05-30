@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import CINavigation from "@/app/components/CINavigation";
 import Link from "next/link";
 
 // import GlobalCollectionMap from "@/app/components/maps/GlobalCollectionMap";
