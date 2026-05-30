@@ -168,22 +168,24 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="absolute -bottom-6 -left-5 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 px-6 py-4 backdrop-blur-xl">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-200">
-                System Status
-              </p>
-              <p className="mt-1 text-lg font-black text-white">
-                Intelligence Engine Active
-              </p>
-            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/10 px-5 py-4 backdrop-blur-xl">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-200">
+                  System Status
+                </p>
+                <p className="mt-1 text-base font-black text-white">
+                  Intelligence Engine Active
+                </p>
+              </div>
 
-            <div className="absolute -right-5 top-10 rounded-3xl border border-fuchsia-400/20 bg-fuchsia-400/10 px-6 py-4 backdrop-blur-xl">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-fuchsia-200">
-                Market Alerts
-              </p>
-              <p className="mt-1 text-lg font-black text-white">
-                9 New Signals
-              </p>
+              <div className="rounded-3xl border border-fuchsia-400/20 bg-fuchsia-400/10 px-5 py-4 backdrop-blur-xl">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-fuchsia-200">
+                  Market Alerts
+                </p>
+                <p className="mt-1 text-base font-black text-white">
+                  9 New Signals
+                </p>
+              </div>
             </div>
           </div>
         </div>
