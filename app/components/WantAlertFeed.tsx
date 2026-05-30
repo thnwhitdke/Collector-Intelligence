@@ -134,7 +134,7 @@ export default async function WantAlertFeed({ userId }: Props) {
 
   const { data: wants } = await supabase
     .from("want_list")
-    .select("id, artist, title, cover_url, marketplace_url, discogs_url, record_id")
+    .select("id, artist, title, cover_url, marketplace_url, discogs_url")
     .in("id", wantIds);
 
   const wantMap = new Map((wants || []).map((w) => [String(w.id), w]));
