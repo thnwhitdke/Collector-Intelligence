@@ -254,7 +254,13 @@ export default async function RecordDetailPage({
 
   const marketSignal = getMarketSignal(forSale);
 
-  const discogsReleaseId = getText(record, "discogs_release_id");
+  const discogsReleaseId =
+    String(
+      getText(
+        record,
+        "discogs_release_id"
+      ) || ""
+    ).trim();
 
   const { data: trackRows } = discogsReleaseId
     ? await supabase
