@@ -327,15 +327,15 @@ export async function GET() {
   const feed = balanced.slice(0, 40);
 
   const signalCounts = {
-    hot: feed.filter((item) => item.signalType === "hot_market").length,
-    supply: feed.filter((item) => item.signalType === "thin_market").length,
-    buy: feed.filter((item) => item.signalType === "buy_watch").length,
-    risk: feed.filter(
+    hot: uniqueByTitle.filter((item) => item.signalType === "hot_market").length,
+    supply: uniqueByTitle.filter((item) => item.signalType === "thin_market").length,
+    buy: uniqueByTitle.filter((item) => item.signalType === "buy_watch").length,
+    risk: uniqueByTitle.filter(
       (item) =>
         item.signalType === "risk_watch" ||
         item.signalType === "volatility",
     ).length,
-    iq: feed.filter((item) => item.signalType === "iq_leader").length,
+    iq: uniqueByTitle.filter((item) => item.signalType === "iq_leader").length,
   };
 
   const latestSignalAt =
