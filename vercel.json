@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/populate-enrichment-queue",
+      "schedule": "*/30 * * * *"
+    },
+    {
       "path": "/api/cron/process-enrichment",
       "schedule": "*/10 * * * *"
     },
