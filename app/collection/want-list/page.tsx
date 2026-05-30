@@ -132,6 +132,9 @@ export default async function WantListPage() {
         i.priority === "High",
     ).length;
 
+  const userIdForAlerts =
+    items[0]?.user_id ?? null;
+
   return (
     <main className="min-h-screen bg-[#050403] text-[#F4EFE6]">
       <CINavigation />
@@ -159,7 +162,7 @@ export default async function WantListPage() {
           </div>
         </section>
 
-        <WantAlertFeed />
+        <WantAlertFeed userId={userIdForAlerts} />
 
         <section className="mt-8 grid gap-4 md:grid-cols-3">
           <Metric
