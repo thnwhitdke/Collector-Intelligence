@@ -10,7 +10,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 )
 
-const PAGE_SIZE = 100
+const PAGE_SIZE = 60
 const fallbackCover =
   'https://upload.wikimedia.org/wikipedia/en/b/ba/Radioheadokcomputer.png'
 
@@ -76,19 +76,24 @@ function getOpportunityTier(record: QueueRecord) {
   const signal = record.market_signal || ''
   const momentum = record.market_momentum || ''
 
-  if (signal === 'Bullish' && momentum === 'Supply Compression' && iq >= 180) {
+  if (
+    signal === 'Bullish' ||
+    momentum === 'Accelerating' ||
+    momentum === 'Supply Compression' ||
+    (iq >= 120 && rarity >= 40)
+  ) {
     return { label: '🔥 Opportunity', tone: 'text-orange-300', border: 'border-orange-400/20 bg-orange-400/10' }
   }
 
-  if (rarity >= 85 && iq >= 140) {
+  if (rarity >= 50 || iq >= 100) {
     return { label: '💎 Hidden Gem', tone: 'text-cyan-300', border: 'border-cyan-400/20 bg-cyan-400/10' }
   }
 
-  if (signal === 'Bearish') {
+  if (signal === 'Bearish' || momentum === 'Cooling Down') {
     return { label: '⚠ Risk Watch', tone: 'text-rose-300', border: 'border-rose-400/20 bg-rose-400/10' }
   }
 
-  if (iq >= 220) {
+  if (iq >= 100) {
     return { label: '🧠 Elite Tier', tone: 'text-fuchsia-300', border: 'border-fuchsia-400/20 bg-fuchsia-400/10' }
   }
 
@@ -113,11 +118,11 @@ function getCommentary(record: QueueRecord) {
     return 'High rarity may indicate scarcity-driven upside potential.'
   }
 
-  if (iq >= 220) {
+  if (iq >= 100) {
     return 'Collector intelligence places this release among elite portfolio holdings.'
   }
 
-  if (signal === 'Bearish') {
+  if (signal === 'Bearish' || momentum === 'Cooling Down') {
     return 'Market softness suggests closer monitoring may be warranted.'
   }
 
@@ -269,7 +274,7 @@ export default function ValueDashboardPage() {
     const interval = setInterval(() => {
       loadRecords(true)
       loadIntelligence()
-    }, 60000)
+    }, 300000)
 
     return () => clearInterval(interval)
   }, [loadRecords, loadIntelligence])
@@ -321,19 +326,23 @@ export default function ValueDashboardPage() {
     (r) => getOpportunityTier(r).label === '🧠 Elite Tier',
   ).length
 
+  const iqRecords = records.filter((r) => Number(r.collector_iq_score || 0) > 0)
+
   const avgIq =
-    records.length > 0
+    iqRecords.length > 0
       ? Math.round(
-          records.reduce((sum, r) => sum + (r.collector_iq_score || 0), 0) /
-            records.length,
+          iqRecords.reduce((sum, r) => sum + (r.collector_iq_score || 0), 0) /
+            iqRecords.length,
         )
       : 0
 
+  const rarityRecords = records.filter((r) => Number(r.rarity_index || 0) > 0)
+
   const avgRarity =
-    records.length > 0
+    rarityRecords.length > 0
       ? Math.round(
-          records.reduce((sum, r) => sum + (r.rarity_index || 0), 0) /
-            records.length,
+          rarityRecords.reduce((sum, r) => sum + (r.rarity_index || 0), 0) /
+            rarityRecords.length,
         )
       : 0
 
@@ -524,7 +533,7 @@ export default function ValueDashboardPage() {
         </section>
 
         <section className="grid gap-5 pb-12">
-          {records.map((record, index) => {
+          {records.slice(0, 180).map((record, index) => {
             const tier = getOpportunityTier(record)
 
             return (
