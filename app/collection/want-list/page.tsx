@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import CINavigation from "@/app/components/CINavigation";
+import WantAlertFeed from "@/app/components/WantAlertFeed";
 import {
   addDiscogsReleaseToWantList,
   deleteWantListItem,
@@ -157,6 +158,8 @@ export default async function WantListPage() {
             </div>
           </div>
         </section>
+
+        <WantAlertFeed />
 
         <section className="mt-8 grid gap-4 md:grid-cols-3">
           <Metric
