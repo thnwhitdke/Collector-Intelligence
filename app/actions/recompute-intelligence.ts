@@ -3,17 +3,30 @@
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { pullSingleDiscogsCore } from "./pull-single-discogs";
 
+function sleep(ms:number) {
+  return new Promise(
+    resolve =>
+      setTimeout(
+        resolve,
+        ms
+      )
+  );
+}
+
 export async function recomputeIntelligence(
-  limit = 25
+  limit = 10
 ) {
+
   const supabase =
     createAdminClient();
 
   const {
     data: records,
-    error,
+    error
   } = await supabase
-    .from("records_clean_safe")
+    .from(
+      "records_clean_safe"
+    )
     .select(`
       id,
       artist,
@@ -35,16 +48,15 @@ export async function recomputeIntelligence(
     .order(
       "id",
       {
-        ascending: true,
+        ascending:true
       }
     )
     .limit(limit);
 
   if (error) {
     return {
-      ok: false,
-      error:
-        error.message,
+      ok:false,
+      error:error.message
     };
   }
 
@@ -52,21 +64,18 @@ export async function recomputeIntelligence(
   let updated = 0;
   const results = [];
 
-  for (
-    const record of
-    records || []
-  ) {
+  for (const record of records || []) {
+
     processed++;
 
     try {
+
       const formData =
         new FormData();
 
       formData.set(
         "id",
-        String(
-          record.id
-        )
+        String(record.id)
       );
 
       formData.set(
@@ -79,34 +88,40 @@ export async function recomputeIntelligence(
           formData
         );
 
-      updated++;
+      if (
+        result &&
+        typeof result ===
+          "object" &&
+        result.ok === true
+      ) {
+        updated++;
+      }
 
       results.push({
-        id:
-          record.id,
-        ok: true,
-        result,
+        id:record.id,
+        ok:true,
+        result
       });
-    } catch (
-      err: any
-    ) {
+
+      // Discogs throttle
+      await sleep(1500);
+
+    } catch (err:any) {
+
       results.push({
-        id:
-          record.id,
-        ok: false,
+        id:record.id,
+        ok:false,
         error:
           err?.message ||
-          "Unknown error",
+          "Unknown error"
       });
     }
   }
 
   return {
-    ok: true,
+    ok:true,
     processed,
     updated,
-    remainingCandidateBatch:
-      records?.length ?? 0,
-    results,
+    results
   };
 }
