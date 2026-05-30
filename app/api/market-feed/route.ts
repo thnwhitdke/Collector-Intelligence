@@ -58,52 +58,52 @@ export async function GET() {
     });
   }
 
-  const { data: historyRows, error } = await supabase
-    .from("market_history")
+  const { data: records } = await supabase
+    .from("records_clean_safe")
     .select(`
       id,
-      record_id,
-      discogs_low_price,
-      discogs_median_price,
-      discogs_high_price,
-      discogs_for_sale,
-      market_signal,
-      captured_at
+      artist,
+      title,
+      rarity_score,
+      rarity_index,
+      estimated_value,
+      collector_iq_score,
+      demand_score,
+      supply_pressure,
+      volatility_score,
+      market_momentum
     `)
-    .order("captured_at", { ascending: false })
-    .limit(500);
+    .eq("user_id", user.id);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const ids = Array.from(
+  const userRecordIds = Array.from(
     new Set(
-      (historyRows ?? [])
-        .map((r) => Number(r.record_id))
+      (records ?? [])
+        .map((record) => Number(record.id))
         .filter((id) => Number.isFinite(id)),
     ),
   );
 
-  const { data: records } = ids.length
+  const { data: historyRows, error } = userRecordIds.length
     ? await supabase
-        .from("records_clean_safe")
+        .from("market_history")
         .select(`
           id,
-          artist,
-          title,
-          rarity_score,
-          rarity_index,
-          estimated_value,
-          collector_iq_score,
-          demand_score,
-          supply_pressure,
-          volatility_score,
-          market_momentum
+          record_id,
+          discogs_low_price,
+          discogs_median_price,
+          discogs_high_price,
+          discogs_for_sale,
+          market_signal,
+          captured_at
         `)
-        .in("id", ids)
-        .eq("user_id", user.id)
-    : { data: [] };
+        .in("record_id", userRecordIds)
+        .order("captured_at", { ascending: false })
+        .limit(500)
+    : { data: [], error: null };
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   const recordMap = new Map((records ?? []).map((r) => [String(r.id), r]));
   const now = Date.now();
@@ -345,10 +345,15 @@ export async function GET() {
       .sort()
       .at(-1) ?? null;
 
+  const latestSignalAtUtc =
+    latestSignalAt && !latestSignalAt.endsWith("Z")
+      ? `${latestSignalAt}Z`
+      : latestSignalAt;
+
   return NextResponse.json({
     feed,
     signalCounts,
-    latestSignalAt,
+    latestSignalAt: latestSignalAtUtc,
     source: "market_feed_v5_counts_and_timestamp",
   });
 }
