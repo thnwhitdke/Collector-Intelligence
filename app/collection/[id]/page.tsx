@@ -33,6 +33,17 @@ type PageProps = {
 
 type RecordDetail = Record<string, string | number | boolean | null>;
 
+type TrackRow = {
+  discogs_release_id: string;
+  position: string | null;
+  side: string | null;
+  track_number: number | null;
+  title: string;
+  duration_raw: string | null;
+  duration_seconds: number | null;
+  artist_credit: string | null;
+};
+
 function getValue(record: RecordDetail, key: string) {
   return record[key] ?? null;
 }
@@ -96,6 +107,15 @@ function formatDate(value: string | number | boolean | null | undefined) {
     day: "numeric",
     year: "numeric",
   }).format(date);
+}
+
+function formatTrackSeconds(seconds: number | null | undefined) {
+  if (!seconds || seconds <= 0) return "—";
+
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+
+  return `${minutes}:${String(remaining).padStart(2, "0")}`;
 }
 
 function getSafeReturnPath({
@@ -235,6 +255,35 @@ export default async function RecordDetailPage({
   const marketSignal = getMarketSignal(forSale);
 
   const discogsReleaseId = getText(record, "discogs_release_id");
+
+  const { data: trackRows } = discogsReleaseId
+    ? await supabase
+        .from("release_tracks")
+        .select(`
+          discogs_release_id,
+          position,
+          side,
+          track_number,
+          title,
+          duration_raw,
+          duration_seconds,
+          artist_credit
+        `)
+        .eq("discogs_release_id", discogsReleaseId)
+        .order("side", {
+          ascending: true,
+          nullsFirst: false,
+        })
+        .order("track_number", {
+          ascending: true,
+          nullsFirst: false,
+        })
+        .order("position", {
+          ascending: true,
+        })
+    : { data: [] };
+
+  const tracks = (trackRows ?? []) as TrackRow[];
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#090909] text-[#F4EFE6]">
@@ -610,6 +659,11 @@ export default async function RecordDetailPage({
               />
             </section>
 
+            <TrackIntelligenceSection
+              tracks={tracks}
+              discogsReleaseId={discogsReleaseId}
+            />
+
             {/* RELEASE DETAILS */}
             <Section title="Release Details">
               <form action={updateReleaseDetails} className="space-y-5">
@@ -829,6 +883,143 @@ export default async function RecordDetailPage({
         </section>
       </div>
     </main>
+  );
+}
+
+/* ============================================================================
+   TRACK INTELLIGENCE
+============================================================================ */
+
+function TrackIntelligenceSection({
+  tracks,
+  discogsReleaseId,
+}: {
+  tracks: TrackRow[];
+  discogsReleaseId: string;
+}) {
+  const grouped = tracks.reduce<Record<string, TrackRow[]>>((acc, track) => {
+    const side = track.side || "Release Sequence";
+
+    if (!acc[side]) {
+      acc[side] = [];
+    }
+
+    acc[side].push(track);
+
+    return acc;
+  }, {});
+
+  const totalSeconds = tracks.reduce(
+    (sum, track) => sum + (track.duration_seconds || 0),
+    0
+  );
+
+  const runtime =
+    totalSeconds > 0
+      ? formatTrackSeconds(totalSeconds)
+      : "Runtime unavailable";
+
+  return (
+    <section className="rounded-[32px] border border-cyan-400/20 bg-cyan-400/5 p-6 shadow-xl backdrop-blur-xl">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">
+            Album Intelligence
+          </p>
+
+          <h3 className="mt-3 text-3xl font-black">
+            Track Listing
+          </h3>
+
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">
+            Sequencing, side structure, runtime, and track-level intelligence
+            synced from the Collector Intelligence track engine.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-cyan-300/20 bg-black/30 px-5 py-4 text-right">
+          <p className="text-xs uppercase tracking-[0.18em] text-cyan-200">
+            Tracks
+          </p>
+
+          <p className="mt-2 text-3xl font-black text-white">
+            {tracks.length}
+          </p>
+
+          <p className="mt-1 text-xs text-white/50">
+            {runtime}
+          </p>
+        </div>
+      </div>
+
+      {tracks.length > 0 ? (
+        <div className="space-y-6">
+          {Object.entries(grouped).map(([side, sideTracks]) => (
+            <div
+              key={side}
+              className="rounded-[26px] border border-white/10 bg-black/25 p-5"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-[#D8B86A]">
+                  {side === "Release Sequence" ? "Track Sequence" : `Side ${side}`}
+                </p>
+
+                <p className="text-xs text-white/50">
+                  {sideTracks.length} track{sideTracks.length === 1 ? "" : "s"}
+                </p>
+              </div>
+
+              <div className="divide-y divide-white/10">
+                {sideTracks.map((track) => (
+                  <div
+                    key={`${track.discogs_release_id}-${track.position}-${track.title}`}
+                    className="grid gap-4 py-4 md:grid-cols-[80px_1fr_90px]"
+                  >
+                    <div className="font-mono text-sm font-black text-cyan-200">
+                      {track.position || "—"}
+                    </div>
+
+                    <div>
+                      <p className="text-lg font-black text-white">
+                        {track.title}
+                      </p>
+
+                      {track.artist_credit ? (
+                        <p className="mt-1 text-sm text-white/50">
+                          {track.artist_credit}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="text-right text-sm font-bold text-[#D8B86A]">
+                      {track.duration_raw || formatTrackSeconds(track.duration_seconds)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-[26px] border border-dashed border-white/10 bg-black/20 p-8 text-center">
+          <p className="text-lg font-black text-white">
+            No track listing synced yet.
+          </p>
+
+          <p className="mt-2 text-sm text-white/50">
+            Discogs release {discogsReleaseId || "ID missing"} will populate
+            through the automatic track-sync engine when available.
+          </p>
+
+          <Link
+            href="/collection/track-intelligence"
+            className="mt-5 inline-flex rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-5 py-3 text-sm font-bold text-cyan-100"
+          >
+            Open Track Intelligence
+          </Link>
+        </div>
+      )}
+    </section>
   );
 }
 
