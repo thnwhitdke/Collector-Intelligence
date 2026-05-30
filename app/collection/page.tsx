@@ -69,9 +69,41 @@ export default function CollectionPage() {
   const [tickerIndex, setTickerIndex] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [feedCounts, setFeedCounts] = useState({
+    hot: 0,
+    supply: 0,
+    buy: 0,
+    risk: 0,
+    iq: 0,
+  });
+  const [latestSignalAt, setLatestSignalAt] = useState<string | null>(null);
   const [signalFilter, setSignalFilter] = useState<
     "all" | "hot" | "supply" | "buy" | "risk" | "iq"
   >("all");
+
+  useEffect(() => {
+    async function loadMarketFeedSummary() {
+      try {
+        const response = await fetch("/api/market-feed", {
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (data.signalCounts) {
+          setFeedCounts(data.signalCounts);
+        }
+
+        if (data.latestSignalAt) {
+          setLatestSignalAt(data.latestSignalAt);
+        }
+      } catch (error) {
+        console.error("Market feed summary failed:", error);
+      }
+    }
+
+    loadMarketFeedSummary();
+  }, []);
 
   async function loadCollectionMetrics(currentUserId: string) {
     try {
@@ -343,25 +375,11 @@ export default function CollectionPage() {
     return Array.from(counts.values()).filter((c) => c > 1).length;
   }, [collectionRecords]);
 
-  const hotMarketCount = collectionRecords.filter((record) =>
-    String(record.market_momentum || "").toLowerCase().includes("acceler"),
-  ).length;
-
-  const tightSupplyCount = collectionRecords.filter(
-    (record) => score(record.supply_pressure) >= 50,
-  ).length;
-
-  const buyWatchCount = collectionRecords.filter(
-    (record) => score(record.demand_score) >= 50,
-  ).length;
-
-  const riskWatchCount = collectionRecords.filter(
-    (record) => score(record.volatility_score) >= 50,
-  ).length;
-
-  const iqLeaderCount = collectionRecords.filter(
-    (record) => score(record.collector_iq_score) >= 100,
-  ).length;
+  const hotMarketCount = feedCounts.hot;
+  const tightSupplyCount = feedCounts.supply;
+  const buyWatchCount = feedCounts.buy;
+  const riskWatchCount = feedCounts.risk;
+  const iqLeaderCount = feedCounts.iq;
 
   const tickerMessages = [
     `Portfolio Value ${money(portfolioValue)}`,
