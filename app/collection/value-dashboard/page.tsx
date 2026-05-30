@@ -147,6 +147,13 @@ export default function ValueDashboardPage() {
   const [movers, setMovers] = useState<DashboardMover[]>([])
   const [portfolioTrend, setPortfolioTrend] = useState<PortfolioTrend | null>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserId(data.user?.id || null)
+    })
+  }, [])
 
   const loadIntelligence = useCallback(async () => {
     try {
@@ -169,7 +176,7 @@ export default function ValueDashboardPage() {
 
   const loadRecords = useCallback(
     async (reset = false) => {
-      if (loading) return
+      if (loading || !userId) return
 
       setLoading(true)
 
@@ -184,6 +191,7 @@ export default function ValueDashboardPage() {
       let query = supabase
         .from('records_clean_safe')
         .select('*')
+        .eq('user_id', userId || '')
         .order('estimated_value', {
           ascending: false,
           nullsFirst: false,

@@ -3,6 +3,13 @@ import CINavigation from "@/app/components/CINavigation";
 
 export default async function MarketLeadersPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
 
   const { data: hottest } = await supabase
     .from("records_clean_safe")
@@ -21,6 +28,7 @@ export default async function MarketLeadersPage() {
     .order("collector_iq_score", {
       ascending: false,
     })
+    .eq("user_id", user.id)
     .limit(10);
 
   const { data: volatile } = await supabase
@@ -36,6 +44,7 @@ export default async function MarketLeadersPage() {
     .order("volatility_score", {
       ascending: false,
     })
+    .eq("user_id", user.id)
     .limit(10);
 
   const { data: rarest } = await supabase
@@ -51,6 +60,7 @@ export default async function MarketLeadersPage() {
     .order("rarity_index", {
       ascending: false,
     })
+    .eq("user_id", user.id)
     .limit(10);
 
   const { data: velocity } = await supabase
@@ -66,6 +76,7 @@ export default async function MarketLeadersPage() {
     .order("collector_velocity", {
       ascending: false,
     })
+    .eq("user_id", user.id)
     .limit(10);
 
   return (
