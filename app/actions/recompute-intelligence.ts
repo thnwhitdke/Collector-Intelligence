@@ -18,12 +18,19 @@ export async function recomputeIntelligence(
       id,
       artist,
       title,
-      discogs_release_id
+      discogs_release_id,
+      volatility_score,
+      demand_score,
+      supply_pressure,
+      market_momentum
     `)
     .not(
       "discogs_release_id",
       "is",
       null
+    )
+    .or(
+      "volatility_score.eq.0,demand_score.eq.0,supply_pressure.eq.0,market_momentum.is.null"
     )
     .order(
       "id",
@@ -52,11 +59,6 @@ export async function recomputeIntelligence(
     processed++;
 
     try {
-
-      console.log(
-        `RECOMPUTE ${record.id} ${record.artist} - ${record.title}`
-      );
-
       const formData =
         new FormData();
 
@@ -85,11 +87,9 @@ export async function recomputeIntelligence(
         ok: true,
         result,
       });
-
     } catch (
       err: any
     ) {
-
       results.push({
         id:
           record.id,
@@ -105,6 +105,8 @@ export async function recomputeIntelligence(
     ok: true,
     processed,
     updated,
+    remainingCandidateBatch:
+      records?.length ?? 0,
     results,
   };
 }
