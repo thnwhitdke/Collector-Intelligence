@@ -69,6 +69,9 @@ export default function CollectionPage() {
   const [tickerIndex, setTickerIndex] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [signalFilter, setSignalFilter] = useState<
+    "all" | "hot" | "supply" | "buy" | "risk" | "iq"
+  >("all");
 
   async function loadCollectionMetrics(currentUserId: string) {
     try {
@@ -271,20 +274,44 @@ export default function CollectionPage() {
   }
 
   const displayedRecords = useMemo(() => {
-    if (!showDuplicatesOnly) return collectionRecords;
+    let filtered = collectionRecords;
+
+    if (signalFilter === "hot") {
+      filtered = filtered.filter((record) =>
+        String(record.market_momentum || "").toLowerCase().includes("acceler"),
+      );
+    }
+
+    if (signalFilter === "supply") {
+      filtered = filtered.filter((record) => score(record.supply_pressure) >= 50);
+    }
+
+    if (signalFilter === "buy") {
+      filtered = filtered.filter((record) => score(record.demand_score) >= 50);
+    }
+
+    if (signalFilter === "risk") {
+      filtered = filtered.filter((record) => score(record.volatility_score) >= 50);
+    }
+
+    if (signalFilter === "iq") {
+      filtered = filtered.filter((record) => score(record.collector_iq_score) >= 100);
+    }
+
+    if (!showDuplicatesOnly) return filtered;
 
     const counts = new Map<string, number>();
 
-    collectionRecords.forEach((record) => {
+    filtered.forEach((record) => {
       const key = `${record.artist}|${record.title}`;
       counts.set(key, (counts.get(key) || 0) + 1);
     });
 
-    return collectionRecords.filter((record) => {
+    return filtered.filter((record) => {
       const key = `${record.artist}|${record.title}`;
       return (counts.get(key) || 0) > 1;
     });
-  }, [collectionRecords, showDuplicatesOnly]);
+  }, [collectionRecords, showDuplicatesOnly, signalFilter]);
 
   const enrichmentCoverage = useMemo(() => {
     if (!collectionRecords.length) return 0;
@@ -442,6 +469,8 @@ export default function CollectionPage() {
             value={hotMarketCount}
             helper="Accelerating records"
             tone="orange"
+            active={signalFilter === "hot"}
+            onClick={() => setSignalFilter(signalFilter === "hot" ? "all" : "hot")}
           />
 
           <SignalCard
@@ -449,6 +478,8 @@ export default function CollectionPage() {
             value={tightSupplyCount}
             helper="Supply pressure"
             tone="yellow"
+            active={signalFilter === "supply"}
+            onClick={() => setSignalFilter(signalFilter === "supply" ? "all" : "supply")}
           />
 
           <SignalCard
@@ -456,6 +487,8 @@ export default function CollectionPage() {
             value={buyWatchCount}
             helper="Demand signals"
             tone="green"
+            active={signalFilter === "buy"}
+            onClick={() => setSignalFilter(signalFilter === "buy" ? "all" : "buy")}
           />
 
           <SignalCard
@@ -463,6 +496,8 @@ export default function CollectionPage() {
             value={riskWatchCount}
             helper="Volatility signals"
             tone="red"
+            active={signalFilter === "risk"}
+            onClick={() => setSignalFilter(signalFilter === "risk" ? "all" : "risk")}
           />
 
           <SignalCard
@@ -470,6 +505,8 @@ export default function CollectionPage() {
             value={iqLeaderCount}
             helper="IQ 100+"
             tone="cyan"
+            active={signalFilter === "iq"}
+            onClick={() => setSignalFilter(signalFilter === "iq" ? "all" : "iq")}
           />
         </section>
 
@@ -710,11 +747,15 @@ function SignalCard({
   value,
   helper,
   tone,
+  active = false,
+  onClick,
 }: {
   label: string;
   value: number;
   helper: string;
   tone: "orange" | "yellow" | "green" | "red" | "cyan";
+  active?: boolean;
+  onClick?: () => void;
 }) {
   const classes = {
     orange: "border-orange-500/20 bg-orange-500/[0.08] text-orange-200",
@@ -725,7 +766,13 @@ function SignalCard({
   };
 
   return (
-    <div className={`rounded-[28px] border p-5 ${classes[tone]}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-[28px] border p-5 text-left transition hover:-translate-y-1 hover:border-[#D8B65A]/40 ${
+        classes[tone]
+      } ${active ? "ring-2 ring-[#D8B65A]/50" : ""}`}
+    >
       <p className="text-xs font-black uppercase tracking-[0.22em]">
         {label}
       </p>
@@ -735,9 +782,9 @@ function SignalCard({
       </p>
 
       <p className="mt-2 text-sm text-[#B8AA96]">
-        {helper}
+        {active ? "Filtered view active" : helper}
       </p>
-    </div>
+    </button>
   );
 }
 

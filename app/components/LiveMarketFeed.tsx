@@ -6,6 +6,15 @@ type FeedItem = {
   id: string;
   status: "LIVE" | "ALERT" | "TRENDING";
   color: "blue" | "green" | "orange" | "red";
+  signalType?:
+    | "thin_market"
+    | "volatility"
+    | "value_leader"
+    | "hot_market"
+    | "buy_watch"
+    | "risk_watch"
+    | "iq_leader"
+    | "live_signal";
   artist: string;
   title: string;
   message: string;
@@ -14,11 +23,19 @@ type FeedItem = {
 };
 
 function getSignalLabel(item: FeedItem) {
+  if (item.signalType === "hot_market") return "Hot Market";
+  if (item.signalType === "buy_watch") return "Buy Watch";
+  if (item.signalType === "iq_leader") return "IQ Leader";
+  if (item.signalType === "value_leader") return "Value Leader";
+  if (item.signalType === "thin_market") return "Thin Market";
+  if (item.signalType === "volatility") return "Volatility";
+  if (item.signalType === "risk_watch") return "Risk Watch";
+
   const text = item.message.toLowerCase();
 
   if (text.includes("thin market")) return "Thin Market";
   if (text.includes("volatile")) return "Volatile";
-  if (text.includes("high spread")) return "Wide Spread";
+  if (text.includes("spread")) return "Wide Spread";
   if (item.status === "TRENDING") return "Trending";
 
   return "Live Signal";
@@ -128,31 +145,45 @@ export default function LiveMarketFeed() {
       ...sorted.slice(0, offset),
     ];
 
-    const thin = rotated.find((item) =>
-      item.message.toLowerCase().includes("thin market")
-    );
+    const preferredTypes = [
+      "hot_market",
+      "buy_watch",
+      "iq_leader",
+      "value_leader",
+      "thin_market",
+      "volatility",
+      "risk_watch",
+      "live_signal",
+    ];
 
-    const volatile = rotated.find((item) =>
-      item.message.toLowerCase().includes("volatile") ||
-      item.message.toLowerCase().includes("spread")
-    );
+    const selected: FeedItem[] = [];
+    const seenArtists = new Set<string>();
 
-    const recent = rotated.find(
-      (item) =>
-        item.id !== thin?.id &&
-        item.id !== volatile?.id
-    );
+    for (const type of preferredTypes) {
+      const match = rotated.find((item) => {
+        const key = `${item.artist}-${item.title}`.toLowerCase();
+
+        return (
+          item.signalType === type &&
+          !selected.some((selectedItem) => selectedItem.id === item.id) &&
+          !seenArtists.has(key)
+        );
+      });
+
+      if (match) {
+        selected.push(match);
+        seenArtists.add(`${match.artist}-${match.title}`.toLowerCase());
+      }
+
+      if (selected.length >= 6) break;
+    }
 
     const fallback = rotated.filter(
       (item) =>
-        item.id !== thin?.id &&
-        item.id !== volatile?.id &&
-        item.id !== recent?.id
+        !selected.some((selectedItem) => selectedItem.id === item.id)
     );
 
-    return [thin, volatile, recent, ...fallback]
-      .filter((item): item is FeedItem => Boolean(item))
-      .slice(0, 3);
+    return [...selected, ...fallback].slice(0, 6);
   })();
 
   const latestTimestamp = feed[0]?.timestamp ?? null;
@@ -246,7 +277,7 @@ export default function LiveMarketFeed() {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {featured.map((item) => {
           const classes = getColorClasses(item.color);
           const label = getSignalLabel(item);
@@ -279,9 +310,7 @@ export default function LiveMarketFeed() {
               </p>
 
               <div className="mt-4 text-xs uppercase tracking-[0.18em] text-zinc-500">
-                {item.message.toLowerCase().includes("thin market")
-                  ? "Supply constraint"
-                  : "Price spread signal"}
+                {getSignalLabel(item)} signal
               </div>
             </div>
           );
