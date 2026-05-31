@@ -75,6 +75,30 @@ function priorityClass(priority: string | null | undefined) {
   }
 }
 
+
+function marketSupplyLabel(
+  forSale: number | null | undefined,
+  price?: number | null,
+) {
+  if (forSale === null || forSale === undefined) {
+    return "Marketplace Unknown";
+  }
+
+  if (forSale === 0 && (price === null || price === undefined)) {
+    return "No Copies Listed";
+  }
+
+  if (forSale <= 2) {
+    return `Extremely Limited (${forSale})`;
+  }
+
+  if (forSale <= 10) {
+    return `Limited Supply (${forSale})`;
+  }
+
+  return `Active Market (${forSale})`;
+}
+
 function signalClass(signal: string | null | undefined) {
   if (!signal) return "border-[#3A3025] bg-[#100D09] text-[#D8C39B]";
 
@@ -483,7 +507,13 @@ export default async function WantListPage() {
                       <div className="mt-6 rounded-[30px] border border-[#2E2418] bg-[#0B0907] p-5">
                         <div className="grid gap-4 md:grid-cols-3">
                           <MiniMetric label="Lowest Ask" value={money(item.marketplace_lowest_price)} />
-                          <MiniMetric label="For Sale" value={item.marketplace_for_sale_count === null || item.marketplace_for_sale_count === undefined ? "Unknown" : String(item.marketplace_for_sale_count)} />
+                          <MiniMetric
+                            label="Market Supply"
+                            value={marketSupplyLabel(
+                              item.marketplace_for_sale_count,
+                              item.marketplace_lowest_price,
+                            )}
+                          />
                           <MiniMetric
                             label="Community"
                             value={community ? `${community.want} want / ${community.have} have` : "—"}
