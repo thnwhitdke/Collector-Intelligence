@@ -161,7 +161,7 @@ function parseCommunity(notes: string | null | undefined) {
 function intelligenceNarrative(item: WantItem) {
   const signal = item.market_signal ?? "Market Monitored";
   const pressure = scoreNumber(item.acquisition_pressure);
-  const forSale = item.marketplace_for_sale_count ?? 0;
+  const forSale = item.marketplace_for_sale_count;
   const price = item.marketplace_lowest_price;
 
   if (signal.includes("Ultra Rare")) {
@@ -180,7 +180,7 @@ function intelligenceNarrative(item: WantItem) {
     return "This is a high-cost acquisition target. Price discipline and timing matter more than speed.";
   }
 
-  if (forSale >= 25) {
+  if (forSale !== null && forSale !== undefined && forSale >= 25) {
     return "Supply is available. This target may benefit from patience, comparison shopping, and condition discipline.";
   }
 
@@ -483,7 +483,7 @@ export default async function WantListPage() {
                       <div className="mt-6 rounded-[30px] border border-[#2E2418] bg-[#0B0907] p-5">
                         <div className="grid gap-4 md:grid-cols-3">
                           <MiniMetric label="Lowest Ask" value={money(item.marketplace_lowest_price)} />
-                          <MiniMetric label="For Sale" value={String(item.marketplace_for_sale_count ?? 0)} />
+                          <MiniMetric label="For Sale" value={item.marketplace_for_sale_count === null || item.marketplace_for_sale_count === undefined ? "Unknown" : String(item.marketplace_for_sale_count)} />
                           <MiniMetric
                             label="Community"
                             value={community ? `${community.want} want / ${community.have} have` : "—"}

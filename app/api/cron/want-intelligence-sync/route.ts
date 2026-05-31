@@ -150,7 +150,7 @@ function calculateRarityScore(forSale: number | null, price: number | null) {
     forSale === null
       ? 35
       : forSale <= 0
-        ? 100
+        ? 45
         : forSale <= 1
           ? 95
           : forSale <= 2
@@ -246,7 +246,7 @@ function buildHistorySignal({
   currentForSale: number | null;
   pressure: number;
 }) {
-  if (previousForSale === 0 && currentForSale && currentForSale > 0) {
+  if (previousForSale !== null && previousForSale === 0 && currentForSale && currentForSale > 0) {
     return "New Listing";
   }
 

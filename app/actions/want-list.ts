@@ -119,7 +119,7 @@ async function fetchDiscogsListingCount(
         await response.text(),
       );
 
-      return 0;
+      return null;
     }
 
     const json =
@@ -140,24 +140,14 @@ async function fetchDiscogsListingCount(
           )
         : null;
 
- return (
-  toNumber(
-    pagination?.items,
-  ) ?? 0
-);
-
-return (
-  toNumber(
-    pagination?.items,
-  ) ?? 0
-);
+ return toNumber(pagination?.items);
   } catch (error) {
     console.error(
       "Discogs listing lookup crashed:",
       error,
     );
 
-    return 0;
+    return null;
   }
 }
 
@@ -242,7 +232,7 @@ function normalizeReleaseForWantList(
       typeof fetchDiscogsMarketplace
     >
   >,
-  listingCount: number,
+  listingCount: number | null,
 ) {
   const artists = Array.isArray(release.artists)
     ? release.artists
@@ -320,6 +310,138 @@ function normalizeReleaseForWantList(
           )} want`
         : null,
     updated_at: new Date().toISOString(),
+  };
+}
+
+
+function clampScore(value: number, min = 0, max = 100) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function calculateWantRarityScore(forSale: number | null, price: number | null) {
+  const supplyScore =
+    forSale === null
+      ? 35
+      : forSale <= 0
+        ? 100
+        : forSale <= 1
+          ? 95
+          : forSale <= 2
+            ? 90
+            : forSale <= 5
+              ? 80
+              : forSale <= 10
+                ? 68
+                : forSale <= 25
+                  ? 48
+                  : forSale <= 50
+                    ? 28
+                    : 12;
+
+  const priceScore =
+    price === null
+      ? 0
+      : price >= 1000
+        ? 25
+        : price >= 500
+          ? 18
+          : price >= 250
+            ? 12
+            : price >= 100
+              ? 7
+              : 0;
+
+  return clampScore(supplyScore + priceScore);
+}
+
+function calculateWantDemandScore(notes: string | null | undefined) {
+  if (!notes) return 35;
+
+  const match = notes.match(/(\d+)\s+have\s+\/\s+(\d+)\s+want/i);
+
+  if (!match) return 35;
+
+  const have = Number(match[1]);
+  const want = Number(match[2]);
+
+  if (!Number.isFinite(want)) return 35;
+
+  const ratio = have && have > 0 ? want / have : want;
+
+  const ratioScore =
+    ratio >= 5
+      ? 100
+      : ratio >= 3
+        ? 88
+        : ratio >= 2
+          ? 74
+          : ratio >= 1
+            ? 58
+            : ratio >= 0.5
+              ? 38
+              : 22;
+
+  const volumeBonus =
+    want >= 1000
+      ? 15
+      : want >= 500
+        ? 10
+        : want >= 100
+          ? 5
+          : 0;
+
+  return clampScore(ratioScore + volumeBonus);
+}
+
+function buildWantSignal({
+  rarityScore,
+  demandScore,
+  pressure,
+  forSale,
+  price,
+}: {
+  rarityScore: number;
+  demandScore: number;
+  pressure: number;
+  forSale: number | null;
+  price: number | null;
+}) {
+  if (pressure >= 88) return "Ultra Rare / High Demand";
+  if (rarityScore >= 90 && demandScore >= 70) return "Rare Demand Collision";
+  if (forSale !== null && forSale <= 2) return "Severe Supply Constraint";
+  if (demandScore >= 80) return "Demand Heat Rising";
+  if (price !== null && price >= 1000) return "High-Cost Acquisition";
+  if (pressure >= 65) return "Priority Watch";
+  return "Market Monitored";
+}
+
+function buildWantIntelligence(
+  forSale: number | null,
+  price: number | null,
+  notes: string | null | undefined,
+) {
+  const rarityScore = calculateWantRarityScore(forSale, price);
+  const demandScore = calculateWantDemandScore(notes);
+  const acquisitionPressure = clampScore(
+    rarityScore * 0.45 +
+      demandScore * 0.4 +
+      (price ? Math.min(price / 50, 15) : 0),
+  );
+
+  return {
+    rarity_score: rarityScore,
+    demand_score: demandScore,
+    acquisition_pressure: acquisitionPressure,
+    market_signal: buildWantSignal({
+      rarityScore,
+      demandScore,
+      pressure: acquisitionPressure,
+      forSale,
+      price,
+    }),
+    sync_status: "synced",
+    sync_error: null,
+    last_sync_at: new Date().toISOString(),
   };
 }
 
@@ -508,25 +630,29 @@ export async function refreshWantListItem(formData: FormData) {
   }
 
   const release = await fetchDiscogsRelease(releaseId);
-  const marketplace =
-  await fetchDiscogsMarketplace(
+  const marketplace = await fetchDiscogsMarketplace(releaseId);
+  const listingCount = await fetchDiscogsListingCount(releaseId);
+
+  const normalized = normalizeReleaseForWantList(
     releaseId,
+    release,
+    marketplace,
+    listingCount,
   );
 
-const listingCount =
-  await fetchDiscogsListingCount(
-    releaseId,
+  const intelligence = buildWantIntelligence(
+    normalized.marketplace_for_sale_count,
+    normalized.marketplace_lowest_price,
+    normalized.notes,
   );
-  const normalized = normalizeReleaseForWantList(
-  releaseId,
-  release,
-  marketplace,
-  listingCount,
-);
 
   const { error } = await supabase
     .from("want_list")
-    .update(normalized)
+    .update({
+      ...normalized,
+      ...intelligence,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .eq("user_id", user.id);
 
