@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/want-intelligence-sync",
       "schedule": "0 */12 * * *"
+    },
+    {
+      "path": "/api/cron/backfill-release-tracks",
+      "schedule": "0 */2 * * *"
     }
   ]
 }
