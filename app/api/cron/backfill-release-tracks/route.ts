@@ -176,7 +176,10 @@ export async function GET() {
 
     const { error: insertError } = await supabase
       .from("release_tracks")
-      .insert(result.tracks);
+      .upsert(result.tracks, {
+        onConflict: "discogs_release_id,position,title",
+        ignoreDuplicates: true,
+      });
 
     if (insertError) {
       skipped++;
