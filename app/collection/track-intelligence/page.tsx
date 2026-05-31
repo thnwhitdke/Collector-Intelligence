@@ -99,6 +99,54 @@ function moodHint(track: TrackRow) {
   return "Catalog";
 }
 
+
+
+function percent(value: number) {
+  if (!Number.isFinite(value)) return "—";
+  return `${value.toFixed(1)}%`;
+}
+
+function nextTwoHourCronEta() {
+  const now = new Date();
+  const next = new Date(now);
+
+  const currentHour = now.getHours();
+  const nextEvenHour =
+    currentHour % 2 === 0
+      ? currentHour + 2
+      : currentHour + 1;
+
+  next.setHours(
+    nextEvenHour,
+    0,
+    0,
+    0,
+  );
+
+  const diffMs =
+    next.getTime() -
+    now.getTime();
+
+  const totalMinutes =
+    Math.max(
+      0,
+      Math.ceil(diffMs / 60000),
+    );
+
+  const hours =
+    Math.floor(totalMinutes / 60);
+
+  const minutes =
+    totalMinutes % 60;
+
+  if (hours <= 0)
+    return `~${minutes}m`;
+
+  if (minutes <= 0)
+    return `~${hours}h`;
+
+  return `~${hours}h ${minutes}m`;
+}
 async function getData(query: string) {
   const supabase = createAdminClient();
 
@@ -139,9 +187,14 @@ async function getData(query: string) {
       .limit(80);
   }
 
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
   const [
     trackCountResult,
     releaseCountResult,
+    totalCollectionResult,
+    indexedTodayResult,
     runtimeResult,
     trackResult,
   ] = await Promise.all([
@@ -152,10 +205,37 @@ async function getData(query: string) {
       .from("track_runtime_intelligence")
       .select("*", { count: "exact", head: true }),
     supabase
+      .from("records_clean_safe")
+      .select("discogs_release_id", {
+        count: "exact",
+        head: true,
+      })
+      .not(
+        "discogs_release_id",
+        "is",
+        null,
+      ),
+
+    supabase
+      .from("release_tracks")
+      .select(
+        "discogs_release_id",
+        {
+          count: "exact",
+          head: true,
+        },
+      )
+      .gte(
+        "created_at",
+        today.toISOString(),
+      ),
+
+    supabase
       .from("track_runtime_intelligence")
       .select("*")
       .order("total_runtime_minutes", { ascending: false })
       .limit(8),
+
     trackQuery,
   ]);
 
@@ -199,6 +279,10 @@ async function getData(query: string) {
   return {
     trackCount: trackCountResult.count || 0,
     releaseCount: releaseCountResult.count || 0,
+    totalCollection:
+      totalCollectionResult.count || 0,
+    indexedToday:
+      indexedTodayResult.count || 0,
     runtimes: (runtimeResult.data ?? []) as RuntimeRow[],
     tracks,
     recordMap,
@@ -218,6 +302,8 @@ export default async function TrackIntelligencePage({
   const {
     trackCount,
     releaseCount,
+    totalCollection,
+    indexedToday,
     runtimes,
     tracks,
     recordMap,
@@ -226,6 +312,35 @@ export default async function TrackIntelligencePage({
   const uniqueReleaseResults = new Set(
     tracks.map((track) => track.discogs_release_id),
   ).size;
+
+
+  const coverage =
+    totalCollection > 0
+      ? (releaseCount /
+          totalCollection) *
+        100
+      : 0;
+
+  const remaining =
+    Math.max(
+      totalCollection -
+        releaseCount,
+      0,
+    );
+
+  const estimatedDays =
+    remaining === 0
+      ? "Complete"
+      : `~${Math.max(
+          1,
+          Math.ceil(
+            remaining /
+              Math.max(
+                indexedToday,
+                180,
+              ),
+          ),
+        )} days`;
 
   const longestTrack = tracks
     .filter((track) => track.duration_seconds)
@@ -274,6 +389,90 @@ export default async function TrackIntelligencePage({
               </p>
             </div>
           </div>
+
+          <section className="mt-8 rounded-[34px] border border-[#3A2A18] bg-gradient-to-br from-[#120D08] via-[#080604] to-black p-6">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#D8B65A]">
+                  Live Indexing Engine
+                </p>
+
+                <h2 className="mt-2 text-3xl font-black text-white">
+                  Autonomous Track Coverage
+                </h2>
+
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-[#A99A84]">
+                  Track indexing expands automatically through scheduled backfill jobs.
+                  Refresh this page after cron runs to monitor growth in real time.
+                </p>
+              </div>
+
+              <div className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-emerald-200">
+                Healthy Autonomous Indexing
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+              <div className="rounded-[26px] border border-[#2A2418] bg-black/25 p-4">
+                <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Tracks</p>
+                <p className="mt-2 text-2xl font-black text-[#D8B65A]">
+                  {trackCount.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-[26px] border border-[#2A2418] bg-black/25 p-4">
+                <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Runtime Releases</p>
+                <p className="mt-2 text-2xl font-black text-white">
+                  {releaseCount.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-[26px] border border-[#2A2418] bg-black/25 p-4">
+                <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Coverage</p>
+                <p className="mt-2 text-2xl font-black text-[#D8B65A]">
+                  {percent(coverage)}
+                </p>
+              </div>
+
+              <div className="rounded-[26px] border border-[#2A2418] bg-black/25 p-4">
+                <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Indexed Today</p>
+                <p className="mt-2 text-2xl font-black text-white">
+                  +{indexedToday.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-[26px] border border-[#2A2418] bg-black/25 p-4">
+                <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Next Sync</p>
+                <p className="mt-2 text-2xl font-black text-white">
+                  {nextTwoHourCronEta()}
+                </p>
+              </div>
+
+              <div className="rounded-[26px] border border-[#2A2418] bg-black/25 p-4">
+                <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">ETA</p>
+                <p className="mt-2 text-2xl font-black text-[#D8B65A]">
+                  {estimatedDays}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#241B13]">
+              <div
+                className="h-full rounded-full bg-[#D8B65A]"
+                style={{
+                  width: `${Math.max(
+                    3,
+                    Math.min(
+                      100,
+                      coverage,
+                    ),
+                  )}%`,
+                }}
+              />
+            </div>
+          </section>
+
+
 
           <form
             action="/collection/track-intelligence"
