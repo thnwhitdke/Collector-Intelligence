@@ -241,11 +241,14 @@ async function getData(query: string) {
 
   const tracks = (trackResult.data ?? []) as TrackRow[];
 
+  const runtimeRows = (runtimeResult.data ?? []) as RuntimeRow[];
+
   const releaseIds = Array.from(
     new Set(
-      tracks
-        .map((track) => String(track.discogs_release_id))
-        .filter(Boolean),
+      [
+        ...tracks.map((track) => String(track.discogs_release_id)),
+        ...runtimeRows.map((runtime) => String(runtime.discogs_release_id)),
+      ].filter(Boolean),
     ),
   );
 
@@ -268,11 +271,30 @@ async function getData(query: string) {
 
   const recordMap = new Map<string, RecordMatch>();
 
-  for (const record of (records ?? []) as RecordMatch[]) {
+  const sortedRecords = (
+    (records ?? []) as RecordMatch[]
+  ).sort(
+    (a, b) =>
+      Number(b.id || 0) -
+      Number(a.id || 0),
+  );
+
+  for (const record of sortedRecords) {
     if (!record.discogs_release_id) continue;
 
-    if (!recordMap.has(String(record.discogs_release_id))) {
-      recordMap.set(String(record.discogs_release_id), record);
+    const key = String(record.discogs_release_id);
+
+    if (
+      !recordMap.has(key) ||
+      Number(record.id) >
+        Number(
+          recordMap.get(key)?.id || 0,
+        )
+    ) {
+      recordMap.set(
+        key,
+        record,
+      );
     }
   }
 
@@ -283,7 +305,7 @@ async function getData(query: string) {
       totalCollectionResult.count || 0,
     indexedToday:
       indexedTodayResult.count || 0,
-    runtimes: (runtimeResult.data ?? []) as RuntimeRow[],
+    runtimes: runtimeRows,
     tracks,
     recordMap,
   };
@@ -633,14 +655,43 @@ export default async function TrackIntelligencePage({
                       key={runtime.discogs_release_id}
                       className="rounded-2xl border border-white/10 bg-black/25 p-4"
                     >
-                      <p className="text-sm font-black text-white">
-                        {record?.title || `Release ${runtime.discogs_release_id}`}
-                      </p>
+                      <div className="grid grid-cols-[64px_1fr] gap-4">
+                        {coverFor(record) ? (
+                          <img
+                            src={coverFor(record)!}
+                            alt={record?.title || `Release ${runtime.discogs_release_id}`}
+                            className="h-16 w-16 rounded-2xl object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-[10px] text-zinc-500">
+                            No Art
+                          </div>
+                        )}
 
-                      <p className="mt-1 text-xs text-zinc-500">
-                        {runtime.track_count} tracks ·{" "}
-                        {formatMinutes(runtime.total_runtime_minutes)}
-                      </p>
+                        <div>
+                          <p className="text-sm font-black text-white">
+                            {record?.title || `Release ${runtime.discogs_release_id}`}
+                          </p>
+
+                          <p className="mt-1 text-xs text-zinc-400">
+                            {record?.artist ? formatArtistName(record.artist) : "Unknown Artist"}
+                          </p>
+
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {runtime.track_count} tracks ·{" "}
+                            {formatMinutes(runtime.total_runtime_minutes)}
+                          </p>
+
+                          {record ? (
+                            <Link
+                              href={`/collection/${record.id}`}
+                              className="mt-3 inline-flex rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100"
+                            >
+                              Open CI Record
+                            </Link>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
