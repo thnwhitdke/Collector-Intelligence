@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 
-function toNumber(value: unknown): number {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 export async function GET() {
   const supabase = await createClient();
 
@@ -21,113 +16,80 @@ export async function GET() {
     );
   }
 
-  const { data: records, error } = await supabase
-    .from("records_clean_safe")
-    .select(`
-      id,
-      artist,
-      title,
-      estimated_value,
-      current_value,
-      country,
-      genre,
-      collector_iq_score
-    `)
-    .eq("user_id", user.id);
+  const { data: snapshot, error } = await supabase
+    .from("portfolio_intelligence_snapshots")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", {
+      ascending: false,
+    })
+    .limit(1)
+    .single();
 
-  if (error) {
+  if (error || !snapshot) {
     return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
+      {
+        error: "No portfolio snapshot found",
+      },
+      { status: 404 }
     );
   }
 
-  const safeRecords = records ?? [];
-
-  const getRecordValue = (record: any) =>
-    toNumber(record.estimated_value || record.current_value);
-
-  const totalCollectionValue = safeRecords.reduce(
-    (sum: number, record: any) => sum + getRecordValue(record),
-    0
-  );
-
-  const totalRecords = safeRecords.length;
-
-  const medianValue =
-    totalRecords > 0
-      ? Math.round(totalCollectionValue / totalRecords)
-      : 0;
-
-  const countryMap: Record<string, number> = {};
-
-  for (const record of safeRecords) {
-    const country = record.country || "Unknown";
-    countryMap[country] = (countryMap[country] ?? 0) + 1;
-  }
-
-  const countryDistribution = Object.entries(countryMap)
-    .map(([country, count]) => ({ country, count }))
-    .sort((a, b) => b.count - a.count);
-
-  const genreMap: Record<string, number> = {};
-
-  for (const record of safeRecords) {
-    const genre = record.genre || "Unknown";
-    genreMap[genre] = (genreMap[genre] ?? 0) + 1;
-  }
-
-  const genreDistribution = Object.entries(genreMap)
-    .map(([genre, count]) => ({ genre, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8);
-
-  const topRecords = [...safeRecords]
-    .sort((a: any, b: any) => getRecordValue(b) - getRecordValue(a))
-    .slice(0, 15);
-
-  const averageCollectorIQ =
-    totalRecords > 0
-      ? Math.round(
-          safeRecords.reduce(
-            (sum: number, record: any) =>
-              sum + toNumber(record.collector_iq_score),
-            0
-          ) / totalRecords
-        )
-      : 0;
-
-  const velocity = [
-    {
-      label: "Average Record Value",
-      value: `$${medianValue}`,
-    },
-    {
-      label: "High Value Records",
-      value: String(
-        safeRecords.filter((record: any) => getRecordValue(record) > 500)
-          .length
-      ),
-    },
-    {
-      label: "Elite Tier Records",
-      value: String(
-        safeRecords.filter((record: any) => getRecordValue(record) > 1000)
-          .length
-      ),
-    },
-  ];
-
   return NextResponse.json({
-    totalCollectionValue,
-    totalRecords,
-    medianValue,
-    totalCountries: countryDistribution.length,
-    countryDistribution,
-    genreDistribution,
-    topRecords,
+    totalCollectionValue:
+      snapshot.total_collection_value,
+
+    totalRecords:
+      snapshot.total_records,
+
+    medianValue:
+      snapshot.average_record_value,
+
+    totalCountries:
+      Array.isArray(
+        snapshot.country_distribution
+      )
+        ? snapshot.country_distribution.length
+        : 0,
+
+    countryDistribution:
+      snapshot.country_distribution ?? [],
+
+    genreDistribution:
+      snapshot.genre_distribution ?? [],
+
+    topRecords:
+      snapshot.top_records ?? [],
+
     marketMomentum: [],
-    velocity,
-    averageCollectorIQ,
+
+    velocity: [
+      {
+        label: "Average Record Value",
+        value: `$${Math.round(
+          Number(
+            snapshot.average_record_value || 0
+          )
+        )}`,
+      },
+      {
+        label: "High Value Records",
+        value: String(
+          snapshot.high_value_records || 0
+        ),
+      },
+      {
+        label: "Elite Tier Records",
+        value: String(
+          snapshot.elite_value_records || 0
+        ),
+      },
+    ],
+
+    averageCollectorIQ:
+      snapshot.average_collector_iq ?? 0,
+
+    snapshotCreatedAt:
+      snapshot.created_at,
   });
 }
