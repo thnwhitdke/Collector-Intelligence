@@ -5,9 +5,10 @@ import { recomputePortfolioIntelligenceSnapshot } from "@/app/actions/portfolio-
 export async function GET() {
   const supabase = createAdminClient();
 
-  const { data: users, error } = await supabase
-    .from("profiles")
-    .select("id");
+  const { data: recordOwners, error } = await supabase
+    .from("records_clean_safe")
+    .select("user_id")
+    .not("user_id", "is", null);
 
   if (error) {
     return NextResponse.json(
@@ -19,12 +20,20 @@ export async function GET() {
     );
   }
 
+  const userIds = Array.from(
+    new Set(
+      (recordOwners ?? [])
+        .map((row) => row.user_id)
+        .filter(Boolean)
+    )
+  );
+
   const results = [];
 
-  for (const user of users ?? []) {
+  for (const userId of userIds) {
     const result =
       await recomputePortfolioIntelligenceSnapshot(
-        user.id,
+        userId,
         "scheduled_cron_recompute"
       );
 
