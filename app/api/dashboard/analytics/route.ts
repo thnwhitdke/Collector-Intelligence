@@ -1,15 +1,39 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/src/lib/supabase/server";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function toNumber(value: unknown): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 export async function GET() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
   const { data: records, error } = await supabase
     .from("records_clean_safe")
-    .select("*");
+    .select(`
+      id,
+      artist,
+      title,
+      estimated_value,
+      current_value,
+      country,
+      genre,
+      collector_iq_score
+    `)
+    .eq("user_id", user.id);
 
   if (error) {
     return NextResponse.json(
@@ -18,11 +42,13 @@ export async function GET() {
     );
   }
 
-  const safeRecords = records || [];
+  const safeRecords = records ?? [];
+
+  const getRecordValue = (record: any) =>
+    toNumber(record.estimated_value || record.current_value);
 
   const totalCollectionValue = safeRecords.reduce(
-    (sum: number, r: any) =>
-      sum + Number(r.estimated_value || 0),
+    (sum: number, record: any) => sum + getRecordValue(record),
     0
   );
 
@@ -35,59 +61,41 @@ export async function GET() {
 
   const countryMap: Record<string, number> = {};
 
-  safeRecords.forEach((r: any) => {
-    const country = r.country || "Unknown";
-
-    if (!countryMap[country]) {
-      countryMap[country] = 0;
-    }
-
-    countryMap[country] += 1;
-  });
+  for (const record of safeRecords) {
+    const country = record.country || "Unknown";
+    countryMap[country] = (countryMap[country] ?? 0) + 1;
+  }
 
   const countryDistribution = Object.entries(countryMap)
-    .map(([country, count]) => ({
-      country,
-      count,
-    }))
+    .map(([country, count]) => ({ country, count }))
     .sort((a, b) => b.count - a.count);
 
   const genreMap: Record<string, number> = {};
 
-  safeRecords.forEach((r: any) => {
-    const genre = r.genre || "Unknown";
-
-    if (!genreMap[genre]) {
-      genreMap[genre] = 0;
-    }
-
-    genreMap[genre] += 1;
-  });
+  for (const record of safeRecords) {
+    const genre = record.genre || "Unknown";
+    genreMap[genre] = (genreMap[genre] ?? 0) + 1;
+  }
 
   const genreDistribution = Object.entries(genreMap)
-    .map(([genre, count]) => ({
-      genre,
-      count,
-    }))
+    .map(([genre, count]) => ({ genre, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
 
   const topRecords = [...safeRecords]
-    .sort(
-      (a: any, b: any) =>
-        Number(b.estimated_value || 0) -
-        Number(a.estimated_value || 0)
-    )
+    .sort((a: any, b: any) => getRecordValue(b) - getRecordValue(a))
     .slice(0, 15);
 
-  const marketMomentum = [
-    { month: "Jan", value: 12000 },
-    { month: "Feb", value: 14500 },
-    { month: "Mar", value: 18200 },
-    { month: "Apr", value: 21000 },
-    { month: "May", value: 25800 },
-    { month: "Jun", value: 30500 },
-  ];
+  const averageCollectorIQ =
+    totalRecords > 0
+      ? Math.round(
+          safeRecords.reduce(
+            (sum: number, record: any) =>
+              sum + toNumber(record.collector_iq_score),
+            0
+          ) / totalRecords
+        )
+      : 0;
 
   const velocity = [
     {
@@ -96,38 +104,20 @@ export async function GET() {
     },
     {
       label: "High Value Records",
-      value: `${
-        safeRecords.filter(
-          (r: any) =>
-            Number(r.estimated_value || 0) > 500
-        ).length
-      }`,
+      value: String(
+        safeRecords.filter((record: any) => getRecordValue(record) > 500)
+          .length
+      ),
     },
     {
       label: "Elite Tier Records",
-      value: `${
-        safeRecords.filter(
-          (r: any) =>
-            Number(r.estimated_value || 0) > 1000
-        ).length
-      }`,
+      value: String(
+        safeRecords.filter((record: any) => getRecordValue(record) > 1000)
+          .length
+      ),
     },
   ];
-const averageCollectorIQ =
 
-  records?.length
-    ? records.reduce(
-        (
-          sum,
-          record
-        ) =>
-          sum +
-          Number(
-            record.collector_iq_score || 0
-          ),
-        0
-      ) / records.length
-    : 0;
   return NextResponse.json({
     totalCollectionValue,
     totalRecords,
@@ -136,9 +126,8 @@ const averageCollectorIQ =
     countryDistribution,
     genreDistribution,
     topRecords,
-    marketMomentum,
+    marketMomentum: [],
     velocity,
-    averageCollectorIQ:
-        averageCollectorIQ,
+    averageCollectorIQ,
   });
 }
