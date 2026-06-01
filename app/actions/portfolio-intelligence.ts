@@ -49,6 +49,71 @@ function recordValue(record: any): number {
   );
 }
 
+function confidenceLabel(score: number): string {
+  if (score >= 85) return "High";
+  if (score >= 65) return "Moderate";
+  if (score >= 40) return "Developing";
+  return "Low";
+}
+
+function buildPortfolioConfidence(records: any[]) {
+  const totalRecords = records.length;
+
+  if (totalRecords === 0) {
+    return {
+      score: 0,
+      label: "Low",
+      summary:
+        "Collector Intelligence does not yet have enough portfolio data to produce a reliable intelligence summary.",
+      reasons: [
+        "No collection records were available for this portfolio snapshot.",
+      ],
+    };
+  }
+
+  const valuedRecords = records.filter((record) => recordValue(record) > 0).length;
+  const iqRecords = records.filter((record) => toNumber(record.collector_iq_score) > 0).length;
+  const demandRecords = records.filter((record) => toNumber(record.demand_score) > 0).length;
+  const rarityRecords = records.filter((record) => toNumber(record.rarity_score) > 0).length;
+
+  const valueCoverage = valuedRecords / totalRecords;
+  const iqCoverage = iqRecords / totalRecords;
+  const demandCoverage = demandRecords / totalRecords;
+  const rarityCoverage = rarityRecords / totalRecords;
+
+  const score = Math.round(
+    valueCoverage * 35 +
+      iqCoverage * 25 +
+      demandCoverage * 20 +
+      rarityCoverage * 20
+  );
+
+  const label = confidenceLabel(score);
+
+  const reasons = [
+    `${valuedRecords} of ${totalRecords} records have usable value intelligence.`,
+    `${iqRecords} of ${totalRecords} records have Collector IQ signals.`,
+    `${demandRecords} of ${totalRecords} records have demand signals.`,
+    `${rarityRecords} of ${totalRecords} records have rarity signals.`,
+  ];
+
+  const summary =
+    score >= 85
+      ? "Collector Intelligence has strong coverage across value, IQ, demand, and rarity signals for this portfolio."
+      : score >= 65
+        ? "Collector Intelligence has moderate intelligence coverage, with enough signal density for useful portfolio-level interpretation."
+        : score >= 40
+          ? "Collector Intelligence is still developing confidence for this portfolio because some intelligence signals remain incomplete."
+          : "Collector Intelligence has low confidence for this portfolio snapshot because too many intelligence signals are missing or incomplete.";
+
+  return {
+    score,
+    label,
+    summary,
+    reasons,
+  };
+}
+
 export async function recomputePortfolioIntelligenceSnapshot(
   userId: string,
   snapshotReason = "manual_recompute"
@@ -179,6 +244,8 @@ export async function recomputePortfolioIntelligenceSnapshot(
       market_momentum: record.market_momentum ?? null,
     }));
 
+  const confidence = buildPortfolioConfidence(safeRecords);
+
   const { data: inserted, error: insertError } = await supabase
     .from("portfolio_intelligence_snapshots")
     .insert({
@@ -200,6 +267,10 @@ export async function recomputePortfolioIntelligenceSnapshot(
       genre_distribution: distribution(safeRecords, "genre", 8),
       top_records: topRecords,
       snapshot_reason: snapshotReason,
+      intelligence_confidence_score: confidence.score,
+      intelligence_confidence_label: confidence.label,
+      intelligence_summary: confidence.summary,
+      intelligence_reasons: confidence.reasons,
     })
     .select("id")
     .single();
