@@ -4,44 +4,12 @@ import { createClient } from "../../src/lib/supabase/server";
 import { refreshValueIntelligence } from "@/app/actions/value-intelligence";
 
 /**
- * MARKET INTELLIGENCE ENGINE v3
+ * MARKET INTELLIGENCE ENGINE v2
  *
- * Pulls Discogs marketplace intelligence,
- * persists current valuation intelligence into records_clean_safe,
- * and appends every successful sync into market_history.
- *
- * This turns each market sync into proprietary CI market memory.
+ * Pulls Discogs marketplace intelligence
+ * and persists valuation intelligence
+ * into records_clean_safe
  */
-
-type MarketSyncRecord = {
-  id: number | string;
-  user_id: string | null;
-  title: string | null;
-  artist: string | null;
-  discogs_release_id: string | number | null;
-};
-
-function toNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-
-  return parsed;
-}
-
-function roundMoney(value: number | null): number | null {
-  if (value === null) {
-    return null;
-  }
-
-  return Number(value.toFixed(2));
-}
 
 export async function syncMarketValues(limit = 25) {
   try {
@@ -49,9 +17,7 @@ export async function syncMarketValues(limit = 25) {
 
     /**
      * STEP 1
-     * Find records with release IDs.
-     *
-     * user_id is now selected because market_history is user-scoped.
+     * Find records with release IDs
      */
 
     const { data: records, error: recordsError } =
@@ -59,7 +25,6 @@ export async function syncMarketValues(limit = 25) {
         .from("records_clean_safe")
         .select(`
           id,
-          user_id,
           title,
           artist,
           discogs_release_id
@@ -75,21 +40,19 @@ export async function syncMarketValues(limit = 25) {
       return {
         success: true,
         updated: 0,
-        historyInserted: 0,
         message: "No records found",
       };
     }
 
     let updated = 0;
-    let historyInserted = 0;
     const errors: string[] = [];
 
     /**
      * STEP 2
-     * Pull marketplace intelligence.
+     * Pull marketplace intelligence
      */
 
-    for (const record of records as MarketSyncRecord[]) {
+    for (const record of records) {
       try {
         if (!record.discogs_release_id) continue;
 
@@ -163,38 +126,45 @@ export async function syncMarketValues(limit = 25) {
          * Marketplace intelligence
          */
 
-        const lowestPrice = toNumber(
+        const lowestPrice =
           marketData.lowest_price?.value ??
-            marketData.lowest_price
-        );
+          marketData.lowest_price ??
+          null;
 
-        const medianPrice = toNumber(
+        const medianPrice =
           marketData.median_price?.value ??
-            marketData.median_price
-        );
+          marketData.median_price ??
+          null;
 
-        const highestPrice = toNumber(
+        const highestPrice =
           marketData.highest_price?.value ??
-            marketData.highest_price
-        );
+          marketData.highest_price ??
+          null;
 
         const numForSale =
-          toNumber(
-            releaseData["num_for_sale"] ??
-              marketData.num_for_sale
-          ) ?? 0;
+          releaseData["num_for_sale"] ??
+          marketData.num_for_sale ??
+          0;
 
         /**
          * Smart value logic
          * Tier 2 foundation
          */
 
-        const estimatedValue = roundMoney(
+        let estimatedValue =
           medianPrice ??
-            lowestPrice ??
-            highestPrice ??
-            null
-        );
+          lowestPrice ??
+          highestPrice ??
+          null;
+
+        if (
+          estimatedValue &&
+          estimatedValue > 0
+        ) {
+          estimatedValue = Number(
+            estimatedValue.toFixed(2)
+          );
+        }
 
         /**
          * Market pressure
@@ -212,11 +182,9 @@ export async function syncMarketValues(limit = 25) {
           );
         }
 
-        const capturedAt = new Date().toISOString();
-
         /**
          * STEP 3
-         * Persist current intelligence.
+         * Persist intelligence
          */
 
         console.log(
@@ -245,100 +213,21 @@ export async function syncMarketValues(limit = 25) {
               market_for_sale_ratio: forSaleRatio,
 
               valuation_source:
-                "discogs_marketplace_v3",
+                "discogs_marketplace_v2",
 
               valuation_updated_at:
-                capturedAt,
+                new Date().toISOString(),
 
               value_source:
-                "discogs_marketplace_v3",
+                "discogs_marketplace_v2",
 
               value_last_updated:
-                capturedAt,
+                new Date().toISOString(),
             })
             .eq("id", record.id);
 
         if (updateError) {
           throw updateError;
-        }
-
-        /**
-         * STEP 4
-         * Append proprietary market memory.
-         *
-         * This is the moat:
-         * every successful sync becomes historical CI intelligence.
-         */
-
-        if (record.user_id) {
-          const { error: historyError } =
-            await supabase
-              .from("market_history")
-              .insert({
-                user_id: record.user_id,
-                record_id: Number(record.id),
-                discogs_release_id: toNumber(
-                  record.discogs_release_id
-                ),
-
-                source: "discogs_marketplace_v3",
-
-                low_price: lowestPrice,
-                median_price: medianPrice,
-                high_price: highestPrice,
-                estimated_value: estimatedValue,
-
-                discogs_low_price: lowestPrice,
-                discogs_median_price: medianPrice,
-                discogs_high_price: highestPrice,
-
-                for_sale_count: numForSale,
-                discogs_for_sale: numForSale,
-
-                currency: "USD",
-
-                raw_payload: {
-                  marketData,
-                  releaseData: {
-                    id: releaseData["id"],
-                    num_for_sale: releaseData["num_for_sale"],
-                    lowest_price: releaseData["lowest_price"],
-                    released: releaseData["released"],
-                    country: releaseData["country"],
-                    formats: releaseData["formats"],
-                    labels: releaseData["labels"],
-                  },
-                },
-
-                captured_at: capturedAt,
-              });
-
-          if (historyError) {
-            console.error(
-              "MARKET HISTORY INSERT ERROR:",
-              record.artist,
-              "-",
-              record.title,
-              historyError
-            );
-
-            errors.push(
-              `History failed: ${record.artist} - ${record.title}`
-            );
-          } else {
-            historyInserted++;
-          }
-        } else {
-          console.warn(
-            "MARKET HISTORY SKIPPED — missing user_id:",
-            record.artist,
-            "-",
-            record.title
-          );
-
-          errors.push(
-            `History skipped missing user_id: ${record.artist} - ${record.title}`
-          );
         }
 
         await refreshValueIntelligence(
@@ -358,7 +247,9 @@ export async function syncMarketValues(limit = 25) {
         await new Promise((resolve) =>
           setTimeout(resolve, 2500)
         );
+
       } catch (err: unknown) {
+
         console.error(
           "MARKET SYNC ERROR:",
           record.artist,
@@ -376,18 +267,16 @@ export async function syncMarketValues(limit = 25) {
     return {
       success: true,
       updated,
-      historyInserted,
       errors,
     };
+
   } catch (err: unknown) {
+
     console.error(err);
 
     return {
       success: false,
-      error:
-        err instanceof Error
-          ? err.message
-          : "Unknown error",
+      error: err instanceof Error ? err.message : "Unknown error",
     };
   }
 }
