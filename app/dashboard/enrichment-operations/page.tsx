@@ -213,34 +213,34 @@ export default function EnrichmentOperationsDashboard() {
 
         <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
           <MetricCard
-            title="Queue Throughput"
-            value={analytics?.totals.completedJobs ?? 0}
-            subtitle="Completed enrichment jobs"
+            title="Market Sync"
+            value={ops?.counts.marketHistory ?? 0}
+            subtitle="Snapshots captured every 3 hours"
+            icon={<Database className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Market Trends"
+            value={ops?.counts.marketTrends ?? 0}
+            subtitle="Calculated 15 minutes after sync"
             icon={<TrendingUp className="h-6 w-6" />}
           />
           <MetricCard
-            title="Success Rate"
-            value={`${analytics?.totals.successRate ?? 0}%`}
-            subtitle="Pipeline completion efficiency"
-            icon={<CheckCircle2 className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Retries"
-            value={analytics?.totals.retryJobs ?? 0}
-            subtitle="Recovered failed executions"
+            title="Sales Pipeline"
+            value={ops?.counts.normalizedSales ?? 0}
+            subtitle="Normalized comp observations"
             icon={<RefreshCcw className="h-6 w-6" />}
           />
           <MetricCard
-            title="Failures"
-            value={analytics?.totals.failedJobs ?? 0}
-            subtitle="Current failed jobs"
-            icon={<AlertTriangle className="h-6 w-6" />}
+            title="Sales Summary"
+            value={ops?.counts.salesSummaries ?? 0}
+            subtitle="Record-level sold-market intelligence"
+            icon={<Sparkles className="h-6 w-6" />}
           />
           <MetricCard
-            title="Permanent Failures"
-            value={analytics?.totals.permanentFailures ?? 0}
-            subtitle="Jobs requiring intervention"
-            icon={<ServerCrash className="h-6 w-6" />}
+            title="CI Recompute"
+            value={ops?.iqHealth.over100Count === 0 ? "Healthy" : "Review"}
+            subtitle="Runs after sales summary heartbeat"
+            icon={<ShieldCheck className="h-6 w-6" />}
           />
         </section>
 
