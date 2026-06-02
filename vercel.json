@@ -17,6 +17,10 @@
       "schedule": "15 */3 * * *"
     },
     {
+      "path": "/api/cron/sales-pipeline",
+      "schedule": "30 */3 * * *"
+    },
+    {
       "path": "/api/cron/value-intelligence",
       "schedule": "0 */2 * * *"
     },
