@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "../../src/lib/supabase/server";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 import { refreshValueIntelligence } from "@/app/actions/value-intelligence";
 
 /**
@@ -45,7 +45,7 @@ function roundMoney(value: number | null): number | null {
 
 export async function syncMarketValues(limit = 25) {
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     /**
      * STEP 1
