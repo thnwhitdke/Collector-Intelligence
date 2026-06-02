@@ -33,10 +33,6 @@
       "schedule": "*/30 * * * *"
     },
     {
-      "path": "/api/cron/recompute-intelligence",
-      "schedule": "*/30 * * * *"
-    },
-    {
       "path": "/api/cron/runout-sync",
       "schedule": "0 */4 * * *"
     },
