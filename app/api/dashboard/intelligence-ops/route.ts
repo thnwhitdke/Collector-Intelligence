@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
+function toNumber(value: unknown): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export async function GET() {
   const supabase = createAdminClient();
 
@@ -15,7 +20,9 @@ export async function GET() {
       artistsCount,
       stylesCount,
       genresCount,
-      iqHealth,
+      iqRows,
+      over100Count,
+      missingIqCount,
       topMovers,
       topIq,
     ] = await Promise.all([
@@ -29,16 +36,21 @@ export async function GET() {
       supabase.from("styles").select("id", { count: "exact", head: true }),
       supabase.from("genres").select("id", { count: "exact", head: true }),
 
-      supabase.rpc("exec_sql", {
-        sql: `
-          select
-            max(collector_iq_score) as max_iq,
-            round(avg(collector_iq_score)::numeric, 2) as average_iq,
-            count(*) filter (where collector_iq_score > 100) as over_100_count,
-            count(*) filter (where collector_iq_score is null) as missing_iq_count
-          from public.records_clean_safe;
-        `,
-      }),
+      supabase
+        .from("records_clean_safe")
+        .select("collector_iq_score")
+        .not("collector_iq_score", "is", null)
+        .limit(5000),
+
+      supabase
+        .from("records_clean_safe")
+        .select("id", { count: "exact", head: true })
+        .gt("collector_iq_score", 100),
+
+      supabase
+        .from("records_clean_safe")
+        .select("id", { count: "exact", head: true })
+        .is("collector_iq_score", null),
 
       supabase
         .from("market_trend_signals")
@@ -54,7 +66,22 @@ export async function GET() {
         .limit(10),
     ]);
 
-    const iq = Array.isArray(iqHealth.data) ? iqHealth.data[0] : null;
+    const iqValues = (iqRows.data ?? [])
+      .map((row) => toNumber(row.collector_iq_score))
+      .filter((value) => value > 0);
+
+    const maxIq =
+      iqValues.length > 0 ? Math.max(...iqValues) : 0;
+
+    const averageIq =
+      iqValues.length > 0
+        ? Number(
+            (
+              iqValues.reduce((sum, value) => sum + value, 0) /
+              iqValues.length
+            ).toFixed(2),
+          )
+        : 0;
 
     return NextResponse.json({
       ok: true,
@@ -71,10 +98,10 @@ export async function GET() {
         genres: genresCount.count ?? 0,
       },
       iqHealth: {
-        maxIq: Number(iq?.max_iq ?? 0),
-        averageIq: Number(iq?.average_iq ?? 0),
-        over100Count: Number(iq?.over_100_count ?? 0),
-        missingIqCount: Number(iq?.missing_iq_count ?? 0),
+        maxIq,
+        averageIq,
+        over100Count: over100Count.count ?? 0,
+        missingIqCount: missingIqCount.count ?? 0,
       },
       topMovers: topMovers.data ?? [],
       topIq: topIq.data ?? [],
