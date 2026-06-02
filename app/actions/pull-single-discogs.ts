@@ -524,7 +524,6 @@ const collectorIQScore =
       discogs_low_price: low,
       discogs_median_price: median,
       discogs_high_price: high,
-      estimated_value: exactLowestPrice ?? median,
       value_source: "Discogs single-record pull",
       value_last_updated: now,
       discogs_for_sale: forSale,
@@ -544,7 +543,6 @@ const collectorIQScore =
       rarity_index: rarityIndex,
 
 collector_velocity: collectorVelocity,
-collector_iq_score: collectorIQScore,
       next_refresh_due_at: nextRefreshDueAt.toISOString(),
       value_pull_status: "pulled_successfully",
       value_pull_note: "Discogs single-record value pull completed successfully.",
