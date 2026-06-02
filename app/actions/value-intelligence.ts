@@ -49,10 +49,31 @@ export async function refreshValueIntelligence(recordId: string) {
     throw new Error(readError?.message ?? "Record not found.");
   }
 
+  const { data: salesSummary } = await supabase
+    .from("sales_intelligence_summary")
+    .select(`
+      median_sale_price,
+      average_sale_price,
+      lowest_sale_price,
+      highest_sale_price,
+      matched_sales_count,
+      confidence_score
+    `)
+    .eq("record_id", recordId)
+    .maybeSingle();
+
   const result = calculateValueIntelligence({
     discogsLowPrice: toNumber(record.discogs_low_price),
     discogsMedianPrice: toNumber(record.discogs_median_price),
     discogsHighPrice: toNumber(record.discogs_high_price),
+
+    salesMedianPrice: toNumber(salesSummary?.median_sale_price),
+    salesAveragePrice: toNumber(salesSummary?.average_sale_price),
+    salesLowestPrice: toNumber(salesSummary?.lowest_sale_price),
+    salesHighestPrice: toNumber(salesSummary?.highest_sale_price),
+    salesMatchedCount: toNumber(salesSummary?.matched_sales_count),
+    salesConfidenceScore: toNumber(salesSummary?.confidence_score),
+
     ebayLastSoldPrice: toNumber(record.ebay_last_sold_price),
     ebayAvgSoldPrice: toNumber(record.ebay_avg_sold_price),
     ebaySoldCount: toNumber(record.ebay_sold_count),
