@@ -13,6 +13,10 @@
       "schedule": "0 */3 * * *"
     },
     {
+      "path": "/api/cron/market-trends",
+      "schedule": "15 */3 * * *"
+    },
+    {
       "path": "/api/cron/value-intelligence",
       "schedule": "0 */2 * * *"
     },
