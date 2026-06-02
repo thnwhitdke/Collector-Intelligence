@@ -190,12 +190,7 @@ export async function recomputeCIValueIntelligence() {
       id,
       value_last_updated
     `)
-    .or(
-      `
-      value_last_updated.is.null,
-      value_last_updated.lt.${staleDate}
-      `
-    )
+    .or(`value_last_updated.is.null,value_last_updated.lt.${staleDate}`)
     .limit(100);
 
   if (error) {
