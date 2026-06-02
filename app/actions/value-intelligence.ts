@@ -176,3 +176,60 @@ export async function updateManualValueComp(formData: FormData) {
   revalidatePath("/collection");
   revalidatePath(`/collection/${recordId}`);
 }
+
+export async function recomputeCIValueIntelligence() {
+  const supabase = await createClient();
+
+  const staleDate = new Date(
+    Date.now() - 1000 * 60 * 60 * 24 * 30,
+  ).toISOString();
+
+  const { data: records, error } = await supabase
+    .from("records_clean_safe")
+    .select(`
+      id,
+      value_last_updated
+    `)
+    .or(
+      `
+      value_last_updated.is.null,
+      value_last_updated.lt.${staleDate}
+      `
+    )
+    .limit(100);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  let processed = 0;
+  let updated = 0;
+  const errors: string[] = [];
+
+  for (const record of records ?? []) {
+    processed++;
+
+    try {
+      await refreshValueIntelligence(
+        String(record.id),
+      );
+
+      updated++;
+    } catch (err) {
+      errors.push(
+        `${record.id}: ${
+          err instanceof Error
+            ? err.message
+            : "unknown"
+        }`,
+      );
+    }
+  }
+
+  return {
+    ok: true,
+    processed,
+    updated,
+    errors,
+  };
+}
