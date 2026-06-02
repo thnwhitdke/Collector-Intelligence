@@ -24,13 +24,15 @@ export async function GET() {
 
       .select(`
         id,
+        collector_iq_score,
         discogs_median_price,
         valuation_confidence,
         discogs_release_id,
         artist,
         title
       `)
-
+      .gt("collector_iq_score", 100)
+      .order("collector_iq_score", { ascending: false })
       .limit(500);
 
     if (error) {
