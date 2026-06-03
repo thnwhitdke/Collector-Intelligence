@@ -23,7 +23,7 @@ export async function GET() {
       iqRows,
       over100Count,
       missingIqCount,
-      topMovers,
+      rawTopMovers,
       topIq,
     ] = await Promise.all([
       supabase.from("records_clean_safe").select("id", { count: "exact", head: true }),
@@ -36,21 +36,9 @@ export async function GET() {
       supabase.from("styles").select("id", { count: "exact", head: true }),
       supabase.from("genres").select("id", { count: "exact", head: true }),
 
-      supabase
-        .from("records_clean_safe")
-        .select("collector_iq_score")
-        .not("collector_iq_score", "is", null)
-        .limit(5000),
-
-      supabase
-        .from("records_clean_safe")
-        .select("id", { count: "exact", head: true })
-        .gt("collector_iq_score", 100),
-
-      supabase
-        .from("records_clean_safe")
-        .select("id", { count: "exact", head: true })
-        .is("collector_iq_score", null),
+      supabase.from("records_clean_safe").select("collector_iq_score").not("collector_iq_score", "is", null).limit(5000),
+      supabase.from("records_clean_safe").select("id", { count: "exact", head: true }).gt("collector_iq_score", 100),
+      supabase.from("records_clean_safe").select("id", { count: "exact", head: true }).is("collector_iq_score", null),
 
       supabase
         .from("market_trend_signals")
@@ -66,21 +54,33 @@ export async function GET() {
         .limit(10),
     ]);
 
+    const moverRecordIds = (rawTopMovers.data ?? [])
+      .map((m) => m.record_id)
+      .filter(Boolean);
+
+    const { data: moverRecords } = await supabase
+      .from("records_clean_safe")
+      .select("id, artist, title, estimated_value")
+      .in("id", moverRecordIds);
+
+    const recordMap = new Map(
+      (moverRecords ?? []).map((record) => [Number(record.id), record])
+    );
+
+    const topMovers = (rawTopMovers.data ?? []).map((mover) => ({
+      ...mover,
+      record: recordMap.get(Number(mover.record_id)) ?? null,
+    }));
+
     const iqValues = (iqRows.data ?? [])
       .map((row) => toNumber(row.collector_iq_score))
       .filter((value) => value > 0);
 
-    const maxIq =
-      iqValues.length > 0 ? Math.max(...iqValues) : 0;
+    const maxIq = iqValues.length > 0 ? Math.max(...iqValues) : 0;
 
     const averageIq =
       iqValues.length > 0
-        ? Number(
-            (
-              iqValues.reduce((sum, value) => sum + value, 0) /
-              iqValues.length
-            ).toFixed(2),
-          )
+        ? Number((iqValues.reduce((sum, value) => sum + value, 0) / iqValues.length).toFixed(2))
         : 0;
 
     return NextResponse.json({
@@ -103,7 +103,7 @@ export async function GET() {
         over100Count: over100Count.count ?? 0,
         missingIqCount: missingIqCount.count ?? 0,
       },
-      topMovers: topMovers.data ?? [],
+      topMovers,
       topIq: topIq.data ?? [],
     });
   } catch (error) {

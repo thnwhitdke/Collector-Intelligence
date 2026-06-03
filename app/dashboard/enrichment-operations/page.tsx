@@ -72,6 +72,12 @@ type OpsData = {
     price_delta_percent: number | null;
     supply_delta_percent: number | null;
     calculated_at: string | null;
+    record?: {
+      id: number;
+      artist: string | null;
+      title: string | null;
+      estimated_value: number | string | null;
+    } | null;
   }>;
   topIq: Array<{
     id: number;
@@ -267,9 +273,9 @@ export default function EnrichmentOperationsDashboard() {
                 <div key={`${item.record_id}-${item.calculated_at}`} className="rounded-2xl border border-white/10 bg-black/30 p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="font-bold">Record #{item.record_id}</p>
+                      <p className="font-bold">{item.record?.title ?? `Record #${item.record_id}`}</p>
                       <p className="mt-1 text-sm text-zinc-500">
-                        {item.signal_label ?? "Unknown"} • {item.signal_strength ?? "—"}
+                        {item.record?.artist ?? "Unknown Artist"} • {item.signal_label ?? "Unknown"} • {item.signal_strength ?? "—"}
                       </p>
                     </div>
                     <div className="text-right">
