@@ -6,43 +6,14 @@ import {
   Activity,
   AlertTriangle,
   BarChart3,
-  CheckCircle2,
-  Clock3,
   Database,
   Gauge,
   Layers3,
   RefreshCcw,
-  ServerCrash,
   ShieldCheck,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
-
-type ActivityItem = {
-  id: string;
-  action?: string;
-  status: string;
-  created_at: string;
-  metadata?: {
-    canonical_display_title?: string;
-    artwork?: string;
-    thumbnail?: string;
-    artist?: string;
-    title?: string;
-  };
-};
-
-type AnalyticsData = {
-  totals: {
-    totalJobs: number;
-    completedJobs: number;
-    failedJobs: number;
-    retryJobs: number;
-    permanentFailures: number;
-    successRate: number;
-  };
-  activity: ActivityItem[];
-};
 
 type OpsData = {
   ok: boolean;
@@ -124,40 +95,57 @@ function MetricCard({
           <h2 className="mt-3 text-4xl font-black text-white">{value}</h2>
           <p className="mt-2 text-sm text-zinc-500">{subtitle}</p>
         </div>
-        <div className="rounded-2xl bg-white/10 p-3 text-zinc-200">{icon}</div>
+        <div className="rounded-2xl bg-white/10 p-3 text-zinc-200">
+          {icon}
+        </div>
       </div>
     </div>
   );
 }
 
-function money(value: number | string | null) {
+function money(value: number | string | null | undefined) {
   const n = Number(value ?? 0);
-  if (!Number.isFinite(n) || n <= 0) return "—";
+  if (!Number.isFinite(n) || n === 0) return "—";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
   }).format(n);
 }
 
+function signedMoney(value: number | null | undefined) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n) || n === 0) return "$0.00";
+  const formatted = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(Math.abs(n));
+  return n > 0 ? `+${formatted}` : `-${formatted}`;
+}
+
+function signedPercent(value: number | null | undefined) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n) || n === 0) return "0%";
+  return n > 0 ? `+${n}%` : `${n}%`;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleString();
+}
+
 export default function EnrichmentOperationsDashboard() {
   const [loading, setLoading] = useState(true);
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [ops, setOps] = useState<OpsData | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const [analyticsResponse, opsResponse] = await Promise.all([
-          fetch("/api/dashboard/enrichment-analytics"),
-          fetch("/api/dashboard/intelligence-ops"),
-        ]);
+        const response = await fetch("/api/dashboard/intelligence-ops");
 
-        if (analyticsResponse.ok) {
-          setAnalytics(await analyticsResponse.json());
-        }
-
-        if (opsResponse.ok) {
-          setOps(await opsResponse.json());
+        if (response.ok) {
+          setOps(await response.json());
         }
       } catch (error) {
         console.error(error);
@@ -184,9 +172,7 @@ export default function EnrichmentOperationsDashboard() {
     );
   }
 
-  const systemHealthy =
-    (analytics?.totals.failedJobs ?? 0) === 0 &&
-    (ops?.iqHealth.over100Count ?? 0) === 0;
+  const systemHealthy = (ops?.iqHealth.over100Count ?? 0) === 0;
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -203,8 +189,9 @@ export default function EnrichmentOperationsDashboard() {
                 Intelligence Operations Center
               </h1>
               <p className="mt-4 max-w-3xl text-zinc-400">
-                Live operational telemetry for enrichment, market memory, sales
-                intelligence, trend signals, track coverage, and Collector IQ health.
+                Live telemetry for the Collector Intelligence moat: market
+                memory, trend signals, sales intelligence, portfolio health,
+                track coverage, and Collector IQ integrity.
               </p>
             </div>
 
@@ -259,7 +246,7 @@ export default function EnrichmentOperationsDashboard() {
           />
           <MetricCard
             title="CI Recompute"
-            value={ops?.iqHealth.over100Count === 0 ? "Healthy" : "Review"}
+            value={systemHealthy ? "Healthy" : "Review"}
             subtitle="Runs after sales summary heartbeat"
             icon={<ShieldCheck className="h-6 w-6" />}
           />
@@ -268,14 +255,16 @@ export default function EnrichmentOperationsDashboard() {
         <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
           <MetricCard
             title="Portfolio Value"
-            value={money(ops?.portfolioTrend?.latestValue ?? null)}
+            value={money(ops?.portfolioTrend?.latestValue)}
             subtitle="Latest portfolio snapshot"
             icon={<Database className="h-6 w-6" />}
           />
           <MetricCard
             title="Value Change"
-            value={money(ops?.portfolioTrend?.deltaFromPrevious ?? null)}
-            subtitle={`${ops?.portfolioTrend?.percentFromPrevious ?? 0}% since previous snapshot`}
+            value={signedMoney(ops?.portfolioTrend?.deltaFromPrevious)}
+            subtitle={`${signedPercent(
+              ops?.portfolioTrend?.percentFromPrevious
+            )} since previous snapshot`}
             icon={<TrendingUp className="h-6 w-6" />}
           />
           <MetricCard
@@ -299,14 +288,54 @@ export default function EnrichmentOperationsDashboard() {
         </section>
 
         <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard title="Records" value={ops?.counts.records ?? 0} subtitle="Collection rows tracked" icon={<Database className="h-6 w-6" />} />
-          <MetricCard title="Market Memory" value={ops?.counts.marketHistory ?? 0} subtitle="Historical market snapshots" icon={<Layers3 className="h-6 w-6" />} />
-          <MetricCard title="Trend Signals" value={ops?.counts.marketTrends ?? 0} subtitle="Derived market movements" icon={<BarChart3 className="h-6 w-6" />} />
-          <MetricCard title="Sales Summaries" value={ops?.counts.salesSummaries ?? 0} subtitle="Record-level sold comps" icon={<Sparkles className="h-6 w-6" />} />
-          <MetricCard title="Normalized Sales" value={ops?.counts.normalizedSales ?? 0} subtitle="Cleaned comp observations" icon={<Activity className="h-6 w-6" />} />
-          <MetricCard title="Release Tracks" value={ops?.counts.releaseTracks ?? 0} subtitle="Track intelligence rows" icon={<Gauge className="h-6 w-6" />} />
-          <MetricCard title="Max IQ" value={ops?.iqHealth.maxIq ?? 0} subtitle="Collector IQ ceiling check" icon={<ShieldCheck className="h-6 w-6" />} />
-          <MetricCard title="IQ Over 100" value={ops?.iqHealth.over100Count ?? 0} subtitle="Should always remain zero" icon={<AlertTriangle className="h-6 w-6" />} />
+          <MetricCard
+            title="Records"
+            value={ops?.counts.records ?? 0}
+            subtitle="Collection rows tracked"
+            icon={<Database className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Market Memory"
+            value={ops?.counts.marketHistory ?? 0}
+            subtitle="Historical market snapshots"
+            icon={<Layers3 className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Trend Signals"
+            value={ops?.counts.marketTrends ?? 0}
+            subtitle="Derived market movements"
+            icon={<BarChart3 className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Sales Summaries"
+            value={ops?.counts.salesSummaries ?? 0}
+            subtitle="Record-level sold comps"
+            icon={<Sparkles className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Normalized Sales"
+            value={ops?.counts.normalizedSales ?? 0}
+            subtitle="Cleaned comp observations"
+            icon={<Activity className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Release Tracks"
+            value={ops?.counts.releaseTracks ?? 0}
+            subtitle="Track intelligence rows"
+            icon={<Gauge className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Max IQ"
+            value={ops?.iqHealth.maxIq ?? 0}
+            subtitle="Collector IQ ceiling check"
+            icon={<ShieldCheck className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="IQ Over 100"
+            value={ops?.iqHealth.over100Count ?? 0}
+            subtitle="Should always remain zero"
+            icon={<AlertTriangle className="h-6 w-6" />}
+          />
         </section>
 
         <section className="mt-8 grid gap-8 xl:grid-cols-2">
@@ -318,16 +347,29 @@ export default function EnrichmentOperationsDashboard() {
 
             <div className="mt-6 space-y-3">
               {(ops?.topMovers ?? []).map((item) => (
-                <div key={`${item.record_id}-${item.calculated_at}`} className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                <div
+                  key={`${item.record_id}-${item.calculated_at}`}
+                  className="rounded-2xl border border-white/10 bg-black/30 p-4"
+                >
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="font-bold">{item.record?.title ?? `Record #${item.record_id}`}</p>
+                      <p className="font-bold">
+                        {item.record?.title ?? `Record #${item.record_id}`}
+                      </p>
                       <p className="mt-1 text-sm text-zinc-500">
-                        {item.record?.artist ?? "Unknown Artist"} • {item.signal_label ?? "Unknown"} • {item.signal_strength ?? "—"}
+                        {item.record?.artist ?? "Unknown Artist"} •{" "}
+                        {item.signal_label ?? "Unknown"} •{" "}
+                        {item.signal_strength ?? "—"}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-600">
+                        Supply: {item.supply_delta_percent ?? 0}% • Price:{" "}
+                        {item.price_delta_percent ?? 0}%
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-black">{item.market_momentum ?? 0}</p>
+                      <p className="text-lg font-black">
+                        {item.market_momentum ?? 0}
+                      </p>
                       <p className="text-xs text-zinc-500">momentum</p>
                     </div>
                   </div>
@@ -344,15 +386,26 @@ export default function EnrichmentOperationsDashboard() {
 
             <div className="mt-6 space-y-3">
               {(ops?.topIq ?? []).map((record) => (
-                <div key={record.id} className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                <div
+                  key={record.id}
+                  className="rounded-2xl border border-white/10 bg-black/30 p-4"
+                >
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="font-bold">{record.title ?? "Untitled"}</p>
-                      <p className="mt-1 text-sm text-zinc-500">{record.artist ?? "Unknown Artist"}</p>
+                      <p className="font-bold">
+                        {record.title ?? "Untitled"}
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-500">
+                        {record.artist ?? "Unknown Artist"}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-black">{record.collector_iq_score ?? "—"}</p>
-                      <p className="text-xs text-zinc-500">{money(record.estimated_value)}</p>
+                      <p className="text-lg font-black">
+                        {record.collector_iq_score ?? "—"}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {money(record.estimated_value)}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -363,30 +416,108 @@ export default function EnrichmentOperationsDashboard() {
 
         <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
           <div className="mb-6 flex items-center gap-3">
-            <Clock3 className="h-5 w-5 text-zinc-300" />
-            <h2 className="text-2xl font-bold">Recent Enrichment Activity</h2>
+            <Sparkles className="h-5 w-5 text-cyan-300" />
+            <h2 className="text-2xl font-bold">Live Intelligence Feed</h2>
           </div>
 
+          <p className="mb-6 text-sm text-zinc-500">
+            Real-time market, portfolio, and Collector IQ events generated by
+            the Collector Intelligence intelligence layer.
+          </p>
+
           <div className="space-y-4">
-            {(analytics?.activity ?? []).length === 0 && (
-              <p className="text-zinc-500">No recent activity found.</p>
+            {ops?.portfolioTrend && (
+              <div className="rounded-2xl border border-cyan-500/10 bg-cyan-500/5 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-bold text-white">
+                      Portfolio Snapshot Recorded
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-400">
+                      Portfolio value is {money(ops.portfolioTrend.latestValue)}{" "}
+                      with {ops.portfolioTrend.snapshotCount} snapshots in memory.
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-600">
+                      Change since previous snapshot:{" "}
+                      {signedMoney(ops.portfolioTrend.deltaFromPrevious)} /{" "}
+                      {signedPercent(ops.portfolioTrend.percentFromPrevious)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-cyan-300">
+                      {ops.portfolioTrend.health}
+                    </p>
+                    <p className="text-xs text-zinc-500">portfolio health</p>
+                  </div>
+                </div>
+              </div>
             )}
 
-            {(analytics?.activity ?? []).slice(0, 12).map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-2xl border border-white/5 bg-black/30 p-4">
+            {ops?.topMovers?.[0] && (
+              <div className="rounded-2xl border border-emerald-500/10 bg-emerald-500/5 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-bold">Strongest Market Signal</p>
+                    <p className="mt-1 text-sm text-zinc-400">
+                      {ops.topMovers[0].record?.artist ?? "Unknown Artist"} —{" "}
+                      {ops.topMovers[0].record?.title ?? "Unknown Record"}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-600">
+                      Signal: {ops.topMovers[0].signal_label ?? "Unknown"} •{" "}
+                      Strength: {ops.topMovers[0].signal_strength ?? "—"} •
+                      Supply: {ops.topMovers[0].supply_delta_percent ?? 0}%
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-emerald-300">
+                      {ops.topMovers[0].market_momentum ?? 0}
+                    </p>
+                    <p className="text-xs text-zinc-500">momentum</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {ops?.topIq?.[0] && (
+              <div className="rounded-2xl border border-purple-500/10 bg-purple-500/5 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-bold">Highest Collector IQ</p>
+                    <p className="mt-1 text-sm text-zinc-400">
+                      {ops.topIq[0].artist ?? "Unknown Artist"} —{" "}
+                      {ops.topIq[0].title ?? "Unknown Record"}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-600">
+                      Current estimated value: {money(ops.topIq[0].estimated_value)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-purple-300">
+                      {ops.topIq[0].collector_iq_score}
+                    </p>
+                    <p className="text-xs text-zinc-500">collector IQ</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-semibold text-white">
-                    {item.action ?? item.metadata?.canonical_display_title ?? "Activity"}
-                  </p>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    {new Date(item.created_at).toLocaleString()}
+                  <p className="font-bold">Moat Engine Pulse</p>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Market memory, trend signals, sales summaries, track rows,
+                    and portfolio snapshots are all feeding the CI OS.
                   </p>
                 </div>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-wide text-zinc-300">
-                  {item.status}
-                </span>
+                <div className="text-right">
+                  <p className="font-black text-white">
+                    {formatDate(ops?.generatedAt)}
+                  </p>
+                  <p className="text-xs text-zinc-500">last generated</p>
+                </div>
               </div>
-            ))}
+            </div>
           </div>
         </section>
       </div>
