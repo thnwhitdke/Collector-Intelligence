@@ -64,6 +64,21 @@ type OpsData = {
     over100Count: number;
     missingIqCount: number;
   };
+  portfolioTrend: {
+    snapshotCount: number;
+    firstValue: number;
+    previousValue: number;
+    latestValue: number;
+    deltaFromPrevious: number;
+    percentFromPrevious: number;
+    deltaFromFirst: number;
+    percentFromFirst: number;
+    previousIq: number;
+    latestIq: number;
+    iqDeltaFromPrevious: number;
+    direction: "up" | "down" | "flat";
+    health: "Bullish" | "Stable" | "Bearish";
+  } | null;
   topMovers: Array<{
     record_id: number;
     market_momentum: number | null;
@@ -247,6 +262,39 @@ export default function EnrichmentOperationsDashboard() {
             value={ops?.iqHealth.over100Count === 0 ? "Healthy" : "Review"}
             subtitle="Runs after sales summary heartbeat"
             icon={<ShieldCheck className="h-6 w-6" />}
+          />
+        </section>
+
+        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
+          <MetricCard
+            title="Portfolio Value"
+            value={money(ops?.portfolioTrend?.latestValue ?? null)}
+            subtitle="Latest portfolio snapshot"
+            icon={<Database className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Value Change"
+            value={money(ops?.portfolioTrend?.deltaFromPrevious ?? null)}
+            subtitle={`${ops?.portfolioTrend?.percentFromPrevious ?? 0}% since previous snapshot`}
+            icon={<TrendingUp className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Portfolio Health"
+            value={ops?.portfolioTrend?.health ?? "Unknown"}
+            subtitle={`Direction: ${ops?.portfolioTrend?.direction ?? "unknown"}`}
+            icon={<ShieldCheck className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Average IQ"
+            value={ops?.portfolioTrend?.latestIq?.toFixed(2) ?? "—"}
+            subtitle={`${ops?.portfolioTrend?.iqDeltaFromPrevious ?? 0} IQ since previous snapshot`}
+            icon={<Gauge className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Snapshots"
+            value={ops?.portfolioTrend?.snapshotCount ?? 0}
+            subtitle="Portfolio memory depth"
+            icon={<Layers3 className="h-6 w-6" />}
           />
         </section>
 
