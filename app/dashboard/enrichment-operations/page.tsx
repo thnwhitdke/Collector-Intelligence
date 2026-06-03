@@ -88,12 +88,12 @@ function MetricCard({
   icon: ReactNode;
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 shadow-xl">
+    <div className="min-h-[170px] rounded-3xl border border-white/10 bg-white/[0.035] p-6 shadow-xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-zinc-400">{title}</p>
-          <h2 className="mt-3 text-4xl font-black text-white">{value}</h2>
-          <p className="mt-2 text-sm text-zinc-500">{subtitle}</p>
+          <p className="min-h-[40px] text-sm leading-snug text-zinc-400">{title}</p>
+          <h2 className="mt-3 break-words text-3xl font-black leading-tight text-white xl:text-4xl">{value}</h2>
+          <p className="mt-2 text-sm leading-snug text-zinc-500">{subtitle}</p>
         </div>
         <div className="rounded-2xl bg-white/10 p-3 text-zinc-200">
           {icon}
