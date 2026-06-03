@@ -15,6 +15,13 @@ function percentDelta(current: number, previous: number): number {
   return round(((current - previous) / previous) * 100, 2);
 }
 
+function moneyText(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(value);
+}
+
 export async function GET() {
   const supabase = createAdminClient();
 
@@ -35,6 +42,7 @@ export async function GET() {
       rawTopMovers,
       topIq,
       snapshots,
+      latestSalesSummaries,
     ] = await Promise.all([
       supabase.from("records_clean_safe").select("id", { count: "exact", head: true }),
       supabase.from("market_history").select("id", { count: "exact", head: true }),
@@ -46,9 +54,21 @@ export async function GET() {
       supabase.from("styles").select("id", { count: "exact", head: true }),
       supabase.from("genres").select("id", { count: "exact", head: true }),
 
-      supabase.from("records_clean_safe").select("collector_iq_score").not("collector_iq_score", "is", null).limit(5000),
-      supabase.from("records_clean_safe").select("id", { count: "exact", head: true }).gt("collector_iq_score", 100),
-      supabase.from("records_clean_safe").select("id", { count: "exact", head: true }).is("collector_iq_score", null),
+      supabase
+        .from("records_clean_safe")
+        .select("collector_iq_score")
+        .not("collector_iq_score", "is", null)
+        .limit(5000),
+
+      supabase
+        .from("records_clean_safe")
+        .select("id", { count: "exact", head: true })
+        .gt("collector_iq_score", 100),
+
+      supabase
+        .from("records_clean_safe")
+        .select("id", { count: "exact", head: true })
+        .is("collector_iq_score", null),
 
       supabase
         .from("market_trend_signals")
@@ -83,19 +103,33 @@ export async function GET() {
         `)
         .gte("total_records", 100)
         .order("created_at", { ascending: true }),
+
+      supabase
+        .from("sales_intelligence_summary")
+        .select("record_id, median_sale_price, average_sale_price, matched_sales_count, confidence_score, confidence_label, updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(5),
     ]);
 
     const moverRecordIds = (rawTopMovers.data ?? [])
       .map((m) => m.record_id)
       .filter(Boolean);
 
-    const { data: moverRecords } = await supabase
+    const salesRecordIds = (latestSalesSummaries.data ?? [])
+      .map((s) => s.record_id)
+      .filter(Boolean);
+
+    const relatedRecordIds = Array.from(
+      new Set([...moverRecordIds, ...salesRecordIds])
+    );
+
+    const { data: relatedRecords } = await supabase
       .from("records_clean_safe")
       .select("id, artist, title, estimated_value")
-      .in("id", moverRecordIds);
+      .in("id", relatedRecordIds);
 
     const recordMap = new Map(
-      (moverRecords ?? []).map((record) => [Number(record.id), record])
+      (relatedRecords ?? []).map((record) => [Number(record.id), record])
     );
 
     const topMovers = (rawTopMovers.data ?? []).map((mover) => ({
@@ -164,6 +198,61 @@ export async function GET() {
           }
         : null;
 
+    const intelligenceFeed = [];
+
+    if (portfolioTrend) {
+      intelligenceFeed.push({
+        id: "portfolio-snapshot",
+        type: "Portfolio",
+        title: "Portfolio Snapshot Recorded",
+        summary: `Portfolio value is ${moneyText(portfolioTrend.latestValue)}.`,
+        detail: `${portfolioTrend.health} health • ${portfolioTrend.deltaFromPrevious >= 0 ? "+" : ""}${moneyText(Math.abs(portfolioTrend.deltaFromPrevious))} since previous snapshot • ${portfolioTrend.percentFromPrevious}%`,
+        timestamp: portfolioTrend.latestSnapshot.created_at,
+      });
+    }
+
+    if (topMovers[0]) {
+      const mover = topMovers[0];
+      intelligenceFeed.push({
+        id: `market-${mover.record_id}`,
+        type: "Market",
+        title: "Strongest Market Signal",
+        summary: `${mover.record?.artist ?? "Unknown Artist"} — ${mover.record?.title ?? "Unknown Record"}`,
+        detail: `${mover.signal_label ?? "Unknown"} • ${mover.signal_strength ?? "—"} • Momentum ${mover.market_momentum ?? 0} • Supply ${mover.supply_delta_percent ?? 0}%`,
+        timestamp: mover.calculated_at,
+      });
+    }
+
+    if (topIq.data?.[0]) {
+      const leader = topIq.data[0];
+      intelligenceFeed.push({
+        id: `iq-${leader.id}`,
+        type: "Collector IQ",
+        title: "Highest Collector IQ",
+        summary: `${leader.artist ?? "Unknown Artist"} — ${leader.title ?? "Unknown Record"}`,
+        detail: `Collector IQ ${leader.collector_iq_score ?? 0} • Estimated value ${moneyText(toNumber(leader.estimated_value))}`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    for (const sale of latestSalesSummaries.data ?? []) {
+      const record = recordMap.get(Number(sale.record_id));
+      intelligenceFeed.push({
+        id: `sales-${sale.record_id}`,
+        type: "Sales",
+        title: "Sales Intelligence Summary",
+        summary: `${record?.artist ?? "Unknown Artist"} — ${record?.title ?? "Unknown Record"}`,
+        detail: `${sale.matched_sales_count ?? 0} matched sales • Median ${moneyText(toNumber(sale.median_sale_price))} • Confidence ${sale.confidence_score ?? 0}`,
+        timestamp: sale.updated_at,
+      });
+    }
+
+    intelligenceFeed.sort((a, b) => {
+      const bTime = new Date(b.timestamp ?? 0).getTime();
+      const aTime = new Date(a.timestamp ?? 0).getTime();
+      return bTime - aTime;
+    });
+
     return NextResponse.json({
       ok: true,
       generatedAt: new Date().toISOString(),
@@ -185,6 +274,7 @@ export async function GET() {
         missingIqCount: missingIqCount.count ?? 0,
       },
       portfolioTrend,
+      intelligenceFeed,
       topMovers,
       topIq: topIq.data ?? [],
     });
