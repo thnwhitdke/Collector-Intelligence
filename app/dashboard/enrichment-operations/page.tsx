@@ -71,6 +71,12 @@ type OpsData = {
       artist: string | null;
       title: string | null;
       estimated_value: number | string | null;
+      discogs_release_id?: string | null;
+      label?: string | null;
+      catalogue_number?: string | null;
+      country?: string | null;
+      year?: number | null;
+      format?: string | null;
     } | null;
   }>;
   topIq: Array<{
@@ -387,22 +393,29 @@ export default function EnrichmentOperationsDashboard() {
 
             <div className="mt-6 space-y-3">
               {(ops?.topMovers ?? []).map((item) => (
-                <div
+                <a
                   key={`${item.record_id}-${item.calculated_at}`}
-                  className="rounded-2xl border border-white/10 bg-black/30 p-4"
+                  href={`/collection/${item.record?.id ?? item.record_id}`}
+                  className="block rounded-2xl border border-white/10 bg-black/30 p-4 transition hover:border-cyan-400/40 hover:bg-cyan-400/5"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="font-bold">
+                        {item.record?.artist ?? "Unknown Artist"} —{" "}
                         {item.record?.title ?? `Record #${item.record_id}`}
                       </p>
                       <p className="mt-1 text-sm text-zinc-500">
-                        {item.record?.artist ?? "Unknown Artist"} •{" "}
-                        {item.signal_label ?? "Unknown"} •{" "}
-                        {item.signal_strength ?? "—"}
+                        {item.record?.country ?? "Unknown Country"} •{" "}
+                        {item.record?.year ?? "Unknown Year"} •{" "}
+                        {item.record?.format ?? "Unknown Format"} • Discogs{" "}
+                        {item.record?.discogs_release_id ?? "—"}
                       </p>
                       <p className="mt-1 text-xs text-zinc-600">
-                        Supply: {item.supply_delta_percent ?? 0}% • Price:{" "}
+                        {item.record?.label ?? "Unknown Label"}
+                        {item.record?.catalogue_number
+                          ? ` • ${item.record.catalogue_number}`
+                          : ""}{" "}
+                        • Supply: {item.supply_delta_percent ?? 0}% • Price:{" "}
                         {item.price_delta_percent ?? 0}%
                       </p>
                     </div>
@@ -413,7 +426,7 @@ export default function EnrichmentOperationsDashboard() {
                       <p className="text-xs text-zinc-500">momentum</p>
                     </div>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           </div>

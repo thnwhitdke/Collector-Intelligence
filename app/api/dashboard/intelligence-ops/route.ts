@@ -125,7 +125,7 @@ export async function GET() {
 
     const { data: relatedRecords } = await supabase
       .from("records_clean_safe")
-      .select("id, artist, title, estimated_value")
+      .select("id, artist, title, estimated_value, discogs_release_id, label, catalogue_number, country, year, format")
       .in("id", relatedRecordIds);
 
     const recordMap = new Map(
