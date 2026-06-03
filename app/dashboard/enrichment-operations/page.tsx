@@ -183,6 +183,10 @@ export default function EnrichmentOperationsDashboard() {
         if (response.ok) {
           setOps(await response.json());
         }
+
+        await fetch("/api/activity/ops-seen", {
+          method: "POST",
+        });
       } catch (error) {
         console.error(error);
       } finally {
