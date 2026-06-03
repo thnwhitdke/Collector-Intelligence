@@ -202,8 +202,8 @@ async function getData(query: string) {
       .from("release_tracks")
       .select("*", { count: "exact", head: true }),
     supabase
-      .from("track_runtime_intelligence")
-      .select("*", { count: "exact", head: true }),
+      .from("release_tracks")
+      .select("discogs_release_id", { count: "exact", head: true }),
     supabase
       .from("records_clean_safe")
       .select("discogs_release_id", {
@@ -338,9 +338,7 @@ export default async function TrackIntelligencePage({
 
   const coverage =
     totalCollection > 0
-      ? (releaseCount /
-          totalCollection) *
-        100
+      ? (releaseCount / totalCollection) * 100
       : 0;
 
   const remaining =
