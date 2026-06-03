@@ -187,48 +187,15 @@ async function getData(query: string) {
       .limit(80);
   }
 
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
   const [
-    trackCountResult,
-    releaseCountResult,
-    totalCollectionResult,
-    indexedTodayResult,
+    coverageResult,
     runtimeResult,
     trackResult,
   ] = await Promise.all([
     supabase
-      .from("release_tracks")
-      .select("*", { count: "exact", head: true }),
-    supabase
-      .from("release_tracks")
-      .select("discogs_release_id", { count: "exact", head: true }),
-    supabase
-      .from("records_clean_safe")
-      .select("discogs_release_id", {
-        count: "exact",
-        head: true,
-      })
-      .not(
-        "discogs_release_id",
-        "is",
-        null,
-      ),
-
-    supabase
-      .from("release_tracks")
-      .select(
-        "discogs_release_id",
-        {
-          count: "exact",
-          head: true,
-        },
-      )
-      .gte(
-        "created_at",
-        today.toISOString(),
-      ),
+      .from("track_intelligence_coverage")
+      .select("*")
+      .single(),
 
     supabase
       .from("track_runtime_intelligence")
@@ -238,6 +205,13 @@ async function getData(query: string) {
 
     trackQuery,
   ]);
+
+  const coverageStats = coverageResult.data ?? {
+    track_count: 0,
+    release_count: 0,
+    total_collection: 0,
+    indexed_today: 0,
+  };
 
   const tracks = (trackResult.data ?? []) as TrackRow[];
 
@@ -299,12 +273,10 @@ async function getData(query: string) {
   }
 
   return {
-    trackCount: trackCountResult.count || 0,
-    releaseCount: releaseCountResult.count || 0,
-    totalCollection:
-      totalCollectionResult.count || 0,
-    indexedToday:
-      indexedTodayResult.count || 0,
+    trackCount: Number(coverageStats.track_count || 0),
+    releaseCount: Number(coverageStats.release_count || 0),
+    totalCollection: Number(coverageStats.total_collection || 0),
+    indexedToday: Number(coverageStats.indexed_today || 0),
     runtimes: runtimeRows,
     tracks,
     recordMap,
