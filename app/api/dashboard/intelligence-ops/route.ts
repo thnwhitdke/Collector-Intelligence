@@ -6,6 +6,15 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function round(value: number, places = 2): number {
+  return Number(value.toFixed(places));
+}
+
+function percentDelta(current: number, previous: number): number {
+  if (previous <= 0) return 0;
+  return round(((current - previous) / previous) * 100, 2);
+}
+
 export async function GET() {
   const supabase = createAdminClient();
 
@@ -25,6 +34,7 @@ export async function GET() {
       missingIqCount,
       rawTopMovers,
       topIq,
+      snapshots,
     ] = await Promise.all([
       supabase.from("records_clean_safe").select("id", { count: "exact", head: true }),
       supabase.from("market_history").select("id", { count: "exact", head: true }),
@@ -52,6 +62,27 @@ export async function GET() {
         .not("collector_iq_score", "is", null)
         .order("collector_iq_score", { ascending: false })
         .limit(10),
+
+      supabase
+        .from("portfolio_intelligence_snapshots")
+        .select(`
+          id,
+          created_at,
+          user_id,
+          total_records,
+          total_collection_value,
+          average_record_value,
+          average_collector_iq,
+          high_value_records,
+          elite_value_records,
+          accelerating_records,
+          volatile_records,
+          high_demand_records,
+          intelligence_confidence_score,
+          intelligence_confidence_label
+        `)
+        .gte("total_records", 100)
+        .order("created_at", { ascending: true }),
     ]);
 
     const moverRecordIds = (rawTopMovers.data ?? [])
@@ -80,8 +111,58 @@ export async function GET() {
 
     const averageIq =
       iqValues.length > 0
-        ? Number((iqValues.reduce((sum, value) => sum + value, 0) / iqValues.length).toFixed(2))
+        ? round(iqValues.reduce((sum, value) => sum + value, 0) / iqValues.length)
         : 0;
+
+    const snapshotRows = snapshots.data ?? [];
+    const firstSnapshot = snapshotRows[0] ?? null;
+    const previousSnapshot =
+      snapshotRows.length >= 2 ? snapshotRows[snapshotRows.length - 2] : null;
+    const latestSnapshot =
+      snapshotRows.length >= 1 ? snapshotRows[snapshotRows.length - 1] : null;
+
+    const previousValue = toNumber(previousSnapshot?.total_collection_value);
+    const latestValue = toNumber(latestSnapshot?.total_collection_value);
+    const firstValue = toNumber(firstSnapshot?.total_collection_value);
+
+    const previousIq = toNumber(previousSnapshot?.average_collector_iq);
+    const latestIq = toNumber(latestSnapshot?.average_collector_iq);
+
+    const deltaFromPrevious = round(latestValue - previousValue);
+    const percentFromPrevious = percentDelta(latestValue, previousValue);
+    const deltaFromFirst = round(latestValue - firstValue);
+    const percentFromFirst = percentDelta(latestValue, firstValue);
+    const iqDeltaFromPrevious = round(latestIq - previousIq);
+
+    const portfolioTrend =
+      latestSnapshot && previousSnapshot
+        ? {
+            snapshotCount: snapshotRows.length,
+            firstValue,
+            previousValue,
+            latestValue,
+            deltaFromPrevious,
+            percentFromPrevious,
+            deltaFromFirst,
+            percentFromFirst,
+            previousIq,
+            latestIq,
+            iqDeltaFromPrevious,
+            direction:
+              deltaFromPrevious > 0
+                ? "up"
+                : deltaFromPrevious < 0
+                  ? "down"
+                  : "flat",
+            health:
+              percentFromPrevious > 1
+                ? "Bullish"
+                : percentFromPrevious < -1
+                  ? "Bearish"
+                  : "Stable",
+            latestSnapshot,
+          }
+        : null;
 
     return NextResponse.json({
       ok: true,
@@ -103,6 +184,7 @@ export async function GET() {
         over100Count: over100Count.count ?? 0,
         missingIqCount: missingIqCount.count ?? 0,
       },
+      portfolioTrend,
       topMovers,
       topIq: topIq.data ?? [],
     });
