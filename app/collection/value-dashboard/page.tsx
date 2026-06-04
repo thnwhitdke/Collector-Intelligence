@@ -2,13 +2,10 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/src/lib/supabase/client'
 import CINavigation from '@/app/components/CINavigation'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-)
+const supabase = createClient()
 
 const PAGE_SIZE = 60
 const fallbackCover =
