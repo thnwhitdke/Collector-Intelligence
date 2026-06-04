@@ -266,7 +266,7 @@ export default function ValueDashboardPage() {
       setLastRefresh(new Date())
       setLoading(false)
     },
-    [loading, page, search, statusFilter, records.length],
+    [loading, page, search, statusFilter, records.length, userId],
   )
 
   useEffect(() => {
