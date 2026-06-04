@@ -1,6 +1,7 @@
 "use server";
 
 import { logActivity } from "./activity";
+import { syncTracksForRelease } from "./track-sync";
 import { createClient } from "@/src/lib/supabase/server";
 
 export async function enrichSingleRecord(
@@ -461,6 +462,30 @@ console.log(
       "DATABASE UPDATE SUCCESS:",
       recordId
     );
+
+    // =========================
+    // TRACK INTELLIGENCE SYNC
+    // =========================
+
+    try {
+      if (match.id) {
+        const trackSyncResult = await syncTracksForRelease(String(match.id));
+
+        console.log(
+          "TRACK SYNC SUCCESS:",
+          {
+            recordId,
+            discogsId: match.id,
+            inserted: trackSyncResult.inserted ?? 0,
+          }
+        );
+      }
+    } catch (trackError) {
+      console.error(
+        "TRACK SYNC FAILED BUT ENRICHMENT CONTINUES:",
+        trackError
+      );
+    }
 
     // =========================
     // ACTIVITY LOG SUCCESS
