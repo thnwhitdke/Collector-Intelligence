@@ -97,8 +97,9 @@ export async function GET() {
   const supabase = createAdminClient();
 
   const { data: trackRows } = await supabase
-    .from("release_tracks")
-    .select("discogs_release_id");
+    .from("release_track_coverage_ids")
+    .select("discogs_release_id")
+    .limit(10000);
 
   const existingTrackIds = new Set(
     (trackRows || []).map((row) => String(row.discogs_release_id)),
@@ -194,7 +195,7 @@ export async function GET() {
       continue;
     }
 
-    inserted += result.tracks.length;
+    inserted += result.tracks.length; // attempted inserts; duplicates ignored by upsert
 
     results.push({
       releaseId,
