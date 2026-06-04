@@ -41,10 +41,17 @@ type DashboardMover = {
 
 type PortfolioTrend = {
   firstValue: number
+  previousValue?: number
   latestValue: number
-  delta: number
-  percentChange: number
+  delta?: number
+  percentChange?: number
+  deltaFromPrevious?: number
+  percentFromPrevious?: number
+  deltaFromFirst?: number
+  percentFromFirst?: number
   direction: string
+  health?: string
+  snapshotCount?: number
 }
 
 type DashboardRecord = Record<string, string | number | null>
@@ -143,6 +150,10 @@ export default function ValueDashboardPage() {
   const [lastAction, setLastAction] = useState('Initializing Portfolio Intelligence...')
   const [movers, setMovers] = useState<DashboardMover[]>([])
   const [portfolioTrend, setPortfolioTrend] = useState<PortfolioTrend | null>(null)
+  const [portfolioHealth, setPortfolioHealth] = useState<any>(null)
+  const [portfolioSnapshot, setPortfolioSnapshot] = useState<any>(null)
+  const [portfolioDNA, setPortfolioDNA] = useState<any>(null)
+  const [opportunityRadar, setOpportunityRadar] = useState<any>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
 
@@ -160,10 +171,26 @@ export default function ValueDashboardPage() {
 
       const data = await response.json()
 
-      if (data.success) {
-        setMovers(data.movers || [])
-        setPortfolioTrend(data.portfolioTrend || null)
-      }
+   if (data.success) {
+  setMovers(data.movers || [])
+  setPortfolioTrend(data.portfolioTrend || null)
+
+  setPortfolioSnapshot(
+    data.portfolioSnapshot || null
+  )
+
+  setPortfolioHealth(
+    data.portfolioHealth || null
+  )
+
+  setPortfolioDNA(
+    data.portfolioDNA || null
+  )
+
+  setOpportunityRadar(
+    data.opportunityRadar || null
+  )
+}
 
       setLastRefresh(new Date())
     } catch (err) {
@@ -356,6 +383,9 @@ export default function ValueDashboardPage() {
   const gainers = movers.filter((m) => m.direction === 'up').slice(0, 5)
   const decliners = movers.filter((m) => m.direction === 'down').slice(0, 5)
 
+  const topGenres = (portfolioDNA?.genres || []).slice(0, 6)
+  const topCountries = (portfolioDNA?.countries || []).slice(0, 6)
+
   return (
     <main className="min-h-screen bg-[#050403] px-6 py-8 text-[#F4EFE6] lg:px-10">
       <CINavigation />
@@ -435,18 +465,125 @@ export default function ValueDashboardPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <Kpi label="Portfolio Value" value={money(totalCollectionValue)} accent />
-          <Kpi label="Assets Loaded" value={String(records.length)} />
-          <Kpi label="Market Supply" value={String(totalForSale)} />
-          <Kpi label="Avg Collector IQ" value={String(avgIq)} />
-          <Kpi label="Avg Rarity" value={`${avgRarity}/100`} />
+       <Kpi
+  label="Portfolio Health"
+  value={
+    portfolioHealth
+      ? `${portfolioHealth.score}`
+      : "—"
+  }
+  accent
+/>
+
+<Kpi
+  label="Confidence"
+  value={
+    portfolioHealth?.label || "—"
+  }
+/>
+
+<Kpi
+  label="Collection Value"
+  value={
+    portfolioSnapshot
+      ? money(
+          portfolioSnapshot.total_collection_value
+        )
+      : money(totalCollectionValue)
+  }
+/>
+
+<Kpi
+  label="High Value Assets"
+  value={
+    opportunityRadar
+      ? String(
+          opportunityRadar.highValueAssets
+        )
+      : "0"
+  }
+/>
+
+<Kpi
+  label="Elite Holdings"
+  value={
+    opportunityRadar
+      ? String(
+          opportunityRadar.eliteValueAssets
+        )
+      : "0"
+  }
+/>{portfolioHealth && (
+  <div className="mb-6 rounded-3xl border border-cyan-500/20 bg-cyan-500/5 p-5">
+    <div className="text-xs uppercase tracking-[0.3em] text-cyan-300">
+      Portfolio Intelligence
+    </div>
+
+    <div className="mt-2 text-lg font-bold text-white">
+      {portfolioHealth.label}
+    </div>
+
+    <div className="mt-2 text-sm text-zinc-300">
+      {portfolioHealth.summary}
+    </div>
+
+    <ul className="mt-4 space-y-1 text-sm text-zinc-400">
+      {portfolioHealth.reasons?.map(
+        (
+          reason: string,
+          index: number,
+        ) => (
+          <li key={index}>
+            • {reason}
+          </li>
+        ),
+      )}
+    </ul>
+  </div>
+)}
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
+          <DistributionCard
+            title="Collection DNA"
+            subtitle="Dominant genre signals across your archive"
+            rows={topGenres}
+            tone="cyan"
+          />
+
+          <DistributionCard
+            title="Geographic Pressing Profile"
+            subtitle="Country and market origin concentration"
+            rows={topCountries}
+            tone="amber"
+          />
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Signal label="🔥 Opportunity" value={opportunityCount} helper="Bullish + compression" tone="orange" />
-          <Signal label="💎 Hidden Gems" value={hiddenGemCount} helper="Rarity + IQ strength" tone="cyan" />
-          <Signal label="⚠ Risk Watch" value={riskCount} helper="Bearish behavior" tone="rose" />
-          <Signal label="🧠 Elite Tier" value={eliteCount} helper="High Collector IQ" tone="fuchsia" />
+          <Signal
+            label="🔥 High Demand"
+            value={opportunityRadar?.highDemandAssets ?? opportunityCount}
+            helper="Records with demand intelligence"
+            tone="orange"
+          />
+          <Signal
+            label="⚡ Accelerating"
+            value={opportunityRadar?.acceleratingAssets ?? 0}
+            helper="Momentum signals detected"
+            tone="cyan"
+          />
+          <Signal
+            label="⚠ Volatile"
+            value={opportunityRadar?.volatileAssets ?? riskCount}
+            helper="Pricing or market instability"
+            tone="rose"
+          />
+          <Signal
+            label="💎 Elite Holdings"
+            value={opportunityRadar?.eliteValueAssets ?? eliteCount}
+            helper="Premium portfolio assets"
+            tone="fuchsia"
+          />
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -467,12 +604,12 @@ export default function ValueDashboardPage() {
                     : portfolioTrend.direction === 'down'
                       ? '↘'
                       : '→'}{' '}
-                  {percent(portfolioTrend.percentChange)}
+                  {percent(portfolioTrend.percentFromFirst ?? portfolioTrend.percentFromPrevious ?? portfolioTrend.percentChange)}
                 </p>
 
                 <p className="mt-4 text-lg font-bold text-cyan-100">
-                  Portfolio movement {portfolioTrend.delta >= 0 ? '+' : ''}
-                  {money(portfolioTrend.delta)}
+                  Historical movement {(portfolioTrend.deltaFromFirst ?? portfolioTrend.delta ?? 0) >= 0 ? '+' : ''}
+                  {money(portfolioTrend.deltaFromFirst ?? portfolioTrend.delta ?? 0)}
                 </p>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-2">
@@ -664,6 +801,64 @@ function Signal({
       </p>
       <p className="mt-3 text-4xl font-black text-white">{value}</p>
       <p className="mt-2 text-sm text-[#B8AA96]">{helper}</p>
+    </div>
+  )
+}
+
+function DistributionCard({
+  title,
+  subtitle,
+  rows,
+  tone,
+}: {
+  title: string
+  subtitle: string
+  rows: Array<{ label: string; count: number }>
+  tone: 'cyan' | 'amber'
+}) {
+  const total = rows.reduce((sum, row) => sum + Number(row.count || 0), 0)
+
+  const styles = {
+    cyan: 'border-cyan-500/20 bg-cyan-500/[0.06] text-cyan-200',
+    amber: 'border-[#D8B65A]/20 bg-[#D8B65A]/[0.07] text-[#F4CD68]',
+  }
+
+  return (
+    <div className={`rounded-[34px] border p-6 shadow-2xl ${styles[tone]}`}>
+      <p className="text-xs font-black uppercase tracking-[0.3em]">
+        {title}
+      </p>
+
+      <h2 className="mt-3 text-2xl font-black text-white">
+        {subtitle}
+      </h2>
+
+      <div className="mt-6 space-y-4">
+        {rows.length > 0 ? (
+          rows.map((row) => {
+            const pct = total > 0 ? Math.round((Number(row.count) / total) * 100) : 0
+
+            return (
+              <div key={row.label}>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="font-bold text-white">{row.label}</span>
+                  <span className="text-zinc-400">{row.count}</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/40">
+                  <div
+                    className="h-full rounded-full bg-current"
+                    style={{ width: `${Math.max(4, pct)}%` }}
+                  />
+                </div>
+              </div>
+            )
+          })
+        ) : (
+          <p className="text-sm text-zinc-400">
+            Portfolio DNA is still building.
+          </p>
+        )}
+      </div>
     </div>
   )
 }
