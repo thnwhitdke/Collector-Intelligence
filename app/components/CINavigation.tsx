@@ -21,8 +21,8 @@ const navItems = [
     label: 'Leaders',
   },
   {
-    href: '/collection/value-queue',
-    label: 'Queue',
+    href: '/dashboard/enrichment-operations',
+    label: 'Operations',
   },
   {
     href: '/collection/want-list',
