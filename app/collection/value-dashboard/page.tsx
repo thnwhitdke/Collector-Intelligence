@@ -270,13 +270,15 @@ export default function ValueDashboardPage() {
   )
 
   useEffect(() => {
+    if (!userId) return
+
     const timer = setTimeout(() => {
       loadRecords(true)
       loadIntelligence()
     }, 0)
 
     return () => clearTimeout(timer)
-  }, [search, statusFilter])
+  }, [userId, search, statusFilter])
 
   useEffect(() => {
     const interval = setInterval(() => {
