@@ -335,7 +335,7 @@ export default async function MarketIntelligencePage({
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Kpi label="Market Pulse" value={pulse} accent />
-          <Kpi label="Supply Compression" value={String(compression)} />
+          <Kpi label="Market Value Under Watch" value={money(marketValue)} />\n          <Kpi label="Supply Compression" value={String(compression)} />
           <Kpi label="Momentum Leaders" value={String(momentum)} />
           <Kpi label="High Demand" value={String(demand)} />
           <Kpi label="Volatile Markets" value={String(volatile)} />
