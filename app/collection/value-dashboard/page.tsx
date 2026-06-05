@@ -227,8 +227,24 @@ export default function ValueDashboardPage() {
         )
       }
 
-      if (statusFilter !== 'all') {
-        query = query.eq('value_pull_status', statusFilter)
+      if (statusFilter === 'high_demand') {
+        query = query.gte('demand_score', 50)
+      }
+
+      if (statusFilter === 'accelerating') {
+        query = query.ilike('market_momentum', '%Accelerating%')
+      }
+
+      if (statusFilter === 'volatile') {
+        query = query.gte('volatility_score', 50)
+      }
+
+      if (statusFilter === 'elite') {
+        query = query.gte('collector_iq_score', 85)
+      }
+
+      if (statusFilter === 'hidden_gems') {
+        query = query.gte('rarity_score', 40).gte('collector_iq_score', 70)
       }
 
       const { data, error } = await query.range(
@@ -648,7 +664,7 @@ export default function ValueDashboardPage() {
               </p>
 
               <h2 className="mt-3 text-3xl font-black">
-                Asset Intelligence Search
+                Portfolio Signal Search
               </h2>
             </div>
 
@@ -667,10 +683,11 @@ export default function ValueDashboardPage() {
                 className="h-14 rounded-2xl border border-[#3A3025] bg-[#090705] px-5 text-white outline-none"
               >
                 <option value="all">All Records</option>
-                <option value="up_to_date">Fully Updated</option>
-                <option value="needs_updates">Needs Updates</option>
-                <option value="rare_no_sales_history">Rare / No Sales</option>
-                <option value="needs_repair">Repair Queue</option>
+                <option value="high_demand">High Demand</option>
+                <option value="accelerating">Accelerating</option>
+                <option value="volatile">Volatile</option>
+                <option value="elite">Elite Holdings</option>
+                <option value="hidden_gems">Hidden Gems</option>
               </select>
             </div>
           </div>
