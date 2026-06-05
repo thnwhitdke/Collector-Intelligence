@@ -665,6 +665,9 @@ export default function ValueDashboardPage() {
 
               <h2 className="mt-3 text-3xl font-black">
                 Portfolio Signal Search
+                <span className="ml-3 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
+                  Portfolio UI v2.1 — Signal Filters Active
+                </span>
               </h2>
             </div>
 
