@@ -156,6 +156,7 @@ export default function ValueDashboardPage() {
   const [opportunityRadar, setOpportunityRadar] = useState<any>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [pageReady, setPageReady] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -304,6 +305,7 @@ export default function ValueDashboardPage() {
       setPage(currentPage + 1)
       setLastAction(`Loaded ${reset ? normalized.length : records.length + normalized.length} portfolio assets.`)
       setLastRefresh(new Date())
+      setPageReady(true)
       setLoading(false)
     },
     [loading, page, search, statusFilter, records.length, userId],
@@ -401,6 +403,25 @@ export default function ValueDashboardPage() {
 
   const topGenres = (portfolioDNA?.genres || []).slice(0, 6)
   const topCountries = (portfolioDNA?.countries || []).slice(0, 6)
+
+  if (!pageReady) {
+    return (
+      <main className="min-h-screen bg-[#050403] px-6 py-8 text-[#F4EFE6] lg:px-10">
+        <CINavigation />
+        <div className="mx-auto mt-24 max-w-4xl rounded-[34px] border border-cyan-500/20 bg-cyan-500/[0.06] p-10 text-center">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
+            Portfolio Intelligence
+          </p>
+          <h1 className="mt-4 text-4xl font-black text-white">
+            Loading your portfolio intelligence…
+          </h1>
+          <p className="mt-4 text-zinc-400">
+            Connecting authenticated collection, market signals, and portfolio health.
+          </p>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-[#050403] px-6 py-8 text-[#F4EFE6] lg:px-10">
