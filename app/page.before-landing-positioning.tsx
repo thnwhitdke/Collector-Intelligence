@@ -193,52 +193,7 @@ export default function HomePage() {
 
       <section className="relative z-10 mx-auto max-w-7xl px-6 pb-24 lg:px-10">
         <div className="mb-10">
-          
-        <section className="mb-24">
-          <div className="mb-12">
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B86A]">
-              Inside Collector Intelligence
-            </p>
-
-            <h2 className="mt-4 max-w-4xl text-4xl font-black tracking-tight md:text-5xl">
-              Four intelligence engines. One private collection.
-            </h2>
-
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-[#B8AA96]">
-              Collector Intelligence transforms a static catalog into a living
-              system for portfolio health, market behavior, music discovery,
-              and acquisition decisions.
-            </p>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <LandingModule
-              tag="Portfolio"
-              title="Portfolio Intelligence"
-              body="Understand value concentration, exposure, rarity, portfolio health, and collection performance."
-            />
-
-            <LandingModule
-              tag="Market"
-              title="Market Intelligence"
-              body="Track scarcity, demand, volatility, supply compression, and emerging collector opportunities."
-            />
-
-            <LandingModule
-              tag="Music Graph"
-              title="Music Knowledge Graph"
-              body="Explore runtime behavior, long-form tracks, mood intelligence, and hidden listening patterns."
-            />
-
-            <LandingModule
-              tag="Acquisition"
-              title="Acquisition Intelligence"
-              body="Prioritize want-list targets using rarity, demand, acquisition pressure, and marketplace signals."
-            />
-          </div>
-        </section>
-
-<p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B86A]">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B86A]">
             Platform Moat
           </p>
 
@@ -365,33 +320,6 @@ function Mini({
         {label}
       </p>
       <p className={`mt-2 text-2xl font-black ${accent}`}>{value}</p>
-    </div>
-  );
-}
-
-
-function LandingModule({
-  tag,
-  title,
-  body,
-}: {
-  tag: string;
-  title: string;
-  body: string;
-}) {
-  return (
-    <div className="rounded-[32px] border border-white/10 bg-white/[0.035] p-8 shadow-2xl shadow-black/30">
-      <p className="text-xs font-black uppercase tracking-[0.28em] text-[#D8B65A]">
-        {tag}
-      </p>
-
-      <h3 className="mt-4 text-2xl font-black text-white">
-        {title}
-      </h3>
-
-      <p className="mt-4 text-sm leading-7 text-[#B8AA96]">
-        {body}
-      </p>
     </div>
   );
 }
