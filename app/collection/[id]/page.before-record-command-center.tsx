@@ -294,33 +294,6 @@ export default async function RecordDetailPage({
 
   const tracks = (trackRows ?? []) as TrackRow[];
 
-  const totalTrackSeconds = tracks.reduce(
-    (sum, track) => sum + (track.duration_seconds || 0),
-    0,
-  );
-
-  const recordRuntime =
-    totalTrackSeconds > 0
-      ? formatTrackSeconds(totalTrackSeconds)
-      : "—";
-
-  const collectorIq =
-    displayValue(
-      getValue(record, "collector_iq_score") ??
-        getValue(record, "value_confidence_score"),
-    );
-
-  const rarityScore = displayValue(getValue(record, "rarity_score"));
-
-  const recordNarrative =
-    forSale !== null && forSale !== undefined && forSale <= 2
-      ? "This record is showing thin marketplace supply. Scarcity may be meaningful, especially if value and condition signals are also strong."
-      : forSale !== null && forSale >= 30
-        ? "This record has active marketplace supply. Price discipline and condition comparison matter more than urgency."
-        : tracks.length > 0
-          ? "This record has active track intelligence, allowing Collector Intelligence to analyze sequencing, runtime, and listening structure."
-          : "This record is indexed in your archive and ready for additional market, value, and track intelligence enrichment.";
-
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#090909] text-[#F4EFE6]">
       {/* BACKGROUND */}
@@ -376,45 +349,6 @@ export default async function RecordDetailPage({
             </Link>
           </div>
         </div>
-
-        <section className="mb-8 rounded-[36px] border border-[#2A2418] bg-gradient-to-br from-[#15100A] via-[#0B0906] to-black p-6 shadow-2xl">
-          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-center">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B86A]">
-                Record Intelligence Summary
-              </p>
-
-              <h2 className="mt-3 text-3xl font-black text-white">
-                Why this record matters
-              </h2>
-
-              <p className="mt-3 max-w-4xl text-sm leading-7 text-[#B8AA96]">
-                {recordNarrative}
-              </p>
-            </div>
-
-            <div className={`rounded-[28px] border p-5 ${marketSignal.className}`}>
-              <p className="text-xs uppercase tracking-[0.2em] opacity-70">
-                Recommended Posture
-              </p>
-              <p className="mt-2 text-3xl font-black">
-                {marketSignal.label}
-              </p>
-              <p className="mt-2 text-xs leading-6 opacity-75">
-                {marketSignal.description}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-            <CommandMetric label="Estimated Value" value={estimatedValue} accent />
-            <CommandMetric label="Copies For Sale" value={forSale ?? "—"} />
-            <CommandMetric label="Market Momentum" value={displayValue(getValue(record, "market_momentum"))} />
-            <CommandMetric label="Collector IQ" value={collectorIq} />
-            <CommandMetric label="Rarity" value={rarityScore} />
-            <CommandMetric label="Tracks / Runtime" value={`${tracks.length} / ${recordRuntime}`} />
-          </div>
-        </section>
 
         {/* HERO */}
         <section className="grid gap-8 lg:grid-cols-[380px_1fr]">
@@ -1254,27 +1188,6 @@ function Read({
           ? "—"
           : String(value)}
       </div>
-    </div>
-  );
-}
-
-function CommandMetric({
-  label,
-  value,
-  accent = false,
-}: {
-  label: string;
-  value: string | number | boolean | null | undefined;
-  accent?: boolean;
-}) {
-  return (
-    <div className="rounded-[24px] border border-white/10 bg-black/25 p-4">
-      <p className="text-[10px] uppercase tracking-[0.2em] text-[#8E8170]">
-        {label}
-      </p>
-      <p className={accent ? "mt-2 text-2xl font-black text-[#D8B86A]" : "mt-2 text-2xl font-black text-white"}>
-        {value == null || value === "" ? "—" : String(value)}
-      </p>
     </div>
   );
 }
