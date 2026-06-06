@@ -50,7 +50,7 @@ export default function SignupPage() {
       </form>
 
       <p style={{ marginTop: 12 }}>
-        Already have an account? <a href="/login">Login</a>
+        Already have an account? <a href="/auth/login">Login</a>
       </p>
 
       {msg && <p style={{ marginTop: 12, color: "crimson" }}>{msg}</p>}
