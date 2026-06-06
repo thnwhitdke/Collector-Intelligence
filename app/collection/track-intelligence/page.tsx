@@ -104,8 +104,8 @@ function isUsableEpicTrack(track: TrackRow, record?: RecordMatch) {
   const seconds = track.duration_seconds || 0;
 
   if (!record) return false;
-  if (seconds < 420) return false;
-  if (seconds > 1800) return false;
+  if (seconds < 360) return false;
+  if (seconds > 2400) return false;
 
   const excluded = [
     "documentary",
@@ -246,7 +246,7 @@ async function getData(query: string) {
       `)
       .not("duration_seconds", "is", null)
       .order("duration_seconds", { ascending: false })
-      .limit(20),
+      .limit(200),
   ]);
 
   const coverageStats = coverageResult.data ?? {
@@ -265,6 +265,7 @@ async function getData(query: string) {
     new Set(
       [
         ...tracks.map((track) => String(track.discogs_release_id)),
+        ...epicTracks.map((track) => String(track.discogs_release_id)),
         ...runtimeRows.map((runtime) => String(runtime.discogs_release_id)),
       ].filter(Boolean),
     ),
@@ -649,7 +650,7 @@ export default async function TrackIntelligencePage({
             </p>
 
             <div className="mt-6 grid gap-3">
-              {filteredEpicTracks.map((track) => {
+              {filteredEpicTracks.slice(0, 20).map((track) => {
                 const record = recordMap.get(String(track.discogs_release_id));
                 const artwork = coverFor(record);
 
