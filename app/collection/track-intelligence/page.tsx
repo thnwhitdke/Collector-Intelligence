@@ -99,6 +99,33 @@ function moodHint(track: TrackRow) {
   return "Catalog";
 }
 
+function isUsableEpicTrack(track: TrackRow, record?: RecordMatch) {
+  const title = track.title.toLowerCase();
+  const seconds = track.duration_seconds || 0;
+
+  if (!record) return false;
+  if (seconds < 420) return false;
+  if (seconds > 1800) return false;
+
+  const excluded = [
+    "documentary",
+    "interview",
+    "trailer",
+    "video",
+    "dvd",
+    "commentary",
+    "credits",
+    "intro",
+    "outro",
+    "menu",
+    "commercial",
+    "advert",
+  ];
+
+  return !excluded.some((term) => title.includes(term));
+}
+
+
 
 
 function percent(value: number) {
@@ -394,7 +421,14 @@ export default async function TrackIntelligencePage({
         ) / runtimes.length
       : 0;
 
-  const longestIndexedTrack = epicTracks[0];
+  const filteredEpicTracks = epicTracks.filter((track) =>
+    isUsableEpicTrack(
+      track,
+      recordMap.get(String(track.discogs_release_id)),
+    ),
+  );
+
+  const longestIndexedTrack = filteredEpicTracks[0];
   const longestIndexedRecord = longestIndexedTrack
     ? recordMap.get(String(longestIndexedTrack.discogs_release_id))
     : undefined;
@@ -595,8 +629,8 @@ export default async function TrackIntelligencePage({
             value={averageAlbumRuntime ? formatMinutes(averageAlbumRuntime) : "—"}
           />
           <Metric
-            label="Epic Tracks"
-            value={epicTracks.length.toLocaleString()}
+            label="Long-Form Track Signals"
+            value={filteredEpicTracks.length.toLocaleString()}
           />
         </section>
 
@@ -607,16 +641,15 @@ export default async function TrackIntelligencePage({
             </p>
 
             <h2 className="mt-2 text-3xl font-black text-white">
-              Epic Tracks
+              Long-Form Track Signals
             </h2>
 
             <p className="mt-2 text-sm leading-7 text-zinc-400">
-              The longest indexed tracks in your collection. This is where extended forms,
-              suites, live explorations, and immersive listening candidates surface.
+              Long-form playable tracks between 7 and 30 minutes, filtered to remove documentaries, videos, interviews, and Discogs metadata entries.
             </p>
 
             <div className="mt-6 grid gap-3">
-              {epicTracks.map((track) => {
+              {filteredEpicTracks.map((track) => {
                 const record = recordMap.get(String(track.discogs_release_id));
                 const artwork = coverFor(record);
 
