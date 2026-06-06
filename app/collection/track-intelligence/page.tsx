@@ -707,8 +707,8 @@ export default async function TrackIntelligencePage({
                           className="h-16 w-16 rounded-2xl object-cover"
                         />
                       ) : (
-                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-[10px] text-zinc-500">
-                          No Art
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-[10px] font-black tracking-[0.2em] text-[#D8B65A]">
+                          CI
                         </div>
                       )}
 
@@ -772,8 +772,8 @@ export default async function TrackIntelligencePage({
                           className="h-16 w-16 rounded-2xl object-cover"
                         />
                       ) : (
-                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-[10px] text-zinc-500">
-                          No Art
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-[10px] font-black tracking-[0.2em] text-[#D8B65A]">
+                          CI
                         </div>
                       )}
 
