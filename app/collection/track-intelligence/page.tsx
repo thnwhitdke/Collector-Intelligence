@@ -101,11 +101,16 @@ function moodHint(track: TrackRow) {
 
 function isUsableEpicTrack(track: TrackRow, record?: RecordMatch) {
   const title = track.title.toLowerCase();
+  const artist = String(record?.artist || "").toLowerCase();
+  const album = String(record?.title || "").toLowerCase();
+  const position = String(track.position || "").toLowerCase();
   const seconds = track.duration_seconds || 0;
 
   if (!record) return false;
   if (seconds < 360) return false;
   if (seconds > 2400) return false;
+
+  const text = `${title} ${artist} ${album} ${position}`;
 
   const excluded = [
     "documentary",
@@ -115,14 +120,49 @@ function isUsableEpicTrack(track: TrackRow, record?: RecordMatch) {
     "dvd",
     "commentary",
     "credits",
-    "intro",
-    "outro",
     "menu",
     "commercial",
     "advert",
+    "film",
+    "narrates",
+    "narration",
+    "spoken",
+    "talks",
+    "press conference",
+    "radio interview",
+    "rare interview",
   ];
 
-  return !excluded.some((term) => title.includes(term));
+  if (excluded.some((term) => text.includes(term))) return false;
+
+  if (position.includes("dvd")) return false;
+
+  const knownLongFormMusic = [
+    "echoes",
+    "supper",
+    "dazed and confused",
+    "thick as a brick",
+    "sister ray",
+    "interstellar overdrive",
+    "dogs",
+    "shine on you crazy diamond",
+    "riders on the storm",
+    "atlantis",
+    "swastika girls",
+    "heavenly music corporation",
+    "from the isle of every where",
+    "zero the hero",
+    "grosses wasser",
+    "why are we sleeping",
+  ];
+
+  if (knownLongFormMusic.some((term) => text.includes(term))) return true;
+
+  const musicLikePosition =
+    /^[a-h][0-9]?$/i.test(String(track.position || "")) ||
+    /^[0-9]+-[0-9]+$/i.test(String(track.position || ""));
+
+  return musicLikePosition;
 }
 
 
@@ -646,7 +686,7 @@ export default async function TrackIntelligencePage({
             </h2>
 
             <p className="mt-2 text-sm leading-7 text-zinc-400">
-              Long-form playable tracks between 7 and 30 minutes, filtered to remove documentaries, videos, interviews, and Discogs metadata entries.
+              Long-form music tracks between 6 and 40 minutes, filtered to suppress documentaries, interviews, video entries, narration, and Discogs metadata.
             </p>
 
             <div className="mt-6 grid gap-3">
