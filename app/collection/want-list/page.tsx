@@ -263,6 +263,66 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function RadarColumn({
+  title,
+  subtitle,
+  items,
+  tone,
+}: {
+  title: string;
+  subtitle: string;
+  items: WantItem[];
+  tone: "red" | "amber" | "emerald";
+}) {
+  const tones = {
+    red: "border-red-500/25 bg-red-500/[0.08] text-red-100",
+    amber: "border-amber-500/25 bg-amber-500/[0.08] text-amber-100",
+    emerald: "border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-100",
+  };
+
+  return (
+    <div className={`rounded-[30px] border p-5 ${tones[tone]}`}>
+      <p className="text-[10px] font-black uppercase tracking-[0.28em]">
+        {title}
+      </p>
+      <p className="mt-1 text-xs text-[#B8AA96]">
+        {subtitle}
+      </p>
+
+      <div className="mt-5 grid gap-3">
+        {items.length > 0 ? (
+          items.map((item) => (
+            <a
+              key={item.id}
+              href={`#want-${item.id}`}
+              className="rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:bg-black/40"
+            >
+              <p className="text-sm font-black text-white">
+                {item.title || "Untitled Release"}
+              </p>
+              <p className="mt-1 text-xs text-[#B8AA96]">
+                {item.artist || "Unknown Artist"}
+              </p>
+              <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+                <span className="font-black text-[#D8B65A]">
+                  Pressure {score(item.acquisition_pressure)}
+                </span>
+                <span className="text-[#9C8D78]">
+                  {money(item.marketplace_lowest_price)}
+                </span>
+              </div>
+            </a>
+          ))
+        ) : (
+          <p className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-[#9C8D78]">
+            No targets in this lane.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ScoreBar({ value }: { value: number | null | undefined }) {
   const width = scoreNumber(value);
 
@@ -301,6 +361,36 @@ export default async function WantListPage() {
             activeItems.length,
         )
       : 0;
+
+  const buyNowTargets = activeItems
+    .filter((item) => scoreNumber(item.acquisition_pressure) >= 85)
+    .sort(
+      (a, b) =>
+        scoreNumber(b.acquisition_pressure) -
+        scoreNumber(a.acquisition_pressure),
+    )
+    .slice(0, 5);
+
+  const activeWatchTargets = activeItems
+    .filter((item) => {
+      const pressure = scoreNumber(item.acquisition_pressure);
+      return pressure >= 60 && pressure < 85;
+    })
+    .sort(
+      (a, b) =>
+        scoreNumber(b.acquisition_pressure) -
+        scoreNumber(a.acquisition_pressure),
+    )
+    .slice(0, 5);
+
+  const lowUrgencyTargets = activeItems
+    .filter((item) => scoreNumber(item.acquisition_pressure) < 60)
+    .sort(
+      (a, b) =>
+        scoreNumber(b.acquisition_pressure) -
+        scoreNumber(a.acquisition_pressure),
+    )
+    .slice(0, 5);
 
   const userIdForAlerts = activeItems[0]?.user_id ?? null;
 
@@ -365,6 +455,48 @@ export default async function WantListPage() {
           <Metric label="High Pressure" value={String(highPressure)} sub="Pressure score 75+" accent />
           <Metric label="Avg Rarity" value={activeItems.length ? String(avgRarity) : "—"} sub="CI rarity score" />
           <Metric label="Exposure" value={money(estimatedExposure)} sub="Visible market ask" accent />
+        </section>
+
+        <section className="mt-8 rounded-[36px] border border-[#32281D] bg-[#0F0C09] p-6 shadow-2xl">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#D0B06C]">
+                Acquisition Radar
+              </p>
+              <h2 className="mt-2 text-3xl font-black">
+                What should I do next?
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-7 text-[#9C8D78]">
+                Want Intelligence now separates urgent acquisition targets from active watches and low-pressure opportunities.
+              </p>
+            </div>
+            <div className="rounded-full border border-red-500/25 bg-red-500/10 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-red-100">
+              {buyNowTargets.length} Buy Now
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-5 xl:grid-cols-3">
+            <RadarColumn
+              title="Buy Now"
+              subtitle="Pressure 85+"
+              items={buyNowTargets}
+              tone="red"
+            />
+
+            <RadarColumn
+              title="Active Watch"
+              subtitle="Pressure 60–84"
+              items={activeWatchTargets}
+              tone="amber"
+            />
+
+            <RadarColumn
+              title="Low Urgency"
+              subtitle="Pressure below 60"
+              items={lowUrgencyTargets}
+              tone="emerald"
+            />
+          </div>
         </section>
 
         <section className="mt-8 rounded-[36px] border border-[#32281D] bg-[#0F0C09] p-6 shadow-2xl">
