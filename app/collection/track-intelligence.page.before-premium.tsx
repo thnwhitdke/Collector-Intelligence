@@ -342,25 +342,6 @@ export default async function TrackIntelligencePage({
         (a.duration_seconds || 0),
     )[0];
 
-  const moodCounts = tracks.reduce(
-    (acc, track) => {
-      const mood = moodHint(track);
-      acc[mood] = (acc[mood] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
-
-  const moodRows = Object.entries(moodCounts)
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
-
-  const immersiveCount = moodCounts.Immersive || 0;
-  const energyCount = moodCounts.Energy || 0;
-  const reflectiveCount = moodCounts.Reflective || 0;
-  const shortFormCount = moodCounts["Short Form"] || 0;
-
   return (
     <main className="min-h-screen bg-[#030303] px-6 py-6 text-zinc-100">
       <CINavigation />
@@ -368,18 +349,19 @@ export default async function TrackIntelligencePage({
       <section className="mx-auto max-w-7xl">
         <section className="overflow-hidden rounded-[38px] border border-[#2A2418] bg-gradient-to-br from-[#17120B] via-black to-[#050403] p-8 shadow-2xl">
           <p className="mb-3 text-xs font-black uppercase tracking-[0.4em] text-[#D8B65A]">
-            Music Knowledge Graph Layer
+            Music Intelligence Layer
           </p>
 
           <div className="grid gap-8 lg:grid-cols-[1.1fr_.9fr] lg:items-end">
             <div>
               <h1 className="max-w-5xl text-4xl font-black tracking-tight text-white md:text-6xl">
-                Music Knowledge Graph
+                Track Intelligence Command Center
               </h1>
 
               <p className="mt-5 max-w-3xl text-lg leading-8 text-zinc-400">
-                Search tracklists, inspect album sequencing, discover runtime behavior,
-                and surface emerging mood intelligence across your private music archive.
+                Search tracklists, discover playable records, inspect album
+                sequencing, and begin building the mood intelligence layer
+                across your private collection.
               </p>
             </div>
 
@@ -506,41 +488,6 @@ export default async function TrackIntelligencePage({
               value={uniqueReleaseResults.toLocaleString()}
             />
           </div>
-
-          <section className="mt-8 rounded-[34px] border border-fuchsia-500/15 bg-fuchsia-500/[0.04] p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.3em] text-fuchsia-200">
-                  Mood Intelligence
-                </p>
-
-                <h2 className="mt-2 text-3xl font-black text-white">
-                  Emerging Listening Behavior
-                </h2>
-
-                <p className="mt-2 max-w-3xl text-sm leading-7 text-zinc-400">
-                  Early classification layer based on title language and runtime behavior.
-                  This becomes the foundation for future mood matching and listening recommendations.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/25 px-5 py-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                  Dominant Mood
-                </p>
-                <p className="mt-2 text-2xl font-black text-white">
-                  {moodRows[0]?.label || "Building"}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-4">
-              <Metric label="Immersive" value={immersiveCount.toLocaleString()} />
-              <Metric label="Energy" value={energyCount.toLocaleString()} />
-              <Metric label="Reflective" value={reflectiveCount.toLocaleString()} />
-              <Metric label="Short Form" value={shortFormCount.toLocaleString()} />
-            </div>
-          </section>
         </section>
 
         <section className="mt-8 grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
@@ -548,11 +495,11 @@ export default async function TrackIntelligencePage({
             <div className="mb-6 flex items-end justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-[#D8B65A]">
-                  Track Discovery Engine
+                  Track Search Results
                 </p>
 
                 <h2 className="mt-2 text-3xl font-black text-white">
-                  Playable Music Links
+                  Playable Record Links
                 </h2>
               </div>
 
@@ -664,7 +611,7 @@ export default async function TrackIntelligencePage({
               </p>
 
               <h2 className="mt-2 text-2xl font-black text-white">
-                Longest Listening Experiences
+                Longest Album Runtimes
               </h2>
 
               <div className="mt-5 grid gap-3">
@@ -723,7 +670,7 @@ export default async function TrackIntelligencePage({
 
             <section className="rounded-[34px] border border-fuchsia-500/15 bg-fuchsia-500/[0.04] p-6">
               <p className="text-xs uppercase tracking-[0.25em] text-fuchsia-200">
-                Mood Intelligence Roadmap
+                Mood Intelligence Preview
               </p>
 
               <h2 className="mt-2 text-2xl font-black text-white">
