@@ -307,6 +307,20 @@ export default async function OperationsCenterPage() {
                           Discogs
                         </a>
                       ) : null}
+
+                      <a
+                        href={`/collection?q=${encodeURIComponent(observation.artist_name)}`}
+                        className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm font-black text-cyan-100"
+                      >
+                        Search Collection
+                      </a>
+
+                      <a
+                        href="/collection/favorite-artists"
+                        className="rounded-2xl border border-[#D8B65A]/20 bg-[#D8B65A]/10 px-4 py-3 text-sm font-black text-[#F4CD68]"
+                      >
+                        Artist Watchlist
+                      </a>
                     </div>
                   </div>
                 </article>
