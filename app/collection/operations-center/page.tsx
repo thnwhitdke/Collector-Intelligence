@@ -83,7 +83,14 @@ function tone(type: string) {
   return "border-cyan-500/25 bg-cyan-500/[0.08] text-cyan-100";
 }
 
-export default async function OperationsCenterPage() {
+export default async function OperationsCenterPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string }>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const q = (params.q || "").trim().toLowerCase();
+
   const supabase = createAdminClient();
 
   const { data, error } = await supabase
@@ -134,8 +141,38 @@ export default async function OperationsCenterPage() {
     s.signal_type.includes("Watch"),
   ).length;
 
-  const topSignal = signals[0];
-  const topObservation = observations[0];
+  const matchesQuery = (values: Array<string | number | null | undefined>) => {
+    if (!q) return true;
+    return values
+      .filter((value) => value !== null && value !== undefined)
+      .join(" ")
+      .toLowerCase()
+      .includes(q);
+  };
+
+  const filteredSignals = signals.filter((signal) =>
+    matchesQuery([
+      signal.signal_type,
+      signal.signal_title,
+      signal.signal_summary,
+      signal.artist,
+    ]),
+  );
+
+  const filteredObservations = observations.filter((observation) =>
+    matchesQuery([
+      observation.artist_name,
+      observation.release_title,
+      observation.signal_type,
+      observation.marketplace_for_sale,
+      observation.lowest_price,
+      observation.want_count,
+      observation.have_count,
+    ]),
+  );
+
+  const topSignal = filteredSignals[0] || signals[0];
+  const topObservation = filteredObservations[0] || observations[0];
 
   return (
     <main className="min-h-screen bg-[#050403] px-6 py-8 text-[#F4EFE6] lg:px-10">
@@ -193,11 +230,39 @@ export default async function OperationsCenterPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Kpi label="Signals" value={String(signals.length)} />
-          <Kpi label="Market Watches" value={String(observations.length)} />
+          <Kpi label="Signals" value={String(filteredSignals.length)} />
+          <Kpi label="Market Watches" value={String(filteredObservations.length)} />
           <Kpi label="Demand Clusters" value={String(demandCount)} />
           <Kpi label="Supply Compression" value={String(supplyCount)} />
         </section>
+
+        <form action="/collection/operations-center" className="rounded-[34px] border border-white/10 bg-white/[0.035] p-6">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B65A]">
+            Operations Search
+          </p>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+            <input
+              name="q"
+              defaultValue={params.q || ""}
+              placeholder="Search artist, release, signal, price, demand..."
+              className="rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-sm text-white outline-none focus:border-[#D8B65A]/60"
+            />
+
+            <button className="rounded-2xl bg-[#D8B65A] px-6 py-4 text-sm font-black text-black">
+              Search
+            </button>
+          </div>
+
+          {q ? (
+            <a
+              href="/collection/operations-center"
+              className="mt-4 inline-flex rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-black text-[#F4CD68]"
+            >
+              Clear Search
+            </a>
+          ) : null}
+        </form>
 
         {error || observationError ? (
           <div className="rounded-[28px] border border-red-500/25 bg-red-500/[0.08] p-6 text-red-100">
@@ -216,7 +281,7 @@ export default async function OperationsCenterPage() {
             </h2>
 
             <div className="mt-6 grid gap-4">
-              {signals.map((signal) => (
+              {filteredSignals.map((signal) => (
                 <article
                   key={signal.id}
                   className={`rounded-[28px] border p-5 ${tone(signal.signal_type)}`}
@@ -248,7 +313,7 @@ export default async function OperationsCenterPage() {
                 </article>
               ))}
 
-              {signals.length === 0 ? (
+              {filteredSignals.length === 0 ? (
                 <div className="rounded-[28px] border border-dashed border-white/10 p-10 text-center text-[#B8AA96]">
                   No signals generated yet.
                 </div>
@@ -272,7 +337,7 @@ export default async function OperationsCenterPage() {
             </p>
 
             <div className="mt-6 grid gap-4">
-              {observations.map((observation) => (
+              {filteredObservations.map((observation) => (
                 <article
                   key={observation.id}
                   className={`rounded-[28px] border p-5 ${marketTone(observation.signal_type)}`}
@@ -326,7 +391,7 @@ export default async function OperationsCenterPage() {
                 </article>
               ))}
 
-              {observations.length === 0 ? (
+              {filteredObservations.length === 0 ? (
                 <div className="rounded-[28px] border border-dashed border-white/10 p-10 text-center text-[#B8AA96]">
                   No external market observations yet.
                 </div>
