@@ -81,6 +81,11 @@ export default function CINavigation() {
             </Link>
           )
         })}
+        <form action="/auth/signout" method="post" className="ml-auto">
+          <button className="rounded-2xl border border-red-500/15 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-100 transition hover:bg-red-500/20">
+            Logout
+          </button>
+        </form>
       </div>
     </div>
   )

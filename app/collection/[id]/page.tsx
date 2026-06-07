@@ -11,6 +11,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "../../../src/lib/supabase/server";
 
 import {
+  deleteRecord,
+  duplicateRecord,
   refreshCoverFromDiscogs,
   updateCollectorDetails,
   updateReleaseDetails,
@@ -457,6 +459,28 @@ export default async function RecordDetailPage({
                 </form>
               </div>
             </div>
+
+            <section className="rounded-[32px] border border-red-500/15 bg-red-500/[0.04] p-5 shadow-xl backdrop-blur-xl">
+              <p className="text-xs uppercase tracking-[0.2em] text-red-200">
+                Record Actions
+              </p>
+
+              <div className="mt-4 grid gap-3">
+                <form action={duplicateRecord}>
+                  <input type="hidden" name="id" value={String(getValue(record, "id"))} />
+                  <button className="w-full rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-4 text-sm font-black text-cyan-100">
+                    Duplicate Record
+                  </button>
+                </form>
+
+                <form action={deleteRecord}>
+                  <input type="hidden" name="id" value={String(getValue(record, "id"))} />
+                  <button className="w-full rounded-2xl border border-red-500/25 bg-red-500/10 px-5 py-4 text-sm font-black text-red-100">
+                    Delete Record
+                  </button>
+                </form>
+              </div>
+            </section>
 
             {/* QUICK SIGNALS */}
             <div className="grid gap-4">

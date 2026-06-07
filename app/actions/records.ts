@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "../../src/lib/supabase/server";
 import {
   extractDiscogsReleaseIdFromUrl,
@@ -1069,4 +1070,69 @@ export async function importRecords(rows: ImportRecordRow[]) {
     inserted: cleaned.length,
     skipped: rows.length - cleaned.length,
   };
+}
+
+
+export async function duplicateRecord(formData: FormData) {
+  const id = Number(formData.get("id"));
+
+  if (!id) return;
+
+  const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
+
+  const { data, error } = await supabase
+    .from("records_clean_safe")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !data) {
+    throw new Error("Record not found or not authorized.");
+  }
+
+  const duplicate = { ...data };
+
+  delete duplicate.id;
+  delete duplicate.created_at;
+  delete duplicate.updated_at;
+
+  duplicate.user_id = userId;
+  duplicate.title = data.title ? `${data.title} (Copy)` : "Duplicated Record";
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("records_clean_safe")
+    .insert(duplicate)
+    .select("id")
+    .single();
+
+  if (insertError || !inserted) {
+    throw new Error(insertError?.message || "Could not duplicate record.");
+  }
+
+  revalidatePath("/collection");
+  redirect(`/collection/${inserted.id}`);
+}
+
+export async function deleteRecord(formData: FormData) {
+  const id = Number(formData.get("id"));
+
+  if (!id) return;
+
+  const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
+
+  const { error } = await supabase
+    .from("records_clean_safe")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/collection");
+  redirect("/collection");
 }
