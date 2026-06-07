@@ -538,34 +538,6 @@ export default async function OperationsCenterPage({
             </div>
           </section>
 
-          <aside className="grid gap-5">
-            <section className="rounded-[34px] border border-cyan-500/20 bg-cyan-500/[0.06] p-6">
-              <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-200">
-                What This Means
-              </p>
-              <h2 className="mt-3 text-2xl font-black text-white">
-                From Catalog to Intelligence
-              </h2>
-              <p className="mt-4 text-sm leading-7 text-[#B8AA96]">
-                This feed converts collection and market metadata into operational
-                intelligence. Future versions will compare history over time,
-                follow favorite artists, detect new marketplace events, and alert
-                users when collector conditions change.
-              </p>
-            </section>
-
-            <section className="rounded-[34px] border border-fuchsia-500/20 bg-fuchsia-500/[0.06] p-6">
-              <p className="text-xs font-black uppercase tracking-[0.3em] text-fuchsia-200">
-                Coming Next
-              </p>
-              <div className="mt-5 grid gap-3 text-sm text-[#B8AA96]">
-                <Roadmap label="Favorite Artist Watchlists" />
-                <Roadmap label="Historical Signal Movement" />
-                <Roadmap label="Buy / Sell Timing Intelligence" />
-                <Roadmap label="External Market Observations" />
-              </div>
-            </section>
-          </aside>
         </section>
       </div>
     </main>
