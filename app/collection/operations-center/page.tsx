@@ -34,6 +34,24 @@ type ScoredObservation = MarketObservation & {
   intelligence_summary: string;
 };
 
+type MarketMovement = {
+  id: number;
+  artist_name: string;
+  release_title: string | null;
+  discogs_release_id: number | null;
+  marketplace_for_sale: number | null;
+  previous_for_sale: number | null;
+  for_sale_change: number | null;
+  want_count: number | null;
+  previous_want_count: number | null;
+  want_change: number | null;
+  lowest_price: number | null;
+  previous_lowest_price: number | null;
+  price_change: number | null;
+  movement_signal: string;
+  observed_at: string;
+};
+
 function scoreObservation(observation: MarketObservation): ScoredObservation {
   const forSale = observation.marketplace_for_sale;
   const want = observation.want_count || 0;
@@ -80,6 +98,35 @@ function scoreObservation(observation: MarketObservation): ScoredObservation {
     priority,
     intelligence_summary,
   };
+}
+
+function movementTone(signal: string | null) {
+  const value = String(signal || "");
+
+  if (value.includes("Compression") || value.includes("Acceleration")) {
+    return "border-red-500/25 bg-red-500/[0.08] text-red-100";
+  }
+
+  if (value.includes("Expansion")) {
+    return "border-orange-500/25 bg-orange-500/[0.08] text-orange-100";
+  }
+
+  if (value.includes("Softening")) {
+    return "border-cyan-500/25 bg-cyan-500/[0.08] text-cyan-100";
+  }
+
+  return "border-white/10 bg-white/[0.035] text-[#F4EFE6]";
+}
+
+function delta(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+
+  const n = Number(value);
+
+  if (n > 0) return `+${n}`;
+  return String(n);
 }
 
 function priorityTone(priority: string) {
@@ -197,6 +244,30 @@ export default async function OperationsCenterPage({
     .map(scoreObservation)
     .sort((a, b) => b.observation_score - a.observation_score);
 
+  const { data: movementData, error: movementError } = await supabase
+    .from("market_observation_movement")
+    .select(`
+      id,
+      artist_name,
+      release_title,
+      discogs_release_id,
+      marketplace_for_sale,
+      previous_for_sale,
+      for_sale_change,
+      want_count,
+      previous_want_count,
+      want_change,
+      lowest_price,
+      previous_lowest_price,
+      price_change,
+      movement_signal,
+      observed_at
+    `)
+    .order("observed_at", { ascending: false })
+    .limit(30);
+
+  const movements = (movementData || []) as MarketMovement[];
+
   const demandCount = signals.filter((s) =>
     s.signal_type.includes("Demand"),
   ).length;
@@ -239,10 +310,25 @@ export default async function OperationsCenterPage({
     ]),
   );
 
+  const filteredMovements = movements.filter((movement) =>
+    matchesQuery([
+      movement.artist_name,
+      movement.release_title,
+      movement.movement_signal,
+      movement.marketplace_for_sale,
+      movement.previous_for_sale,
+      movement.want_count,
+      movement.previous_want_count,
+      movement.lowest_price,
+      movement.previous_lowest_price,
+    ]),
+  );
+
   const topSignal = filteredSignals[0] || signals[0];
   const topObservation = filteredObservations[0] || observations[0];
 
   const visibleObservations = filteredObservations.slice(0, 12);
+  const visibleMovements = filteredMovements.slice(0, 8);
   const visibleSignals = filteredSignals.slice(0, 10);
 
   return (
@@ -303,6 +389,7 @@ export default async function OperationsCenterPage({
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Kpi label="Signals" value={String(filteredSignals.length)} />
           <Kpi label="Market Watches" value={String(filteredObservations.length)} />
+          <Kpi label="Movement Signals" value={String(filteredMovements.length)} />
           <Kpi label="Demand Clusters" value={String(demandCount)} />
           <Kpi label="Supply Compression" value={String(supplyCount)} />
         </section>
@@ -386,9 +473,9 @@ export default async function OperationsCenterPage({
           </section>
         ) : null}
 
-        {error || observationError ? (
+        {error || observationError || movementError ? (
           <div className="rounded-[28px] border border-red-500/25 bg-red-500/[0.08] p-6 text-red-100">
-            {error?.message || observationError?.message}
+            {error?.message || observationError?.message || movementError?.message}
           </div>
         ) : null}
 
@@ -479,6 +566,66 @@ export default async function OperationsCenterPage({
               {visibleObservations.length === 0 ? (
                 <div className="rounded-[28px] border border-dashed border-white/10 p-10 text-center text-[#B8AA96]">
                   No external market observations yet.
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="rounded-[34px] border border-white/10 bg-white/[0.035] p-6">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B65A]">
+              Historical Movement
+            </p>
+
+            <h2 className="mt-3 text-3xl font-black text-white">
+              What Changed Since Last Observation
+            </h2>
+
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#B8AA96]">
+              Showing top {visibleMovements.length} of {filteredMovements.length} movement records. Early rows may show New Observation until multiple timed snapshots exist.
+            </p>
+
+            <div className="mt-6 grid gap-4">
+              {visibleMovements.map((movement) => (
+                <article
+                  key={movement.id}
+                  className={`rounded-[28px] border p-5 ${movementTone(movement.movement_signal)}`}
+                >
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.22em]">
+                        {movement.movement_signal}
+                      </p>
+
+                      <h3 className="mt-2 text-2xl font-black text-white">
+                        {movement.artist_name}
+                      </h3>
+
+                      <p className="mt-2 text-lg font-black text-[#F4EFE6]">
+                        {movement.release_title || "Untitled Release"}
+                      </p>
+
+                      <p className="mt-3 text-sm leading-7 text-[#D8CDBE]">
+                        For sale: {movement.previous_for_sale ?? "—"} → {movement.marketplace_for_sale ?? "—"} ({delta(movement.for_sale_change)}) · Want: {movement.previous_want_count ?? "—"} → {movement.want_count ?? "—"} ({delta(movement.want_change)}) · Price: {money(movement.previous_lowest_price)} → {money(movement.lowest_price)}
+                      </p>
+                    </div>
+
+                    {movement.discogs_release_id ? (
+                      <a
+                        href={`https://www.discogs.com/release/${movement.discogs_release_id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-black text-white"
+                      >
+                        Discogs
+                      </a>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+
+              {visibleMovements.length === 0 ? (
+                <div className="rounded-[28px] border border-dashed border-white/10 p-10 text-center text-[#B8AA96]">
+                  No historical movement records yet.
                 </div>
               ) : null}
             </div>
