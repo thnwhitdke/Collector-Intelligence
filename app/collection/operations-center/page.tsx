@@ -28,6 +28,72 @@ type MarketObservation = {
   observed_at: string;
 };
 
+type ScoredObservation = MarketObservation & {
+  observation_score: number;
+  priority: "Critical" | "Watch" | "Monitor";
+  intelligence_summary: string;
+};
+
+function scoreObservation(observation: MarketObservation): ScoredObservation {
+  const forSale = observation.marketplace_for_sale;
+  const want = observation.want_count || 0;
+  const have = observation.have_count || 0;
+  const price = observation.lowest_price || 0;
+
+  let score = 0;
+
+  if (forSale === 0) score += 45;
+  else if (forSale !== null && forSale <= 2) score += 35;
+  else if (forSale !== null && forSale <= 5) score += 25;
+  else if (forSale !== null && forSale <= 10) score += 10;
+
+  if (want >= 1000) score += 30;
+  else if (want >= 500) score += 25;
+  else if (want >= 250) score += 18;
+  else if (want >= 100) score += 10;
+
+  if (have > 0 && want > have) score += 20;
+  else if (have > 0 && want / have >= 0.75) score += 10;
+
+  if (price >= 250) score += 10;
+  if (String(observation.signal_type || "").includes("Rare")) score += 15;
+  if (String(observation.signal_type || "").includes("Supply")) score += 10;
+  if (String(observation.signal_type || "").includes("Demand")) score += 8;
+
+  const finalScore = Math.min(100, Math.round(score));
+
+  const priority =
+    finalScore >= 80 ? "Critical" : finalScore >= 55 ? "Watch" : "Monitor";
+
+  const intelligence_summary =
+    forSale === 0 && want >= 500
+      ? "Supply appears exhausted while collector demand is elevated."
+      : forSale !== null && forSale <= 5 && want >= 250
+        ? "Limited marketplace supply with meaningful collector demand."
+        : have > 0 && want > have
+          ? "Collector demand currently exceeds recorded ownership."
+          : "Market activity is active but does not yet indicate a critical event.";
+
+  return {
+    ...observation,
+    observation_score: finalScore,
+    priority,
+    intelligence_summary,
+  };
+}
+
+function priorityTone(priority: string) {
+  if (priority === "Critical") {
+    return "border-red-500/30 bg-red-500/[0.1] text-red-100";
+  }
+
+  if (priority === "Watch") {
+    return "border-orange-500/30 bg-orange-500/[0.1] text-orange-100";
+  }
+
+  return "border-cyan-500/25 bg-cyan-500/[0.08] text-cyan-100";
+}
+
 function strengthLabel(value: number | null | undefined) {
   const n = Number(value || 0);
 
@@ -127,7 +193,9 @@ export default async function OperationsCenterPage({
     .order("observed_at", { ascending: false })
     .limit(30);
 
-  const observations = (observationData || []) as MarketObservation[];
+  const observations = ((observationData || []) as MarketObservation[])
+    .map(scoreObservation)
+    .sort((a, b) => b.observation_score - a.observation_score);
 
   const demandCount = signals.filter((s) =>
     s.signal_type.includes("Demand"),
@@ -264,6 +332,57 @@ export default async function OperationsCenterPage({
           ) : null}
         </form>
 
+        {topObservation ? (
+          <section className={`rounded-[38px] border p-7 shadow-2xl ${priorityTone(topObservation.priority)}`}>
+            <div className="grid gap-6 lg:grid-cols-[1fr_260px] lg:items-center">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.32em]">
+                  Today's Most Important Signal
+                </p>
+
+                <h2 className="mt-3 text-4xl font-black text-white">
+                  {topObservation.artist_name}
+                </h2>
+
+                <p className="mt-2 text-2xl font-black text-[#FFD21E]">
+                  {topObservation.release_title || "Untitled Release"}
+                </p>
+
+                <p className="mt-4 max-w-4xl text-sm leading-7 text-[#F4EFE6]/80">
+                  {topObservation.intelligence_summary}
+                </p>
+
+                <div className="mt-5 flex flex-wrap gap-3 text-sm">
+                  <span className="rounded-full border border-white/10 bg-black/25 px-4 py-2">
+                    {topObservation.marketplace_for_sale ?? "—"} for sale
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-black/25 px-4 py-2">
+                    {topObservation.want_count ?? "—"} want
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-black/25 px-4 py-2">
+                    {topObservation.have_count ?? "—"} have
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-black/25 px-4 py-2">
+                    Lowest ask {money(topObservation.lowest_price)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-white/10 bg-black/30 p-5 text-center">
+                <p className="text-xs uppercase tracking-[0.2em] text-[#B8AA96]">
+                  Observation Score
+                </p>
+                <p className="mt-3 text-6xl font-black text-white">
+                  {topObservation.observation_score}
+                </p>
+                <p className="mt-2 text-sm font-black uppercase tracking-[0.2em]">
+                  {topObservation.priority}
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         {error || observationError ? (
           <div className="rounded-[28px] border border-red-500/25 bg-red-500/[0.08] p-6 text-red-100">
             {error?.message || observationError?.message}
@@ -357,11 +476,26 @@ export default async function OperationsCenterPage({
                       </p>
 
                       <p className="mt-3 text-sm leading-7 text-[#D8CDBE]">
+                        {observation.intelligence_summary}
+                      </p>
+
+                      <p className="mt-3 text-sm leading-7 text-[#D8CDBE]">
                         {observation.marketplace_for_sale ?? "—"} copies for sale · {observation.want_count ?? "—"} want · {observation.have_count ?? "—"} have · lowest ask {money(observation.lowest_price)}
                       </p>
                     </div>
 
                     <div className="flex flex-col gap-2 md:items-end">
+                      <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-right">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-[#B8AA96]">
+                          Score
+                        </p>
+                        <p className="mt-1 text-2xl font-black text-white">
+                          {observation.observation_score}
+                        </p>
+                        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em]">
+                          {observation.priority}
+                        </p>
+                      </div>
                       {observation.discogs_release_id ? (
                         <a
                           href={`https://www.discogs.com/release/${observation.discogs_release_id}`}
