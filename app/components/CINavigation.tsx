@@ -17,6 +17,10 @@ const navItems = [
     label: 'Portfolio',
   },
   {
+    href: '/collection/valuation-explorer',
+    label: 'Valuation',
+  },
+  {
     href: '/collection/market-intelligence',
     label: 'Market',
   },
