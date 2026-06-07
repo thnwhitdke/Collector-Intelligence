@@ -242,6 +242,9 @@ export default async function OperationsCenterPage({
   const topSignal = filteredSignals[0] || signals[0];
   const topObservation = filteredObservations[0] || observations[0];
 
+  const visibleObservations = filteredObservations.slice(0, 12);
+  const visibleSignals = filteredSignals.slice(0, 10);
+
   return (
     <main className="min-h-screen bg-[#050403] px-6 py-8 text-[#F4EFE6] lg:px-10">
       <CINavigation />
@@ -392,57 +395,6 @@ export default async function OperationsCenterPage({
         <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
           <section className="rounded-[34px] border border-white/10 bg-white/[0.035] p-6">
             <p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B65A]">
-              Live Signal Feed
-            </p>
-
-            <h2 className="mt-3 text-3xl font-black text-white">
-              Collector Intelligence Wire
-            </h2>
-
-            <div className="mt-6 grid gap-4">
-              {filteredSignals.map((signal) => (
-                <article
-                  key={signal.id}
-                  className={`rounded-[28px] border p-5 ${tone(signal.signal_type)}`}
-                >
-                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.22em]">
-                        {signal.signal_type}
-                      </p>
-
-                      <h3 className="mt-2 text-2xl font-black text-white">
-                        {signal.artist || signal.signal_title}
-                      </h3>
-
-                      <p className="mt-3 max-w-3xl text-sm leading-7 text-[#D8CDBE]">
-                        {signal.signal_summary}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-right">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-[#B8AA96]">
-                        Strength
-                      </p>
-                      <p className="mt-1 text-2xl font-black text-white">
-                        {Math.round(Number(signal.signal_strength || 0))}
-                      </p>
-                    </div>
-                  </div>
-                </article>
-              ))}
-
-              {filteredSignals.length === 0 ? (
-                <div className="rounded-[28px] border border-dashed border-white/10 p-10 text-center text-[#B8AA96]">
-                  No signals generated yet.
-                </div>
-              ) : null}
-            </div>
-          </section>
-
-
-          <section className="rounded-[34px] border border-white/10 bg-white/[0.035] p-6">
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B65A]">
               External Market Watch
             </p>
 
@@ -451,12 +403,11 @@ export default async function OperationsCenterPage({
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm leading-7 text-[#B8AA96]">
-              Signals from active favorite artists outside the collection view:
-              supply, demand, price, and marketplace activity.
+              Showing top {visibleObservations.length} of {filteredObservations.length} external market observations from active favorite artists.
             </p>
 
             <div className="mt-6 grid gap-4">
-              {filteredObservations.map((observation) => (
+              {visibleObservations.map((observation) => (
                 <article
                   key={observation.id}
                   className={`rounded-[28px] border p-5 ${marketTone(observation.signal_type)}`}
@@ -525,9 +476,63 @@ export default async function OperationsCenterPage({
                 </article>
               ))}
 
-              {filteredObservations.length === 0 ? (
+              {visibleObservations.length === 0 ? (
                 <div className="rounded-[28px] border border-dashed border-white/10 p-10 text-center text-[#B8AA96]">
                   No external market observations yet.
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="rounded-[34px] border border-white/10 bg-white/[0.035] p-6">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B65A]">
+              Live Signal Feed
+            </p>
+
+            <h2 className="mt-3 text-3xl font-black text-white">
+              Collector Intelligence Wire
+            </h2>
+
+            <p className="mt-3 text-sm leading-7 text-[#B8AA96]">
+              Showing top {visibleSignals.length} of {filteredSignals.length} internal collection signals.
+            </p>
+
+            <div className="mt-6 grid gap-4">
+              {visibleSignals.map((signal) => (
+                <article
+                  key={signal.id}
+                  className={`rounded-[28px] border p-5 ${tone(signal.signal_type)}`}
+                >
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.22em]">
+                        {signal.signal_type}
+                      </p>
+
+                      <h3 className="mt-2 text-2xl font-black text-white">
+                        {signal.artist || signal.signal_title}
+                      </h3>
+
+                      <p className="mt-3 max-w-3xl text-sm leading-7 text-[#D8CDBE]">
+                        {signal.signal_summary}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-right">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-[#B8AA96]">
+                        Strength
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-white">
+                        {Math.round(Number(signal.signal_strength || 0))}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              ))}
+
+              {visibleSignals.length === 0 ? (
+                <div className="rounded-[28px] border border-dashed border-white/10 p-10 text-center text-[#B8AA96]">
+                  No signals generated yet.
                 </div>
               ) : null}
             </div>
