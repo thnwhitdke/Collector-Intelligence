@@ -21,6 +21,10 @@ const navItems = [
     label: 'Market',
   },
   {
+    href: '/collection/acquisition-radar',
+    label: 'Radar',
+  },
+  {
     href: '/collection/market-leaders',
     label: 'Leaders',
   },
