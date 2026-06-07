@@ -9,6 +9,10 @@ const navItems = [
     label: 'Collection',
   },
   {
+    href: '/collection/operations-center',
+    label: 'Operations',
+  },
+  {
     href: '/collection/value-dashboard',
     label: 'Portfolio',
   },
@@ -22,7 +26,7 @@ const navItems = [
   },
   {
     href: '/dashboard/enrichment-operations',
-    label: 'Operations',
+    label: 'Enrichment Ops',
   },
   {
     href: '/collection/want-list',
