@@ -21,6 +21,10 @@ const navItems = [
     label: 'Valuation',
   },
   {
+    href: '/collection/integrity-center',
+    label: 'Integrity',
+  },
+  {
     href: '/collection/market-intelligence',
     label: 'Market',
   },
