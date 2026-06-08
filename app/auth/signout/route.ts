@@ -1,19 +1,18 @@
-import { NextResponse } from "next/server";
-import { createClient } from "../../../src/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/src/lib/supabase/server";
 
-async function signOut() {
+async function signOut(request: NextRequest) {
   const supabase = await createClient();
+
   await supabase.auth.signOut();
 
-  return NextResponse.redirect(
-    new URL("/auth/login", process.env.NEXT_PUBLIC_SITE_URL || "https://www.collectorsintelligence.com"),
-  );
+  return NextResponse.redirect(new URL("/", request.url));
 }
 
-export async function POST() {
-  return signOut();
+export async function POST(request: NextRequest) {
+  return signOut(request);
 }
 
-export async function GET() {
-  return signOut();
+export async function GET(request: NextRequest) {
+  return signOut(request);
 }
