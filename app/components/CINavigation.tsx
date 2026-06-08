@@ -9,6 +9,10 @@ const navItems = [
     label: 'Collection',
   },
   {
+    href: '/collection/daily-briefing',
+    label: 'Briefing',
+  },
+  {
     href: '/collection/operations-center',
     label: 'Operations',
   },
