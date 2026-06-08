@@ -618,129 +618,48 @@ export default function CollectionPage() {
             ) : null}
           </div>
 
-          {displayedRecords.length === 0 ? (
-            <div className="overflow-hidden rounded-[40px] border border-[#32281D] bg-gradient-to-br from-[#14100B] via-[#0B0806] to-[#17110A] p-10 shadow-2xl">
-              <div className="max-w-4xl">
-                <div className="inline-flex rounded-full border border-[#D8B65A]/25 bg-[#D8B65A]/10 px-5 py-2 text-[11px] font-black uppercase tracking-[0.3em] text-[#F4CD68]">
-                  Welcome To Collector Intelligence
-                </div>
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {displayedRecords.map((record) => (
+              <Link
+                key={record.id}
+                href={`/collection/${record.id}`}
+                className="group overflow-hidden rounded-[34px] border border-[#2D241B] bg-gradient-to-br from-[#140F0B] via-[#0B0806] to-[#17110A] shadow-2xl shadow-black/40 transition duration-300 hover:-translate-y-1 hover:border-[#D0B06C]/35"
+              >
+                <CoverImage record={record} large />
 
-                <h2 className="mt-6 text-5xl font-black leading-tight">
-                  Let&apos;s Build Your Archive
-                </h2>
+                <div className="p-5">
+                  <p className="text-xs uppercase tracking-[0.25em] text-[#B48A4D]">
+                    {record.artist || "Unknown Artist"}
+                  </p>
 
-                <p className="mt-5 max-w-3xl text-lg leading-8 text-[#B8AA96]">
-                  Your collection is currently empty. Once records are added,
-                  Collector Intelligence will begin generating portfolio metrics,
-                  market signals, rarity intelligence, valuation insights, and
-                  collection analytics automatically.
-                </p>
+                  <p className="mt-2 line-clamp-2 text-2xl font-black text-white">
+                    {record.title || "Untitled"}
+                  </p>
 
-                <div className="mt-10 grid gap-5 md:grid-cols-3">
-                  <div className="rounded-[28px] border border-[#2D241B] bg-black/25 p-6">
-                    <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D8B65A]">
-                      Step 1
-                    </p>
+                  <p className="mt-2 text-sm text-[#A89782]">
+                    {[record.label, record.year].filter(Boolean).join(" · ") ||
+                      "Release details pending"}
+                  </p>
 
-                    <h3 className="mt-3 text-xl font-black">
-                      Add Your First Record
-                    </h3>
-
-                    <p className="mt-3 text-sm leading-7 text-[#A89782]">
-                      Start building your archive one record at a time using the Add
-                      Record workflow.
-                    </p>
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <MiniStat label="Value" value={money(record.estimated_value)} />
+                    <MiniStat label="Supply" value={String(score(record.supply_pressure) || "—")} />
+                    <MiniStat label="Risk" value={String(score(record.volatility_score) || "—")} />
                   </div>
 
-                  <div className="rounded-[28px] border border-[#2D241B] bg-black/25 p-6">
-                    <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
-                      Step 2
-                    </p>
-
-                    <h3 className="mt-3 text-xl font-black">
-                      Enrichment Activates
-                    </h3>
-
-                    <p className="mt-3 text-sm leading-7 text-[#A89782]">
-                      Metadata, artwork, market values, tracks, and intelligence
-                      signals begin populating automatically.
-                    </p>
-                  </div>
-
-                  <div className="rounded-[28px] border border-[#2D241B] bg-black/25 p-6">
-                    <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-300">
-                      Step 3
-                    </p>
-
-                    <h3 className="mt-3 text-xl font-black">
-                      Unlock Intelligence
-                    </h3>
-
-                    <p className="mt-3 text-sm leading-7 text-[#A89782]">
-                      Portfolio analytics, market intelligence, rarity detection,
-                      and collection insights become available.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-10 flex flex-wrap gap-4">
-                  <div className="rounded-2xl border border-[#D8B65A]/25 bg-[#D8B65A]/10 px-5 py-3 text-sm font-black text-[#F4CD68]">
-                    Use Add Record Above To Begin
-                  </div>
-
-                  <Link
-                    href="/collection/daily-briefing"
-                    className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.06]"
-                  >
-                    Explore The Platform
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {displayedRecords.map((record) => (
-                <Link
-                  key={record.id}
-                  href={`/collection/${record.id}`}
-                  className="group overflow-hidden rounded-[34px] border border-[#2D241B] bg-gradient-to-br from-[#140F0B] via-[#0B0806] to-[#17110A] shadow-2xl shadow-black/40 transition duration-300 hover:-translate-y-1 hover:border-[#D0B06C]/35"
-                >
-                  <CoverImage record={record} large />
-
-                  <div className="p-5">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#B48A4D]">
-                      {record.artist || "Unknown Artist"}
-                    </p>
-
-                    <p className="mt-2 line-clamp-2 text-2xl font-black text-white">
-                      {record.title || "Untitled"}
-                    </p>
-
-                    <p className="mt-2 text-sm text-[#A89782]">
-                      {[record.label, record.year].filter(Boolean).join(" · ") ||
-                        "Release details pending"}
-                    </p>
-
-                    <div className="mt-5 grid grid-cols-3 gap-3">
-                      <MiniStat label="Value" value={money(record.estimated_value)} />
-                      <MiniStat label="Supply" value={String(score(record.supply_pressure) || "—")} />
-                      <MiniStat label="Risk" value={String(score(record.volatility_score) || "—")} />
+                  <div className="mt-5 flex items-center justify-between">
+                    <div className="rounded-full border border-[#3A3025] bg-black/30 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#D8B65A]">
+                      Intelligence Profile
                     </div>
 
-                    <div className="mt-5 flex items-center justify-between">
-                      <div className="rounded-full border border-[#3A3025] bg-black/30 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#D8B65A]">
-                        Intelligence Profile
-                      </div>
-
-                      <div className="text-sm font-black text-[#E5C67A]">
-                        Open →
-                      </div>
+                    <div className="text-sm font-black text-[#E5C67A]">
+                      Open →
                     </div>
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
+                </div>
+              </Link>
+            ))}
+          </div>
         </section>
       </section>
     </main>
