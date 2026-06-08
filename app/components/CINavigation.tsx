@@ -58,6 +58,15 @@ function isActive(pathname: string, href: string) {
 export default function CINavigation() {
   const pathname = usePathname()
 
+  async function handleLogout() {
+    await fetch('/auth/signout', {
+      method: 'POST',
+      cache: 'no-store',
+    })
+
+    window.location.href = '/'
+  }
+
   return (
     <nav className="sticky top-0 z-50 mb-6 border-b border-cyan-500/10 bg-[#040404]/95 px-4 py-3 backdrop-blur-xl shadow-[0_10px_40px_rgba(0,255,255,0.03)]">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
@@ -139,11 +148,13 @@ export default function CINavigation() {
           )}
         </div>
 
-        <form action="/auth/signout" method="post">
-          <button className="whitespace-nowrap rounded-2xl border border-red-500/15 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-100 transition hover:bg-red-500/20">
-            Logout
-          </button>
-        </form>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="whitespace-nowrap rounded-2xl border border-red-500/15 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-100 transition hover:bg-red-500/20"
+        >
+          Logout
+        </button>
       </div>
     </nav>
   )
