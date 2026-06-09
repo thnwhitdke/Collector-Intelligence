@@ -409,7 +409,7 @@ export default function AddRecordForm({ onSuccess }: Props) {
             </Field>
 
             <Field>
-              <Label htmlFor="estimated_value">Estimated Value</Label>
+              <Label htmlFor="estimated_value">Manual / Imported Value</Label>
               <Input
                 id="estimated_value"
                 name="estimated_value"
@@ -488,7 +488,7 @@ export default function AddRecordForm({ onSuccess }: Props) {
                     ),
                   },
                   {
-                    label: "Estimated Value",
+                    label: "Manual / Imported Value",
                     value: displayOrFallback(
                       preview.estimated_value,
                       "Not entered"
