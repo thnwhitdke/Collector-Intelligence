@@ -18,6 +18,8 @@ type AssetRecord = {
   title: string | null
   cover_url: string | null
   estimated_value: string | number | null
+  market_consensus_value: string | number | null
+  discogs_median_price: string | number | null
   label: string | null
   year_released: string | number | null
   market_num_for_sale: number | null
@@ -75,6 +77,22 @@ function money(value: unknown) {
     currency: 'USD',
     maximumFractionDigits: 0,
   }).format(numeric(value))
+}
+
+function consensusValue(record: {
+  market_consensus_value?: unknown
+  estimated_value?: unknown
+  discogs_median_price?: unknown
+}) {
+  const marketConsensus = numeric(record.market_consensus_value)
+  const estimated = numeric(record.estimated_value)
+  const discogsMedian = numeric(record.discogs_median_price)
+
+  if (marketConsensus > 0) return marketConsensus
+  if (estimated > 0) return estimated
+  if (discogsMedian > 0) return discogsMedian
+
+  return 0
 }
 
 function percent(value: unknown) {
@@ -157,6 +175,8 @@ export default function ValueDashboardPage() {
         cover_url,
         discogs_image_url,
         estimated_value,
+        market_consensus_value,
+        discogs_median_price,
         label,
         year,
         year_released,
@@ -176,7 +196,7 @@ export default function ValueDashboardPage() {
         discogs_release_id
       `)
       .eq('user_id', userId)
-      .order('estimated_value', {
+      .order('market_consensus_value', {
         ascending: false,
         nullsFirst: false,
       })
@@ -241,6 +261,8 @@ export default function ValueDashboardPage() {
           record.discogs_image_url ||
           null,
         estimated_value: record.estimated_value ?? 0,
+        market_consensus_value: record.market_consensus_value ?? null,
+        discogs_median_price: record.discogs_median_price ?? null,
         label: record.label || 'Unknown Label',
         year_released: record.year_released || record.year || null,
         market_num_for_sale: record.market_num_for_sale ?? 0,
@@ -521,10 +543,10 @@ export default function ValueDashboardPage() {
 
                   <div className="rounded-[28px] border border-white/10 bg-black/40 p-5">
                     <p className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
-                      Estimated Value
+                      Market Consensus
                     </p>
                     <p className="mt-2 text-3xl font-black text-[#E5C67A]">
-                      {money(record.estimated_value)}
+                      {money(consensusValue(record))}
                     </p>
                     <div className="mt-5 grid grid-cols-2 gap-3">
                       <Mini label="IQ" value={String(record.collector_iq_score ?? '—')} />
