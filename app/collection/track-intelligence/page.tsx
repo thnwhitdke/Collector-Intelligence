@@ -395,10 +395,15 @@ export default async function TrackIntelligencePage({
   ).size;
 
 
-  const coverage =
+  const rawCoverage =
     totalCollection > 0
       ? (releaseCount / totalCollection) * 100
       : 0;
+
+  const coverage = Math.min(100, rawCoverage);
+
+  const surplusIndexed =
+    Math.max(releaseCount - totalCollection, 0);
 
   const remaining =
     Math.max(
@@ -555,6 +560,11 @@ export default async function TrackIntelligencePage({
                 <p className="mt-2 text-2xl font-black text-[#D8B65A]">
                   {percent(coverage)}
                 </p>
+                {surplusIndexed > 0 ? (
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-300">
+                    +{surplusIndexed.toLocaleString()} surplus indexed
+                  </p>
+                ) : null}
               </div>
 
               <div className="rounded-[26px] border border-[#2A2418] bg-black/25 p-4">
