@@ -26,6 +26,7 @@ export type CollectionRecord = {
   discogs_median_price?: string | number | null;
   discogs_high_price?: string | number | null;
   estimated_value?: string | number | null;
+  market_consensus_value?: string | number | null;
   purchase_price?: string | number | null;
   current_value?: string | number | null;
   possible_duplicate?: boolean | null;
@@ -116,6 +117,7 @@ function getDiscogsMedian(record: CollectionRecord) {
 
 function getEstimatedValue(record: CollectionRecord) {
   return (
+    getNumericValue(record.market_consensus_value) ||
     getNumericValue(record.current_value) ||
     getNumericValue(record.estimated_value) ||
     getNumericValue(record.discogs_median_price) ||

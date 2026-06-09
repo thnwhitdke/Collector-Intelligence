@@ -19,12 +19,30 @@ function money(value: number | null) {
   }).format(value);
 }
 
+function consensusValue(record: ValueRankingRecord) {
+  if (record.market_consensus_value !== null && record.market_consensus_value > 0) {
+    return record.market_consensus_value;
+  }
+
+  if (record.estimated_value !== null && record.estimated_value > 0) {
+    return record.estimated_value;
+  }
+
+  if (record.discogs_median_price !== null && record.discogs_median_price > 0) {
+    return record.discogs_median_price;
+  }
+
+  return null;
+}
+
 function gain(record: ValueRankingRecord) {
-  if (record.estimated_value === null || record.purchase_price === null) {
+  const value = consensusValue(record);
+
+  if (value === null || record.purchase_price === null) {
     return null;
   }
 
-  return record.estimated_value - record.purchase_price;
+  return value - record.purchase_price;
 }
 
 export default function TopValueRecordsPanel({
@@ -37,7 +55,7 @@ export default function TopValueRecordsPanel({
       <div className="grid gap-5 lg:grid-cols-3">
         <RankingColumn
           eyebrow="Market Leaders"
-          title="Top Estimated Value"
+          title="Top Market Consensus"
           records={topEstimated}
           mode="estimated"
         />
@@ -112,7 +130,7 @@ function RankingRow({
 
   const valueLabel =
     mode === "estimated"
-      ? money(record.estimated_value)
+      ? money(consensusValue(record))
       : mode === "gain"
         ? gainValue === null
           ? "—"
@@ -160,7 +178,7 @@ function RankingRow({
         <p className="text-sm font-semibold text-[#C7A45D]">{valueLabel}</p>
         {mode === "gain" ? (
           <p className="text-xs text-[#8E8170]">
-            est. {money(record.estimated_value)}
+            consensus {money(consensusValue(record))}
           </p>
         ) : null}
       </div>
