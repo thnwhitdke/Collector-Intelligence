@@ -20,6 +20,7 @@ type MarketRecord = {
   cover_url: string | null;
   discogs_image_url: string | null;
   estimated_value: number | string | null;
+  market_consensus_value: number | string | null;
   discogs_low_price: number | string | null;
   discogs_median_price: number | string | null;
   discogs_high_price: number | string | null;
@@ -61,6 +62,18 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
+function consensusValue(record: MarketRecord) {
+  const marketConsensus = num(record.market_consensus_value);
+  const estimated = num(record.estimated_value);
+  const discogsMedian = num(record.discogs_median_price);
+
+  if (marketConsensus > 0) return marketConsensus;
+  if (estimated > 0) return estimated;
+  if (discogsMedian > 0) return discogsMedian;
+
+  return 0;
+}
+
 function spread(record: MarketRecord) {
   const low = num(record.discogs_low_price);
   const high = num(record.discogs_high_price);
@@ -73,7 +86,7 @@ function supply(record: MarketRecord) {
 
 function signal(record: MarketRecord) {
   const available = supply(record);
-  const value = num(record.estimated_value);
+  const value = consensusValue(record);
   const volatility = num(record.volatility_score);
   const demand = num(record.demand_score);
   const momentum = String(record.market_momentum || "").toLowerCase();
@@ -183,7 +196,7 @@ function sortRecords(records: MarketRecord[], sort: string) {
     return rows.sort((a, b) => spread(b) - spread(a));
   }
 
-  return rows.sort((a, b) => num(b.estimated_value) - num(a.estimated_value));
+  return rows.sort((a, b) => consensusValue(b) - consensusValue(a));
 }
 
 function filterBySignal(records: MarketRecord[], selected: string) {
@@ -230,6 +243,7 @@ export default async function MarketIntelligencePage({
       cover_url,
       discogs_image_url,
       estimated_value,
+      market_consensus_value,
       discogs_low_price,
       discogs_median_price,
       discogs_high_price,
@@ -265,7 +279,7 @@ export default async function MarketIntelligencePage({
   const momentum = raw.filter((record) => signal(record).label === "Momentum Leader").length;
   const demand = raw.filter((record) => signal(record).label === "High Demand").length;
   const volatile = raw.filter((record) => signal(record).label === "Volatile Market").length;
-  const marketValue = raw.reduce((sum, record) => sum + num(record.estimated_value), 0);
+  const marketValue = raw.reduce((sum, record) => sum + consensusValue(record), 0);
 
   const pulse =
     compression + momentum + demand > volatile
@@ -465,7 +479,7 @@ export default async function MarketIntelligencePage({
                       </p>
 
                       <div className="mt-6 grid grid-cols-2 gap-3">
-                        <Mini label="Value" value={money(record.estimated_value)} />
+                        <Mini label="Consensus" value={money(consensusValue(record))} />
                         <Mini label="Demand" value={String(record.demand_score ?? "—")} />
                         <Mini label="IQ" value={String(record.collector_iq_score ?? "—")} />
                         <Mini label="Rarity" value={String(record.rarity_score ?? "—")} />
