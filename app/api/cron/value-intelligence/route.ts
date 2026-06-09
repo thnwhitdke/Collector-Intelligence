@@ -37,6 +37,7 @@ export async function GET() {
         market_num_for_sale,
         market_for_sale_ratio
       `)
+      .is("market_consensus_confidence", null)
       .limit(250);
 
     if (error) {
