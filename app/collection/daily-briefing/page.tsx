@@ -38,6 +38,7 @@ type RecordRow = {
   artist: string | null;
   artist_canonical: string | null;
   estimated_value: string | null;
+  market_consensus_value: string | number | null;
   discogs_release_id: string | null;
   discogs_url: string | null;
   cover_url: string | null;
@@ -62,6 +63,18 @@ function numericValue(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") return 0;
   const parsed = Number(String(value).replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function consensusValue(record: RecordRow) {
+  const marketConsensus = numericValue(record.market_consensus_value);
+  const estimated = numericValue(record.estimated_value);
+  const discogsMedian = numericValue(record.discogs_median_price);
+
+  if (marketConsensus > 0) return marketConsensus;
+  if (estimated > 0) return estimated;
+  if (discogsMedian > 0) return discogsMedian;
+
+  return 0;
 }
 
 function marketBenchmark(record: RecordRow) {
@@ -127,6 +140,7 @@ export default async function DailyBriefingPage() {
           artist,
           artist_canonical,
           estimated_value,
+          market_consensus_value,
           discogs_release_id,
           discogs_url,
           cover_url,
@@ -182,7 +196,7 @@ export default async function DailyBriefingPage() {
   const movements = (movementData || []) as Movement[];
 
   const totalValue = records.reduce(
-    (sum, record) => sum + numericValue(record.estimated_value),
+    (sum, record) => sum + consensusValue(record),
     0,
   );
 
@@ -194,7 +208,7 @@ export default async function DailyBriefingPage() {
 
     artistTotals.set(artist, {
       records: current.records + 1,
-      value: current.value + numericValue(record.estimated_value),
+      value: current.value + consensusValue(record),
     });
   });
 
@@ -326,7 +340,7 @@ export default async function DailyBriefingPage() {
             eyebrow="Collection"
             lines={[
               `${records.length.toLocaleString()} records tracked`,
-              `${money(totalValue)} estimated portfolio value`,
+              `${money(totalValue)} market consensus portfolio value`,
               topArtist
                 ? `${topArtist.artist} leads value exposure at ${money(topArtist.value)}`
                 : "No artist exposure calculated",
