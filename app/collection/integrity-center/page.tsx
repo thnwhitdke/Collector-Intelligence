@@ -29,6 +29,7 @@ type RecordRow = {
   year_released: string | null;
   estimated_value: string | null;
   discogs_median_price: number | null;
+  market_median_price: number | null;
 };
 
 function tone(severity: Check["severity"], count: number) {
@@ -55,15 +56,28 @@ function urlReleaseId(url: string | null | undefined) {
   return match?.[1] || null;
 }
 
-function valueMismatch(record: RecordRow) {
-  if (record.estimated_value === null || record.discogs_median_price === null) return false;
+function marketBenchmark(record: RecordRow) {
+  const marketMedian = Number(record.market_median_price);
+  const discogsMedian = Number(record.discogs_median_price);
+
+  if (Number.isFinite(marketMedian) && marketMedian > 0) return marketMedian;
+  if (Number.isFinite(discogsMedian) && discogsMedian > 0) return discogsMedian;
+
+  return null;
+}
+
+function marketVariance(record: RecordRow) {
+  if (record.estimated_value === null) return false;
 
   const estimated = Number(String(record.estimated_value).replace(/[^0-9.]/g, ""));
-  const median = Number(record.discogs_median_price);
+  const benchmark = marketBenchmark(record);
 
-  if (!Number.isFinite(estimated) || !Number.isFinite(median)) return false;
+  if (!Number.isFinite(estimated) || estimated <= 0 || benchmark === null) return false;
 
-  return Math.abs(estimated - median) > 10;
+  const difference = Math.abs(estimated - benchmark);
+  const variancePercent = (difference / Math.max(benchmark, 1)) * 100;
+
+  return difference >= 10 && variancePercent >= 25;
 }
 
 function matchesIssue(record: RecordRow, issue: string, duplicateIds: Set<string>) {
@@ -79,7 +93,7 @@ function matchesIssue(record: RecordRow, issue: string, duplicateIds: Set<string
     case "url-id-mismatch":
       return parsedUrlId !== null && discogsId !== parsedUrlId;
     case "value-mismatch":
-      return valueMismatch(record);
+      return marketVariance(record);
     case "missing-cover":
       return !record.cover_url && !record.discogs_image_url;
     case "duplicate-release-id":
@@ -119,7 +133,8 @@ export default async function IntegrityCenterPage({
       country,
       year_released,
       estimated_value,
-      discogs_median_price
+      discogs_median_price,
+      market_median_price
     `)
     .limit(10000);
 
@@ -162,8 +177,8 @@ export default async function IntegrityCenterPage({
     },
     {
       key: "value-mismatch",
-      label: "Value Mismatch",
-      description: "Estimated value differs from Discogs median by more than $10.",
+      label: "Market Variance",
+      description: "Manual or imported value differs from the market benchmark by at least $10 and 25%.",
       severity: "Critical",
       count: records.filter((record) => matchesIssue(record, "value-mismatch", duplicateIds)).length,
     },

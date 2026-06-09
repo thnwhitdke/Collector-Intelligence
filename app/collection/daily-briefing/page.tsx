@@ -43,6 +43,7 @@ type RecordRow = {
   cover_url: string | null;
   discogs_image_url: string | null;
   discogs_median_price: number | null;
+  market_median_price: number | null;
 };
 
 function money(value: string | number | null | undefined) {
@@ -57,10 +58,32 @@ function money(value: string | number | null | undefined) {
   }).format(parsed);
 }
 
-function numericValue(value: string | null | undefined) {
-  if (!value) return 0;
+function numericValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return 0;
   const parsed = Number(String(value).replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function marketBenchmark(record: RecordRow) {
+  const marketMedian = Number(record.market_median_price);
+  const discogsMedian = Number(record.discogs_median_price);
+
+  if (Number.isFinite(marketMedian) && marketMedian > 0) return marketMedian;
+  if (Number.isFinite(discogsMedian) && discogsMedian > 0) return discogsMedian;
+
+  return null;
+}
+
+function hasMarketVariance(record: RecordRow) {
+  const estimated = numericValue(record.estimated_value);
+  const benchmark = marketBenchmark(record);
+
+  if (estimated <= 0 || benchmark === null) return false;
+
+  const difference = Math.abs(estimated - benchmark);
+  const variancePercent = (difference / Math.max(benchmark, 1)) * 100;
+
+  return difference >= 10 && variancePercent >= 25;
 }
 
 function scoreObservation(item: Observation) {
@@ -108,7 +131,8 @@ export default async function DailyBriefingPage() {
           discogs_url,
           cover_url,
           discogs_image_url,
-          discogs_median_price
+          discogs_median_price,
+          market_median_price
         `)
         .limit(10000),
 
@@ -184,10 +208,7 @@ export default async function DailyBriefingPage() {
     if (!parsed) return false;
     return String(record.discogs_release_id || "").trim() !== parsed;
   }).length;
-  const valueMismatches = records.filter((record) => {
-    if (record.estimated_value === null || record.discogs_median_price === null) return false;
-    return Math.abs(numericValue(record.estimated_value) - Number(record.discogs_median_price)) > 10;
-  }).length;
+  const valueMismatches = records.filter((record) => hasMarketVariance(record)).length;
   const missingCovers = records.filter((record) => !record.cover_url && !record.discogs_image_url).length;
 
   const criticalIntegrityIssues =
@@ -203,7 +224,7 @@ export default async function DailyBriefingPage() {
 
   const recommendedAction =
     valueMismatches > 0
-      ? "Run valuation integrity repair before trusting portfolio totals."
+      ? "Review market variance records before trusting portfolio totals."
       : urlIdMismatches > 0
         ? "Repair Discogs URL and release ID mismatches before refreshing market data."
         : topObservation?.score >= 85
@@ -335,7 +356,7 @@ export default async function DailyBriefingPage() {
             eyebrow="Database Health"
             lines={[
               `${healthScore}% health score`,
-              `${valueMismatches} valuation mismatches`,
+              `${valueMismatches} market variance records`,
               `${urlIdMismatches} URL / ID mismatches`,
               `${missingCovers} records missing cover art`,
             ]}
