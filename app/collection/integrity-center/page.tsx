@@ -28,6 +28,7 @@ type RecordRow = {
   country: string | null;
   year_released: string | null;
   estimated_value: string | null;
+  market_consensus_value: string | number | null;
   discogs_median_price: number | null;
   market_median_price: number | null;
 };
@@ -54,6 +55,24 @@ function money(value: string | number | null | undefined) {
 function urlReleaseId(url: string | null | undefined) {
   const match = String(url || "").match(/\/release\/(\d+)/);
   return match?.[1] || null;
+}
+
+function numericValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return 0;
+  const parsed = Number(String(value).replace(/[^0-9.]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function consensusValue(record: RecordRow) {
+  const marketConsensus = numericValue(record.market_consensus_value);
+  const estimated = numericValue(record.estimated_value);
+  const discogsMedian = numericValue(record.discogs_median_price);
+
+  if (marketConsensus > 0) return marketConsensus;
+  if (estimated > 0) return estimated;
+  if (discogsMedian > 0) return discogsMedian;
+
+  return 0;
 }
 
 function marketBenchmark(record: RecordRow) {
@@ -103,7 +122,7 @@ function matchesIssue(record: RecordRow, issue: string, duplicateIds: Set<string
     case "missing-year":
       return !String(record.year_released || "").trim();
     case "missing-estimated-value":
-      return !String(record.estimated_value || "").trim();
+      return consensusValue(record) <= 0;
     default:
       return false;
   }
@@ -133,6 +152,7 @@ export default async function IntegrityCenterPage({
       country,
       year_released,
       estimated_value,
+      market_consensus_value,
       discogs_median_price,
       market_median_price
     `)
@@ -212,8 +232,8 @@ export default async function IntegrityCenterPage({
     },
     {
       key: "missing-estimated-value",
-      label: "Missing Estimated Value",
-      description: "Records without estimated value are excluded from portfolio valuation totals.",
+      label: "Missing Market Consensus",
+      description: "Records without market consensus are excluded from defensible portfolio valuation totals.",
       severity: "Warning",
       count: records.filter((record) => matchesIssue(record, "missing-estimated-value", duplicateIds)).length,
     },
@@ -358,7 +378,7 @@ export default async function IntegrityCenterPage({
                           {urlReleaseId(record.discogs_url) || "—"}
                         </td>
                         <td className="px-4 py-4 text-[#D8CDBE]">
-                          {money(record.estimated_value)}
+                          {money(consensusValue(record))}
                         </td>
                         <td className="px-4 py-4 text-[#D8CDBE]">
                           {money(record.discogs_median_price)}
