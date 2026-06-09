@@ -29,6 +29,10 @@
       "schedule": "0 */2 * * *"
     },
     {
+      "path": "/api/cron/repair-release-metadata",
+      "schedule": "20 */2 * * *"
+    },
+    {
       "path": "/api/cron/track-sync",
       "schedule": "*/30 * * * *"
     },
