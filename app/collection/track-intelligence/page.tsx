@@ -259,6 +259,7 @@ async function getData(query: string) {
     runtimeResult,
     trackResult,
     epicTrackResult,
+    moodTrackResult,
   ] = await Promise.all([
     supabase
       .from("track_intelligence_coverage")
@@ -287,6 +288,20 @@ async function getData(query: string) {
       .not("duration_seconds", "is", null)
       .order("duration_seconds", { ascending: false })
       .limit(200),
+
+    supabase
+      .from("release_tracks")
+      .select(`
+        discogs_release_id,
+        position,
+        side,
+        title,
+        duration_raw,
+        duration_seconds,
+        artist_credit
+      `)
+      .not("duration_seconds", "is", null)
+      .limit(5000),
   ]);
 
   const coverageStats = coverageResult.data ?? {
@@ -300,12 +315,14 @@ async function getData(query: string) {
 
   const runtimeRows = (runtimeResult.data ?? []) as RuntimeRow[];
   const epicTracks = (epicTrackResult.data ?? []) as TrackRow[];
+  const moodTracks = (moodTrackResult.data ?? []) as TrackRow[];
 
   const releaseIds = Array.from(
     new Set(
       [
         ...tracks.map((track) => String(track.discogs_release_id)),
         ...epicTracks.map((track) => String(track.discogs_release_id)),
+        ...moodTracks.slice(0, 250).map((track) => String(track.discogs_release_id)),
         ...runtimeRows.map((runtime) => String(runtime.discogs_release_id)),
       ].filter(Boolean),
     ),
@@ -365,6 +382,7 @@ async function getData(query: string) {
     runtimes: runtimeRows,
     tracks,
     epicTracks,
+    moodTracks,
     recordMap,
   };
 }
@@ -387,6 +405,7 @@ export default async function TrackIntelligencePage({
     runtimes,
     tracks,
     epicTracks,
+    moodTracks,
     recordMap,
   } = await getData(query);
 
@@ -434,7 +453,7 @@ export default async function TrackIntelligencePage({
         (a.duration_seconds || 0),
     )[0];
 
-  const moodCounts = tracks.reduce(
+  const moodCounts = moodTracks.reduce(
     (acc, track) => {
       const mood = moodHint(track);
       acc[mood] = (acc[mood] || 0) + 1;
