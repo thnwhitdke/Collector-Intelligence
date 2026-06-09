@@ -14,6 +14,8 @@ type CollectionRecord = {
   year: string | number | null;
   label: string | null;
   estimated_value: number | string | null;
+  market_consensus_value: number | string | null;
+  discogs_median_price: number | string | null;
   discogs_image_url: string | null;
   discogs_thumbnail_url?: string | null;
   cover_url: string | null;
@@ -39,6 +41,18 @@ function money(value: number | string | null | undefined) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(numberValue(value));
+}
+
+function consensusValue(record: Pick<CollectionRecord, "market_consensus_value" | "estimated_value" | "discogs_median_price">) {
+  const marketConsensus = numberValue(record.market_consensus_value);
+  const estimated = numberValue(record.estimated_value);
+  const discogsMedian = numberValue(record.discogs_median_price);
+
+  if (marketConsensus > 0) return marketConsensus;
+  if (estimated > 0) return estimated;
+  if (discogsMedian > 0) return discogsMedian;
+
+  return 0;
 }
 
 function score(value: number | null | undefined) {
@@ -119,12 +133,12 @@ export default function CollectionPage() {
 
       const { data: values } = await supabase
         .from("records_clean_safe")
-        .select("estimated_value")
+        .select("market_consensus_value, estimated_value, discogs_median_price")
         .eq("user_id", currentUserId);
 
       const total =
         values?.reduce(
-          (sum, item) => sum + Number(item.estimated_value || 0),
+          (sum, item) => sum + consensusValue(item as CollectionRecord),
           0,
         ) || 0;
 
@@ -139,6 +153,8 @@ export default function CollectionPage() {
           year,
           label,
           estimated_value,
+          market_consensus_value,
+          discogs_median_price,
           discogs_image_url,
           discogs_thumbnail_url,
           cover_url,
@@ -149,8 +165,8 @@ export default function CollectionPage() {
           collector_iq_score
         `)
         .eq("user_id", currentUserId)
-        .not("estimated_value", "is", null)
-        .order("estimated_value", {
+        .not("market_consensus_value", "is", null)
+        .order("market_consensus_value", {
           ascending: false,
           nullsFirst: false,
         })
@@ -177,6 +193,8 @@ export default function CollectionPage() {
           year,
           label,
           estimated_value,
+          market_consensus_value,
+          discogs_median_price,
           discogs_image_url,
           discogs_thumbnail_url,
           cover_url,
@@ -358,7 +376,7 @@ export default function CollectionPage() {
 
     return (
       collectionRecords.reduce(
-        (sum, r) => sum + numberValue(r.estimated_value),
+        (sum, r) => sum + consensusValue(r),
         0,
       ) / collectionRecords.length
     );
@@ -722,7 +740,7 @@ export default function CollectionPage() {
                     </p>
 
                     <div className="mt-5 grid grid-cols-3 gap-3">
-                      <MiniStat label="Value" value={money(record.estimated_value)} />
+                      <MiniStat label="Consensus" value={money(consensusValue(record))} />
                       <MiniStat label="Supply" value={String(score(record.supply_pressure) || "—")} />
                       <MiniStat label="Risk" value={String(score(record.volatility_score) || "—")} />
                     </div>
