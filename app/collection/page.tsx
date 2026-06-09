@@ -13,6 +13,9 @@ type CollectionRecord = {
   title: string | null;
   year: string | number | null;
   label: string | null;
+  country: string | null;
+  catalogue_number: string | null;
+  discogs_release_id: string | number | null;
   estimated_value: number | string | null;
   market_consensus_value: number | string | null;
   discogs_median_price: number | string | null;
@@ -66,6 +69,23 @@ function coverFor(record: CollectionRecord) {
     record.discogs_thumbnail_url ||
     ""
   );
+}
+
+function releaseMeta(record: CollectionRecord) {
+  const lineOne = [record.label, record.catalogue_number]
+    .filter(Boolean)
+    .join(" · ");
+
+  const lineTwo = [record.country, record.year]
+    .filter(Boolean)
+    .join(" · ");
+
+  if (lineOne && lineTwo) return `${lineOne} — ${lineTwo}`;
+  if (lineOne) return lineOne;
+  if (lineTwo) return lineTwo;
+  if (record.discogs_release_id) return `Discogs Release ${record.discogs_release_id}`;
+
+  return "Release details pending";
 }
 
 export default function CollectionPage() {
@@ -152,6 +172,9 @@ export default function CollectionPage() {
           title,
           year,
           label,
+          country,
+          catalogue_number,
+          discogs_release_id,
           estimated_value,
           market_consensus_value,
           discogs_median_price,
@@ -192,6 +215,9 @@ export default function CollectionPage() {
           title,
           year,
           label,
+          country,
+          catalogue_number,
+          discogs_release_id,
           estimated_value,
           market_consensus_value,
           discogs_median_price,
@@ -735,8 +761,7 @@ export default function CollectionPage() {
                     </p>
 
                     <p className="mt-2 text-sm text-[#A89782]">
-                      {[record.label, record.year].filter(Boolean).join(" · ") ||
-                        "Release details pending"}
+                      {releaseMeta(record)}
                     </p>
 
                     <div className="mt-5 grid grid-cols-3 gap-3">
