@@ -26,27 +26,6 @@ function formatMoney(value: string | number | null | undefined) {
   }).format(numeric);
 }
 
-function numericValue(value: string | number | null | undefined) {
-  if (value === null || value === undefined || String(value).trim() === "") {
-    return 0;
-  }
-
-  const numeric = Number(String(value).replace(/[$,]/g, ""));
-  return Number.isFinite(numeric) ? numeric : 0;
-}
-
-function consensusValue(record: ValueQueueRecord) {
-  const marketConsensus = numericValue(record.market_consensus_value);
-  const estimated = numericValue(record.estimated_value);
-  const discogsMedian = numericValue(record.discogs_median_price);
-
-  if (marketConsensus > 0) return marketConsensus;
-  if (estimated > 0) return estimated;
-  if (discogsMedian > 0) return discogsMedian;
-
-  return 0;
-}
-
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
@@ -143,7 +122,7 @@ export default async function ValueQueuePage() {
 
   const missingEstimateCount = queue.filter((record) => {
     const numeric = Number(
-      String(consensusValue(record)).replace(/[$,]/g, ""),
+      String(record.estimated_value ?? "").replace(/[$,]/g, ""),
     );
 
     return !Number.isFinite(numeric) || numeric <= 0;
@@ -157,7 +136,7 @@ export default async function ValueQueuePage() {
 
   const totalQueueValue = queue.reduce((sum, record) => {
     const numeric = Number(
-      String(consensusValue(record)).replace(/[$,]/g, ""),
+      String(record.estimated_value ?? 0).replace(/[$,]/g, ""),
     );
 
     return sum + (Number.isFinite(numeric) ? numeric : 0);
@@ -235,9 +214,9 @@ export default async function ValueQueuePage() {
           />
 
           <QueueMetric
-            label="Missing Consensus"
+            label="Missing Estimate"
             value={formatNumber(missingEstimateCount)}
-            helper="Records without a usable market consensus value."
+            helper="Records without a usable estimated value."
           />
 
           <QueueMetric
@@ -389,8 +368,8 @@ export default async function ValueQueuePage() {
 
                       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                         <QueueMini
-                          label="Consensus"
-                          value={formatMoney(consensusValue(record))}
+                          label="Estimate"
+                          value={formatMoney(record.estimated_value)}
                         />
 
                         <QueueMini

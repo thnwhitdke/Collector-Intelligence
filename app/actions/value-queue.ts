@@ -42,6 +42,7 @@ export type ValueQueueRecord = {
   catalogue_number: string | null;
   discogs_release_id: string | number | null;
   estimated_value: number | string | null;
+  market_consensus_value: number | string | null;
   discogs_low_price: number | string | null;
   discogs_median_price: number | string | null;
   discogs_high_price: number | string | null;
@@ -126,6 +127,20 @@ function getMedianEstimate(data: DiscogsPriceSuggestionsResponse): number | null
   return Number(median.toFixed(2));
 }
 
+function consensusValue(
+  record: Pick<RawQueueRecord, "market_consensus_value" | "estimated_value" | "discogs_median_price">,
+): number | null {
+  const marketConsensus = toNumber(record.market_consensus_value);
+  const estimated = toNumber(record.estimated_value);
+  const discogsMedian = toNumber(record.discogs_median_price);
+
+  if (marketConsensus !== null && marketConsensus > 0) return marketConsensus;
+  if (estimated !== null && estimated > 0) return estimated;
+  if (discogsMedian !== null && discogsMedian > 0) return discogsMedian;
+
+  return null;
+}
+
 function shouldIncludeInValueQueue(record: RawQueueRecord): boolean {
   if (record.discogs_sale_blocked === true) return false;
   if (!hasUsableReleaseId(record.discogs_release_id)) return false;
@@ -134,7 +149,7 @@ function shouldIncludeInValueQueue(record: RawQueueRecord): boolean {
   if (record.value_pull_status === "no_discogs_value_available") return false;
 
   const median = toNumber(record.discogs_median_price);
-  const estimated = toNumber(record.estimated_value);
+  const estimated = consensusValue(record);
 
   const hasMissingMedian = median === null || median <= 0;
   const hasMissingEstimate = estimated === null || estimated <= 0;
@@ -150,7 +165,7 @@ function shouldIncludeInValueQueue(record: RawQueueRecord): boolean {
 
 function getQueuePriority(record: RawQueueRecord): number {
   const purchasePrice = toNumber(record.purchase_price);
-  const estimatedValue = toNumber(record.estimated_value);
+  const estimatedValue = consensusValue(record);
   const discogsMedian = toNumber(record.discogs_median_price);
 
   const hasPurchasePrice = typeof purchasePrice === "number" && purchasePrice > 0;
@@ -252,6 +267,7 @@ export async function getValueQueue() {
         catalogue_number,
         discogs_release_id,
         estimated_value,
+        market_consensus_value,
         discogs_low_price,
         discogs_median_price,
         discogs_high_price,
