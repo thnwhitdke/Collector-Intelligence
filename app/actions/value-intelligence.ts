@@ -93,6 +93,19 @@ export async function refreshValueIntelligence(recordId: string) {
     .from("records_clean_safe")
     .update({
       estimated_value: result.estimatedValue,
+
+      market_consensus_value:
+        result.marketConsensusValue,
+
+      market_consensus_confidence:
+        result.marketConsensusConfidence,
+
+      market_consensus_source:
+        result.marketConsensusSource,
+
+      market_consensus_reason:
+        result.marketConsensusReason,
+
       value_confidence_score: result.confidenceScore,
       value_signal: result.signal,
       value_badges: result.badges,

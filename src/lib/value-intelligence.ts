@@ -26,6 +26,10 @@ export type ValueInput = {
 
 export type ValueIntelligenceResult = {
   estimatedValue: number | null;
+  marketConsensusValue: number | null;
+  marketConsensusConfidence: number;
+  marketConsensusSource: string;
+  marketConsensusReason: string;
   confidenceScore: number;
   signal: string;
   badges: string[];
@@ -194,6 +198,11 @@ export function calculateValueIntelligence(
 
   let estimatedValue: number | null = null;
 
+  const marketConsensusSource =
+    sources.length > 0
+      ? sources.map((source) => source.name).join("+")
+      : "unavailable";
+
   if (sources.length > 0) {
     const totalWeight = sources.reduce(
       (sum, source) => sum + source.baseWeight,
@@ -331,8 +340,17 @@ export function calculateValueIntelligence(
 
   collectorIqScore = Math.min(100, Math.round(collectorIqScore));
 
+  const marketConsensusReason =
+    estimatedValue !== null
+      ? `Weighted consensus from ${marketConsensusSource} with condition multiplier ${conditionMultiplier}.`
+      : "No reliable valuation sources available for consensus calculation.";
+
   return {
     estimatedValue,
+    marketConsensusValue: estimatedValue,
+    marketConsensusConfidence: confidenceScore,
+    marketConsensusSource,
+    marketConsensusReason,
     confidenceScore,
     signal,
     badges,
