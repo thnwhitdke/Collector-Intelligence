@@ -98,6 +98,102 @@ function money(value: string | number | boolean | null | undefined) {
   }).format(parsed);
 }
 
+function firstPositiveNumber(...values: Array<string | number | boolean | null | undefined>) {
+  for (const value of values) {
+    if (value === null || value === undefined || typeof value === "boolean") continue;
+
+    const parsed =
+      typeof value === "number"
+        ? value
+        : Number(String(value).replace(/[$,]/g, ""));
+
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+
+  return null;
+}
+
+function normalizeConfidence(record: RecordDetail) {
+  const rawConfidence = getText(record, "valuation_confidence").toUpperCase();
+  const rawScore =
+    getNumber(record, "valuation_confidence") ??
+    getNumber(record, "value_confidence_score");
+
+  const marketSignal = getText(record, "market_signal");
+  const demand = getNumber(record, "demand_score");
+  const supply = getNumber(record, "supply_pressure");
+  const marketMedian = getNumber(record, "market_median_price");
+  const discogsMedian = getNumber(record, "discogs_median_price");
+  const estimated = getNumber(record, "estimated_value");
+
+  if (
+    rawConfidence === "HIGH" ||
+    marketSignal === "Exact Market Verified" ||
+    (rawScore !== null && rawScore >= 80)
+  ) {
+    return {
+      label: "High",
+      description: "Multiple strong valuation signals support this market reading.",
+      className: "border-emerald-400/25 bg-emerald-400/10 text-emerald-100",
+    };
+  }
+
+  if (
+    rawConfidence === "MEDIUM" ||
+    (rawScore !== null && rawScore >= 50) ||
+    marketMedian !== null ||
+    discogsMedian !== null ||
+    ((demand ?? 0) > 0 && (supply ?? 0) > 0)
+  ) {
+    return {
+      label: "Medium",
+      description: "A usable market benchmark exists, but additional source depth would improve confidence.",
+      className: "border-cyan-400/25 bg-cyan-400/10 text-cyan-100",
+    };
+  }
+
+  if (estimated !== null) {
+    return {
+      label: "Low",
+      description: "Only a legacy, manual, or imported value is available. Treat as directional.",
+      className: "border-orange-400/25 bg-orange-400/10 text-orange-100",
+    };
+  }
+
+  return {
+    label: "Unknown",
+    description: "No reliable valuation benchmark is currently available.",
+    className: "border-slate-400/25 bg-slate-400/10 text-slate-100",
+  };
+}
+
+function getMarketConsensus(record: RecordDetail) {
+  const marketMedian = getNumber(record, "market_median_price");
+  const discogsMedian = getNumber(record, "discogs_median_price");
+  const estimated = getNumber(record, "estimated_value");
+
+  const value = firstPositiveNumber(
+    marketMedian,
+    discogsMedian,
+    estimated,
+  );
+
+  const source =
+    marketMedian !== null && marketMedian > 0
+      ? "Market Median"
+      : discogsMedian !== null && discogsMedian > 0
+        ? "Discogs Benchmark"
+        : estimated !== null && estimated > 0
+          ? "Manual / Imported"
+          : "Unavailable";
+
+  return {
+    value,
+    source,
+    display: money(value),
+  };
+}
+
 function formatDate(value: string | number | boolean | null | undefined) {
   if (!value || typeof value === "boolean") return "Not available";
 
@@ -243,7 +339,13 @@ export default async function RecordDetailPage({
 
   const coverUrl = getText(record, "cover_url");
 
+  const marketConsensus = getMarketConsensus(record);
+  const marketConfidence = normalizeConfidence(record);
   const estimatedValue = money(getValue(record, "estimated_value"));
+  const discogsBenchmark = money(getValue(record, "discogs_median_price"));
+  const demandScore = displayValue(getValue(record, "demand_score"));
+  const supplyPressure = displayValue(getValue(record, "supply_pressure"));
+  const explicitMarketSignal = displayValue(getValue(record, "market_signal"));
 
   const forSale =
     getNumber(
@@ -409,12 +511,12 @@ export default async function RecordDetailPage({
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-            <CommandMetric label="Estimated Value" value={estimatedValue} accent />
-            <CommandMetric label="Copies For Sale" value={forSale ?? "—"} />
-            <CommandMetric label="Market Momentum" value={displayValue(getValue(record, "market_momentum"))} />
-            <CommandMetric label="Collector IQ" value={collectorIq} />
-            <CommandMetric label="Rarity" value={rarityScore} />
-            <CommandMetric label="Tracks / Runtime" value={`${tracks.length} / ${recordRuntime}`} />
+            <CommandMetric label="Market Consensus" value={marketConsensus.display} accent />
+            <CommandMetric label="Benchmark Source" value={marketConsensus.source} />
+            <CommandMetric label="Confidence" value={marketConfidence.label} />
+            <CommandMetric label="Demand" value={demandScore} />
+            <CommandMetric label="Supply" value={supplyPressure} />
+            <CommandMetric label="Market Signal" value={explicitMarketSignal} />
           </div>
         </section>
 
@@ -485,8 +587,8 @@ export default async function RecordDetailPage({
             {/* QUICK SIGNALS */}
             <div className="grid gap-4">
               <SignalCard
-                label="Estimated Value"
-                value={estimatedValue}
+                label="Market Consensus"
+                value={marketConsensus.display}
               />
 
               <SignalCard
@@ -555,6 +657,44 @@ export default async function RecordDetailPage({
                 <h3 className="mt-3 text-3xl font-black">
                   Market Valuation Analysis
                 </h3>
+              </div>
+
+              <div className="mb-6 grid gap-4 md:grid-cols-3">
+                <div className="rounded-3xl border border-[#D8B65A]/20 bg-[#D8B65A]/10 p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#F4CD68]">
+                    Market Consensus
+                  </p>
+                  <p className="mt-2 text-3xl font-black text-white">
+                    {marketConsensus.display}
+                  </p>
+                  <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
+                    Source: {marketConsensus.source}
+                  </p>
+                </div>
+
+                <div className={`rounded-3xl border p-5 ${marketConfidence.className}`}>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] opacity-75">
+                    Confidence
+                  </p>
+                  <p className="mt-2 text-3xl font-black">
+                    {marketConfidence.label}
+                  </p>
+                  <p className="mt-2 text-xs leading-6 opacity-75">
+                    {marketConfidence.description}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                    Discogs Benchmark
+                  </p>
+                  <p className="mt-2 text-3xl font-black text-white">
+                    {discogsBenchmark}
+                  </p>
+                  <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
+                    Legacy / imported estimate: {estimatedValue}
+                  </p>
+                </div>
               </div>
 
               <ValueIntelligenceCard
