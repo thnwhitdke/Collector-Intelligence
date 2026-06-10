@@ -71,32 +71,145 @@ function coverFor(record: RecordMatch | undefined) {
   );
 }
 
-function moodHint(track: TrackRow) {
+const moodDefinitions = [
+  {
+    key: "immersive",
+    label: "Immersive",
+    description: "Longer tracks for deep listening.",
+  },
+  {
+    key: "energy",
+    label: "Energy",
+    description: "Movement, rhythm, charge, and lift.",
+  },
+  {
+    key: "reflective",
+    label: "Reflective",
+    description: "Memory, space, moonlight, and inward songs.",
+  },
+  {
+    key: "short-form",
+    label: "Short Form",
+    description: "Brief tracks for quick listening shifts.",
+  },
+  {
+    key: "melancholy",
+    label: "Melancholy",
+    description: "Blue, lonely, sad, and aching songs.",
+  },
+  {
+    key: "focus",
+    label: "Focus",
+    description: "Instrumental, garden, ambient, and steady tracks.",
+  },
+  {
+    key: "late-night",
+    label: "Late Night",
+    description: "Night, midnight, shadow, neon, and after-hours energy.",
+  },
+  {
+    key: "grounding",
+    label: "Grounding",
+    description: "Calming, steady, warm, and stabilizing tracks.",
+  },
+  {
+    key: "nostalgic",
+    label: "Nostalgic",
+    description: "Time, youth, memory, yesterday, and looking back.",
+  },
+  {
+    key: "experimental",
+    label: "Experimental",
+    description: "Strange, dub, noise, version, and left-field tracks.",
+  },
+];
+
+function moodKey(track: TrackRow) {
   const title = track.title.toLowerCase();
+  const artist = String(track.artist_credit || "").toLowerCase();
+  const text = `${title} ${artist}`;
   const seconds = track.duration_seconds || 0;
 
+  if (seconds >= 420) return "immersive";
+  if (seconds <= 150 && seconds > 0) return "short-form";
+
   if (
-    title.includes("dream") ||
-    title.includes("memory") ||
-    title.includes("moon") ||
-    title.includes("space")
+    ["blue", "lonely", "sad", "cry", "tears", "sorrow", "hurt", "winter"].some((term) =>
+      text.includes(term),
+    )
   ) {
-    return "Reflective";
+    return "melancholy";
   }
 
   if (
-    title.includes("rock") ||
-    title.includes("dance") ||
-    title.includes("round") ||
-    title.includes("heart")
+    ["night", "midnight", "shadow", "neon", "blackout", "after", "dark"].some((term) =>
+      text.includes(term),
+    )
   ) {
-    return "Energy";
+    return "late-night";
   }
 
-  if (seconds >= 420) return "Immersive";
-  if (seconds <= 150 && seconds > 0) return "Short Form";
+  if (
+    ["dream", "memory", "moon", "space", "slip", "garden", "silence"].some((term) =>
+      text.includes(term),
+    )
+  ) {
+    return "reflective";
+  }
 
-  return "Catalog";
+  if (
+    ["rock", "dance", "party", "swing", "young", "rebel", "heart", "beat"].some((term) =>
+      text.includes(term),
+    )
+  ) {
+    return "energy";
+  }
+
+  if (
+    ["ambient", "instrumental", "garden", "moss", "theme", "water", "air"].some((term) =>
+      text.includes(term),
+    )
+  ) {
+    return "focus";
+  }
+
+  if (
+    ["calm", "peace", "home", "earth", "warm", "safe", "easy"].some((term) =>
+      text.includes(term),
+    )
+  ) {
+    return "grounding";
+  }
+
+  if (
+    ["time", "years", "youth", "young", "yesterday", "remember"].some((term) =>
+      text.includes(term),
+    )
+  ) {
+    return "nostalgic";
+  }
+
+  if (
+    ["dub", "mix", "version", "noise", "strange", "secret", "machine"].some((term) =>
+      text.includes(term),
+    )
+  ) {
+    return "experimental";
+  }
+
+  return "catalog";
+}
+
+function moodHint(track: TrackRow) {
+  return (
+    moodDefinitions.find((mood) => mood.key === moodKey(track))?.label ||
+    "Catalog"
+  );
+}
+
+function matchesMood(track: TrackRow, selectedMood: string) {
+  if (!selectedMood || selectedMood === "all") return true;
+  return moodKey(track) === selectedMood;
 }
 
 function isUsableEpicTrack(track: TrackRow, record?: RecordMatch) {
@@ -392,10 +505,12 @@ export default async function TrackIntelligencePage({
 }: {
   searchParams?: Promise<{
     q?: string;
+    mood?: string;
   }>;
 }) {
   const params = await searchParams;
   const query = params?.q ?? "";
+  const selectedMood = params?.mood ?? "all";
 
   const {
     trackCount,
@@ -455,22 +570,27 @@ export default async function TrackIntelligencePage({
 
   const moodCounts = moodTracks.reduce(
     (acc, track) => {
-      const mood = moodHint(track);
+      const mood = moodKey(track);
       acc[mood] = (acc[mood] || 0) + 1;
       return acc;
     },
     {} as Record<string, number>,
   );
 
-  const moodRows = Object.entries(moodCounts)
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+  const moodRows = moodDefinitions
+    .map((mood) => ({
+      ...mood,
+      count: moodCounts[mood.key] || 0,
+    }))
+    .sort((a, b) => b.count - a.count);
 
-  const immersiveCount = moodCounts.Immersive || 0;
-  const energyCount = moodCounts.Energy || 0;
-  const reflectiveCount = moodCounts.Reflective || 0;
-  const shortFormCount = moodCounts["Short Form"] || 0;
+  const selectedMoodDefinition =
+    moodDefinitions.find((mood) => mood.key === selectedMood) || null;
+
+  const curatedMoodTracks = moodTracks
+    .filter((track) => matchesMood(track, selectedMood))
+    .filter((track) => track.duration_seconds && track.duration_seconds > 0)
+    .slice(0, 24);
 
   const deepestAlbum = runtimes[0];
   const deepestAlbumRecord = deepestAlbum
@@ -676,11 +796,112 @@ export default async function TrackIntelligencePage({
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-4">
-              <Metric label="Immersive" value={immersiveCount.toLocaleString()} />
-              <Metric label="Energy" value={energyCount.toLocaleString()} />
-              <Metric label="Reflective" value={reflectiveCount.toLocaleString()} />
-              <Metric label="Short Form" value={shortFormCount.toLocaleString()} />
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              {moodRows.map((mood) => (
+                <Link
+                  key={mood.key}
+                  href={`/collection/track-intelligence?mood=${mood.key}`}
+                  className={`rounded-[26px] border p-4 transition hover:-translate-y-1 ${
+                    selectedMood === mood.key
+                      ? "border-fuchsia-300/40 bg-fuchsia-300/15"
+                      : "border-[#2A2418] bg-black/25 hover:border-fuchsia-400/30"
+                  }`}
+                >
+                  <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">
+                    {mood.label}
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-white">
+                    {mood.count.toLocaleString()}
+                  </p>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-zinc-500">
+                    {mood.description}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-8 rounded-[34px] border border-fuchsia-500/15 bg-black/25 p-6">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.3em] text-fuchsia-200">
+                  Mood Curation
+                </p>
+                <h2 className="mt-2 text-3xl font-black text-white">
+                  {selectedMoodDefinition
+                    ? `${selectedMoodDefinition.label} Track Queue`
+                    : "Dynamic Track Queue"}
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-zinc-400">
+                  {selectedMoodDefinition
+                    ? selectedMoodDefinition.description
+                    : "Select a mood card above or search by song, artist, release ID, or mood hint."}
+                </p>
+              </div>
+
+              {selectedMood !== "all" ? (
+                <Link
+                  href="/collection/track-intelligence"
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white hover:bg-white/[0.08]"
+                >
+                  Clear Mood
+                </Link>
+              ) : null}
+            </div>
+
+            <div className="mt-6 grid gap-3">
+              {curatedMoodTracks.length > 0 ? (
+                curatedMoodTracks.map((track) => {
+                  const record = recordMap.get(String(track.discogs_release_id));
+                  const artwork = coverFor(record);
+
+                  return (
+                    <article
+                      key={`mood-${track.discogs_release_id}-${track.position}-${track.title}`}
+                      className="rounded-2xl border border-white/10 bg-black/25 p-4"
+                    >
+                      <div className="grid grid-cols-[56px_1fr_90px] items-center gap-4">
+                        {artwork ? (
+                          <img
+                            src={artwork}
+                            alt={record?.title || track.title}
+                            className="h-14 w-14 rounded-2xl object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-[10px] font-black tracking-[0.2em] text-[#D8B65A]">
+                            CI
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="font-black text-white">{track.title}</p>
+                          <p className="mt-1 text-xs text-zinc-400">
+                            {record
+                              ? `${formatArtistName(record.artist)} — ${record.title}`
+                              : `Release ${track.discogs_release_id}`}
+                          </p>
+                          <p className="mt-2 inline-flex rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-fuchsia-100">
+                            {moodHint(track)}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                            Runtime
+                          </p>
+                          <p className="mt-1 text-lg font-black text-[#D8B65A]">
+                            {track.duration_raw || formatSeconds(track.duration_seconds)}
+                          </p>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-sm text-zinc-400">
+                  No tracks matched this mood yet.
+                </div>
+              )}
             </div>
           </section>
         </section>
