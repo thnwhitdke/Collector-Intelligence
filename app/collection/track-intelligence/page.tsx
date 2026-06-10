@@ -1,6 +1,7 @@
 import Link from "next/link";
 import CINavigation from "@/app/components/CINavigation";
 import { createAdminClient } from "@/src/lib/supabase/admin";
+import { curateTracks } from "@/app/actions/mood-curation";
 
 export const dynamic = "force-dynamic";
 
@@ -506,11 +507,13 @@ export default async function TrackIntelligencePage({
   searchParams?: Promise<{
     q?: string;
     mood?: string;
+    intent?: string;
   }>;
 }) {
   const params = await searchParams;
   const query = params?.q ?? "";
   const selectedMood = params?.mood ?? "all";
+  const moodIntentCommand = params?.intent?.trim() ?? "";
 
   const {
     trackCount,
@@ -523,6 +526,11 @@ export default async function TrackIntelligencePage({
     moodTracks,
     recordMap,
   } = await getData(query);
+
+  const commandResult =
+    moodIntentCommand.length > 0
+      ? await curateTracks(moodIntentCommand)
+      : null;
 
   const uniqueReleaseResults = new Set(
     tracks.map((track) => track.discogs_release_id),
@@ -819,6 +827,119 @@ export default async function TrackIntelligencePage({
                 </Link>
               ))}
             </div>
+          </section>
+
+          <section className="mt-8 rounded-[34px] border border-cyan-500/15 bg-cyan-500/[0.04] p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-200">
+                  Mood Command Center
+                </p>
+                <h2 className="mt-2 text-3xl font-black text-white">
+                  Tell Collector Intelligence How You Feel
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-zinc-400">
+                  Enter a feeling, listening need, or command. Collector Intelligence will translate it into a mood intent and curate tracks from your indexed collection.
+                </p>
+              </div>
+            </div>
+
+            <form
+              action="/collection/track-intelligence"
+              className="mt-6 grid gap-3 lg:grid-cols-[1fr_auto]"
+            >
+              <input
+                type="text"
+                name="intent"
+                defaultValue={moodIntentCommand}
+                placeholder="Example: I feel anxious and need grounding..."
+                className="rounded-3xl border border-cyan-500/20 bg-black/40 px-6 py-5 text-lg text-white outline-none focus:border-cyan-300"
+              />
+              <button className="rounded-3xl bg-cyan-300 px-7 py-5 text-sm font-black uppercase tracking-[0.18em] text-black">
+                Curate
+              </button>
+            </form>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              {[
+                "I feel anxious and need grounding",
+                "Give me energetic tracks under 4 minutes",
+                "I need late night reflective songs",
+                "I want strange experimental tracks",
+                "Give me focus music for writing",
+              ].map((prompt) => (
+                <Link
+                  key={prompt}
+                  href={`/collection/track-intelligence?intent=${encodeURIComponent(prompt)}`}
+                  className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
+                >
+                  {prompt}
+                </Link>
+              ))}
+            </div>
+
+            {commandResult ? (
+              <div className="mt-6 rounded-[28px] border border-cyan-500/20 bg-black/30 p-5">
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
+                  Interpreted Mood
+                </p>
+                <p className="mt-2 text-2xl font-black text-white">
+                  {commandResult.intent.mood}
+                </p>
+                <p className="mt-2 text-sm leading-7 text-zinc-400">
+                  {commandResult.intent.reason}
+                </p>
+
+                <div className="mt-5 grid gap-3">
+                  {commandResult.tracks.slice(0, 12).map((track) => {
+                    const record = recordMap.get(String(track.discogs_release_id));
+                    const artwork = coverFor(record);
+
+                    return (
+                      <article
+                        key={`command-${track.discogs_release_id}-${track.title}-${track.duration_raw}`}
+                        className="rounded-2xl border border-white/10 bg-black/25 p-4"
+                      >
+                        <div className="grid grid-cols-[56px_1fr_90px] items-center gap-4">
+                          {artwork ? (
+                            <img
+                              src={artwork}
+                              alt={record?.title || track.title}
+                              className="h-14 w-14 rounded-2xl object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-[10px] font-black tracking-[0.2em] text-[#D8B65A]">
+                              CI
+                            </div>
+                          )}
+
+                          <div>
+                            <p className="font-black text-white">{track.title}</p>
+                            <p className="mt-1 text-xs text-zinc-400">
+                              {record
+                                ? `${formatArtistName(record.artist)} — ${record.title}`
+                                : `Release ${track.discogs_release_id}`}
+                            </p>
+                            <p className="mt-2 inline-flex rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100">
+                              {track.mood} · Score {track.score}
+                            </p>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                              Runtime
+                            </p>
+                            <p className="mt-1 text-lg font-black text-[#D8B65A]">
+                              {track.duration_raw || formatSeconds(track.duration_seconds)}
+                            </p>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section className="mt-8 rounded-[34px] border border-fuchsia-500/15 bg-black/25 p-6">
