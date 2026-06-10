@@ -6,6 +6,7 @@ import {
   classifyTrackMood,
   scoreTrackForIntent,
 } from "@/src/lib/track-mood-curation";
+import { buildListeningSession } from "@/src/lib/session-generator";
 
 export async function curateTracks(command: string) {
   const supabase = createAdminClient();
@@ -50,5 +51,6 @@ export async function curateTracks(command: string) {
   return {
     intent,
     tracks: ranked,
+    session: buildListeningSession(ranked, intent),
   };
 }

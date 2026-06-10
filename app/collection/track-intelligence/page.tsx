@@ -890,53 +890,81 @@ export default async function TrackIntelligencePage({
                   {commandResult.intent.reason}
                 </p>
 
-                <div className="mt-5 grid gap-3">
-                  {commandResult.tracks.slice(0, 12).map((track) => {
-                    const record = recordMap.get(String(track.discogs_release_id));
-                    const artwork = coverFor(record);
+                <div className="mt-6 rounded-[24px] border border-cyan-500/15 bg-cyan-500/[0.04] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
+                    Recommended Listening Session
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-white">
+                    {commandResult.session.title}
+                  </p>
+                  <p className="mt-2 text-sm text-zinc-400">
+                    Estimated runtime: {formatMinutes(commandResult.session.estimatedRuntimeSeconds / 60)}
+                  </p>
+                </div>
 
-                    return (
-                      <article
-                        key={`command-${track.discogs_release_id}-${track.title}-${track.duration_raw}`}
-                        className="rounded-2xl border border-white/10 bg-black/25 p-4"
-                      >
-                        <div className="grid grid-cols-[56px_1fr_90px] items-center gap-4">
-                          {artwork ? (
-                            <img
-                              src={artwork}
-                              alt={record?.title || track.title}
-                              className="h-14 w-14 rounded-2xl object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-[10px] font-black tracking-[0.2em] text-[#D8B65A]">
-                              CI
-                            </div>
-                          )}
+                <div className="mt-5 grid gap-5">
+                  {commandResult.session.stages.map((stage) => (
+                    <section
+                      key={stage.stage}
+                      className="rounded-[26px] border border-white/10 bg-black/25 p-5"
+                    >
+                      <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-300">
+                        {stage.label}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-zinc-400">
+                        {stage.purpose}
+                      </p>
 
-                          <div>
-                            <p className="font-black text-white">{track.title}</p>
-                            <p className="mt-1 text-xs text-zinc-400">
-                              {record
-                                ? `${formatArtistName(record.artist)} — ${record.title}`
-                                : `Release ${track.discogs_release_id}`}
-                            </p>
-                            <p className="mt-2 inline-flex rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100">
-                              {track.mood} · Score {track.score}
-                            </p>
-                          </div>
+                      <div className="mt-4 grid gap-3">
+                        {stage.tracks.map((track) => {
+                          const record = recordMap.get(String(track.discogs_release_id));
+                          const artwork = coverFor(record);
 
-                          <div className="text-right">
-                            <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                              Runtime
-                            </p>
-                            <p className="mt-1 text-lg font-black text-[#D8B65A]">
-                              {track.duration_raw || formatSeconds(track.duration_seconds)}
-                            </p>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
+                          return (
+                            <article
+                              key={`session-${stage.stage}-${track.discogs_release_id}-${track.title}-${track.duration_raw}`}
+                              className="rounded-2xl border border-white/10 bg-black/30 p-4"
+                            >
+                              <div className="grid grid-cols-[56px_1fr_90px] items-center gap-4">
+                                {artwork ? (
+                                  <img
+                                    src={artwork}
+                                    alt={record?.title || track.title}
+                                    className="h-14 w-14 rounded-2xl object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-[10px] font-black tracking-[0.2em] text-[#D8B65A]">
+                                    CI
+                                  </div>
+                                )}
+
+                                <div>
+                                  <p className="font-black text-white">{track.title}</p>
+                                  <p className="mt-1 text-xs text-zinc-400">
+                                    {record
+                                      ? `${formatArtistName(record.artist)} — ${record.title}`
+                                      : `Release ${track.discogs_release_id}`}
+                                  </p>
+                                  <p className="mt-2 text-xs leading-5 text-zinc-500">
+                                    {track.sessionReason}
+                                  </p>
+                                </div>
+
+                                <div className="text-right">
+                                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                    Runtime
+                                  </p>
+                                  <p className="mt-1 text-lg font-black text-[#D8B65A]">
+                                    {track.duration_raw || formatSeconds(track.duration_seconds)}
+                                  </p>
+                                </div>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
                 </div>
               </div>
             ) : null}
