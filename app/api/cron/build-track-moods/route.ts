@@ -104,7 +104,9 @@ export async function GET() {
 
   const { error: insertError } = await supabase
     .from("track_mood_intelligence")
-    .insert(rowsToInsert);
+    .upsert(rowsToInsert, {
+      onConflict: "discogs_release_id,position,title",
+    });
 
   if (insertError) {
     return NextResponse.json(
