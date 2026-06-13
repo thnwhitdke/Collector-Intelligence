@@ -24,6 +24,9 @@ type MoodTrackRow = {
   focus_score: number | null;
   nostalgia_score: number | null;
   experimental_score: number | null;
+  comfort_score: number | null;
+  warmth_score: number | null;
+  familiarity_score: number | null;
 };
 
 function moodScore(row: MoodTrackRow, intent: MoodIntent) {
@@ -33,7 +36,14 @@ function moodScore(row: MoodTrackRow, intent: MoodIntent) {
     case "reflective":
       return row.reflection_score || 0;
     case "grounding":
-      return row.grounding_score || 0;
+      return Math.round(
+        ((row.comfort_score || 0) * 1.6) +
+        ((row.warmth_score || 0) * 1.2) +
+        ((row.familiarity_score || 0) * 0.9) +
+        ((row.grounding_score || 0) * 0.7) -
+        ((row.experimental_score || 0) * 0.6) -
+        ((row.energy_score || 0) * 0.4),
+      );
     case "focus":
       return row.focus_score || 0;
     case "nostalgic":
@@ -41,7 +51,14 @@ function moodScore(row: MoodTrackRow, intent: MoodIntent) {
     case "experimental":
       return row.experimental_score || 0;
     case "late-night":
-      return Math.max(row.reflection_score || 0, row.experimental_score || 0);
+      return Math.round(
+        ((row.reflection_score || 0) * 1.2) +
+        ((row.comfort_score || 0) * 1.1) +
+        ((row.warmth_score || 0) * 0.9) +
+        ((row.familiarity_score || 0) * 0.7) -
+        ((row.energy_score || 0) * 0.5) -
+        ((row.experimental_score || 0) * 0.3),
+      );
     case "melancholy":
       return Math.max(row.reflection_score || 0, row.nostalgia_score || 0);
     case "immersive":
@@ -56,6 +73,9 @@ function moodScore(row: MoodTrackRow, intent: MoodIntent) {
         row.focus_score || 0,
         row.nostalgia_score || 0,
         row.experimental_score || 0,
+        row.comfort_score || 0,
+        row.warmth_score || 0,
+        row.familiarity_score || 0,
       );
   }
 }
@@ -77,7 +97,10 @@ export async function curateTracks(command: string) {
       grounding_score,
       focus_score,
       nostalgia_score,
-      experimental_score
+      experimental_score,
+      comfort_score,
+      warmth_score,
+      familiarity_score
     `)
     .limit(20000);
 
