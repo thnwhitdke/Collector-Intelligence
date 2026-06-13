@@ -127,20 +127,75 @@ function scoreProfiles(track: TrackRow) {
   let nostalgia = scoreTerms(text, moodTerms.nostalgia);
   let experimental = scoreTerms(text, moodTerms.experimental);
 
+  let comfort = scoreTerms(
+    text,
+    [
+      "home",
+      "peace",
+      "safe",
+      "easy",
+      "warm",
+      "hold",
+      "stay",
+      "morning",
+      "sun",
+      "light",
+      "friend",
+      "love",
+    ],
+    12,
+  );
+
+  let warmth = scoreTerms(
+    text,
+    [
+      "sun",
+      "light",
+      "morning",
+      "warm",
+      "love",
+      "gold",
+      "summer",
+      "smile",
+      "sweet",
+      "beautiful",
+    ],
+    12,
+  );
+
+  let familiarity = scoreTerms(
+    text,
+    [
+      "home",
+      "again",
+      "remember",
+      "time",
+      "years",
+      "young",
+      "days",
+      "old",
+      "classic",
+    ],
+    10,
+  );
+
   if (seconds > 0 && seconds <= 150) {
     energy += 8;
-    grounding += 6;
+    grounding += 4;
+    comfort += 4;
   }
 
   if (seconds >= 240 && seconds <= 420) {
     reflection += 8;
     focus += 6;
+    comfort += 4;
   }
 
   if (seconds >= 420) {
     focus += 18;
     reflection += 12;
     experimental += 6;
+    comfort -= 8;
   }
 
   if (title.includes("live")) {
@@ -157,11 +212,29 @@ function scoreProfiles(track: TrackRow) {
   }
 
   if (title.includes("easy")) {
-    grounding += 22;
+    grounding += 8;
+    comfort += 12;
   }
 
   if (title.includes("tears") || title.includes("grief") || title.includes("cry")) {
     reflection += 18;
+    comfort -= 10;
+    warmth -= 8;
+  }
+
+  if (title.includes("blackout") || title.includes("dark") || title.includes("shadow")) {
+    comfort -= 10;
+    warmth -= 10;
+  }
+
+  if (title.includes("moon") || title.includes("space")) {
+    reflection += 8;
+    warmth -= 4;
+  }
+
+  if (title.includes("home")) {
+    comfort += 14;
+    familiarity += 8;
   }
 
   return {
@@ -171,6 +244,9 @@ function scoreProfiles(track: TrackRow) {
     focus_score: clamp(focus),
     nostalgia_score: clamp(nostalgia),
     experimental_score: clamp(experimental),
+    comfort_score: clamp(comfort),
+    warmth_score: clamp(warmth),
+    familiarity_score: clamp(familiarity),
   };
 }
 
