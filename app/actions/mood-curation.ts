@@ -29,7 +29,29 @@ type MoodTrackRow = {
   familiarity_score: number | null;
 };
 
+function titlePenalty(row: MoodTrackRow, intent: MoodIntent) {
+  const title = String(row.title || "").toLowerCase();
+
+  if (intent.mood === "grounding") {
+    if (title.includes("ain't easy")) return 35;
+    if (title === "easy") return 25;
+    if (title.includes("easy")) return 18;
+  }
+
+  if (intent.mood === "late-night") {
+    if (title.includes("blackout")) return 45;
+    if (title.includes("dark")) return 35;
+    if (title.includes("moonage")) return 30;
+    if (title.includes("moon")) return 20;
+    if (title.includes("space")) return 18;
+  }
+
+  return 0;
+}
+
 function moodScore(row: MoodTrackRow, intent: MoodIntent) {
+  const penalty = titlePenalty(row, intent);
+
   switch (intent.mood) {
     case "energy":
       return row.energy_score || 0;
@@ -37,12 +59,13 @@ function moodScore(row: MoodTrackRow, intent: MoodIntent) {
       return row.reflection_score || 0;
     case "grounding":
       return Math.round(
-        ((row.comfort_score || 0) * 1.6) +
-        ((row.warmth_score || 0) * 1.2) +
-        ((row.familiarity_score || 0) * 0.9) +
-        ((row.grounding_score || 0) * 0.7) -
-        ((row.experimental_score || 0) * 0.6) -
-        ((row.energy_score || 0) * 0.4),
+        ((row.comfort_score || 0) * 1.8) +
+        ((row.warmth_score || 0) * 1.4) +
+        ((row.familiarity_score || 0) * 1.0) +
+        ((row.grounding_score || 0) * 0.45) -
+        ((row.experimental_score || 0) * 0.8) -
+        ((row.energy_score || 0) * 0.5) -
+        penalty,
       );
     case "focus":
       return row.focus_score || 0;
@@ -52,12 +75,13 @@ function moodScore(row: MoodTrackRow, intent: MoodIntent) {
       return row.experimental_score || 0;
     case "late-night":
       return Math.round(
-        ((row.reflection_score || 0) * 1.2) +
-        ((row.comfort_score || 0) * 1.1) +
-        ((row.warmth_score || 0) * 0.9) +
-        ((row.familiarity_score || 0) * 0.7) -
-        ((row.energy_score || 0) * 0.5) -
-        ((row.experimental_score || 0) * 0.3),
+        ((row.reflection_score || 0) * 0.75) +
+        ((row.comfort_score || 0) * 1.5) +
+        ((row.warmth_score || 0) * 1.25) +
+        ((row.familiarity_score || 0) * 1.0) -
+        ((row.energy_score || 0) * 0.65) -
+        ((row.experimental_score || 0) * 0.75) -
+        penalty,
       );
     case "melancholy":
       return Math.max(row.reflection_score || 0, row.nostalgia_score || 0);
