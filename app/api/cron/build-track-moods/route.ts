@@ -2,13 +2,195 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { classifyTrackMood } from "@/src/lib/track-mood-curation";
 
-function scoreMood(title: string, terms: string[]) {
-  const text = title.toLowerCase();
+type TrackRow = {
+  discogs_release_id: string | number | null;
+  position: string | null;
+  title: string | null;
+  duration_seconds: number | null;
+  artist_credit: string | null;
+};
 
-  return Math.min(
-    100,
-    terms.reduce((score, term) => score + (text.includes(term) ? 25 : 0), 0),
+const moodTerms = {
+  energy: [
+    "rock",
+    "dance",
+    "party",
+    "swing",
+    "rebel",
+    "beat",
+    "drive",
+    "fire",
+    "power",
+    "wild",
+    "young",
+    "jump",
+    "run",
+    "alive",
+    "electric",
+  ],
+  reflection: [
+    "dream",
+    "memory",
+    "moon",
+    "space",
+    "garden",
+    "silence",
+    "alone",
+    "remember",
+    "time",
+    "shadow",
+    "morning",
+    "eyes",
+    "soul",
+    "home",
+  ],
+  grounding: [
+    "calm",
+    "peace",
+    "home",
+    "earth",
+    "warm",
+    "safe",
+    "easy",
+    "water",
+    "garden",
+    "morning",
+    "sun",
+    "light",
+    "hold",
+    "stay",
+  ],
+  focus: [
+    "ambient",
+    "instrumental",
+    "theme",
+    "water",
+    "air",
+    "garden",
+    "moss",
+    "sound",
+    "music",
+    "part",
+    "sequence",
+    "suite",
+  ],
+  nostalgia: [
+    "time",
+    "years",
+    "youth",
+    "yesterday",
+    "remember",
+    "memory",
+    "old",
+    "young",
+    "past",
+    "days",
+    "again",
+  ],
+  experimental: [
+    "dub",
+    "mix",
+    "version",
+    "noise",
+    "strange",
+    "secret",
+    "machine",
+    "remix",
+    "extended",
+    "alternate",
+    "edit",
+    "demo",
+  ],
+};
+
+function clamp(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function scoreTerms(text: string, terms: string[], weight = 18) {
+  return terms.reduce(
+    (score, term) => score + (text.includes(term) ? weight : 0),
+    0,
   );
+}
+
+function scoreProfiles(track: TrackRow) {
+  const title = String(track.title || "").toLowerCase();
+  const artist = String(track.artist_credit || "").toLowerCase();
+  const text = `${title} ${artist}`;
+  const seconds = Number(track.duration_seconds || 0);
+
+  let energy = scoreTerms(text, moodTerms.energy);
+  let reflection = scoreTerms(text, moodTerms.reflection);
+  let grounding = scoreTerms(text, moodTerms.grounding);
+  let focus = scoreTerms(text, moodTerms.focus);
+  let nostalgia = scoreTerms(text, moodTerms.nostalgia);
+  let experimental = scoreTerms(text, moodTerms.experimental);
+
+  if (seconds > 0 && seconds <= 150) {
+    energy += 8;
+    grounding += 6;
+  }
+
+  if (seconds >= 240 && seconds <= 420) {
+    reflection += 8;
+    focus += 6;
+  }
+
+  if (seconds >= 420) {
+    focus += 18;
+    reflection += 12;
+    experimental += 6;
+  }
+
+  if (title.includes("live")) {
+    energy += 6;
+  }
+
+  if (title.includes("instrumental")) {
+    focus += 30;
+    reflection += 8;
+  }
+
+  if (title.includes("theme")) {
+    focus += 20;
+  }
+
+  if (title.includes("easy")) {
+    grounding += 22;
+  }
+
+  if (title.includes("tears") || title.includes("grief") || title.includes("cry")) {
+    reflection += 18;
+  }
+
+  return {
+    energy_score: clamp(energy),
+    reflection_score: clamp(reflection),
+    grounding_score: clamp(grounding),
+    focus_score: clamp(focus),
+    nostalgia_score: clamp(nostalgia),
+    experimental_score: clamp(experimental),
+  };
+}
+
+function confidenceFor(mood: string, scores: ReturnType<typeof scoreProfiles>) {
+  const values = [
+    scores.energy_score,
+    scores.reflection_score,
+    scores.grounding_score,
+    scores.focus_score,
+    scores.nostalgia_score,
+    scores.experimental_score,
+  ];
+
+  const topScore = Math.max(...values);
+
+  if (mood === "catalog" && topScore === 0) return 35;
+  if (topScore >= 60) return 90;
+  if (topScore >= 35) return 80;
+  if (topScore >= 18) return 70;
+  return mood === "catalog" ? 40 : 65;
 }
 
 function trackKey(row: {
@@ -60,7 +242,7 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    for (const track of tracks || []) {
+    for (const track of (tracks || []) as TrackRow[]) {
       if (rowsToInsert.length >= 500) break;
 
       const key = trackKey(track);
@@ -68,22 +250,20 @@ export async function GET() {
       if (existingKeys.has(key)) continue;
 
       const mood = classifyTrackMood({
-        title: track.title,
+        title: String(track.title || ""),
         artistCredit: track.artist_credit,
         durationSeconds: track.duration_seconds,
       });
+
+      const scores = scoreProfiles(track);
 
       rowsToInsert.push({
         discogs_release_id: String(track.discogs_release_id),
         position: track.position,
         title: track.title,
         mood,
-        confidence: mood === "catalog" ? 35 : 75,
-        energy_score: scoreMood(track.title, ["rock", "dance", "party", "swing", "rebel", "beat"]),
-        reflection_score: scoreMood(track.title, ["dream", "memory", "moon", "space", "garden", "silence"]),
-        grounding_score: scoreMood(track.title, ["calm", "peace", "home", "earth", "warm", "safe"]),
-        focus_score: scoreMood(track.title, ["ambient", "instrumental", "theme", "water", "air"]),
-        nostalgia_score: scoreMood(track.title, ["time", "years", "youth", "yesterday", "remember"]),
+        confidence: confidenceFor(mood, scores),
+        ...scores,
       });
 
       existingKeys.add(key);
