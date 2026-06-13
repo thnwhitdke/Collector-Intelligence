@@ -2,6 +2,7 @@ import Link from "next/link";
 import CINavigation from "@/app/components/CINavigation";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { curateTracks } from "@/app/actions/mood-curation";
+import { saveMoodSession } from "@/app/actions/saved-mood-sessions";
 
 export const dynamic = "force-dynamic";
 
@@ -891,15 +892,40 @@ export default async function TrackIntelligencePage({
                 </p>
 
                 <div className="mt-6 rounded-[24px] border border-cyan-500/15 bg-cyan-500/[0.04] p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
-                    Recommended Listening Session
-                  </p>
-                  <p className="mt-2 text-2xl font-black text-white">
-                    {commandResult.session.title}
-                  </p>
-                  <p className="mt-2 text-sm text-zinc-400">
-                    Estimated runtime: {formatMinutes(commandResult.session.estimatedRuntimeSeconds / 60)}
-                  </p>
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
+                        Recommended Listening Session
+                      </p>
+                      <p className="mt-2 text-2xl font-black text-white">
+                        {commandResult.session.title}
+                      </p>
+                      <p className="mt-2 text-sm text-zinc-400">
+                        Estimated runtime: {formatMinutes(commandResult.session.estimatedRuntimeSeconds / 60)}
+                      </p>
+                    </div>
+
+                    <form action={saveMoodSession}>
+                      <input type="hidden" name="title" value={commandResult.session.title} />
+                      <input type="hidden" name="prompt" value={moodIntentCommand} />
+                      <input type="hidden" name="mood" value={commandResult.session.mood} />
+                      <input type="hidden" name="reason" value={commandResult.session.reason} />
+                      <input
+                        type="hidden"
+                        name="estimated_runtime_seconds"
+                        value={commandResult.session.estimatedRuntimeSeconds}
+                      />
+                      <input
+                        type="hidden"
+                        name="session_json"
+                        value={JSON.stringify(commandResult.session)}
+                      />
+
+                      <button className="rounded-2xl border border-cyan-300/30 bg-cyan-300/15 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-cyan-100 hover:bg-cyan-300/25">
+                        Save Session
+                      </button>
+                    </form>
+                  </div>
                 </div>
 
                 <div className="mt-5 grid gap-5">
