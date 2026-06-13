@@ -33,17 +33,18 @@ function titlePenalty(row: MoodTrackRow, intent: MoodIntent) {
   const title = String(row.title || "").toLowerCase();
 
   if (intent.mood === "grounding") {
-    if (title.includes("ain't easy")) return 35;
-    if (title === "easy") return 25;
-    if (title.includes("easy")) return 18;
+    if (title.includes("ain't easy")) return 45;
+    if (title === "easy") return 35;
+    if (title.includes("easy")) return 28;
+    if (title.includes("home")) return 22;
   }
 
   if (intent.mood === "late-night") {
     if (title.includes("blackout")) return 45;
     if (title.includes("dark")) return 35;
-    if (title.includes("moonage")) return 30;
-    if (title.includes("moon")) return 20;
-    if (title.includes("space")) return 18;
+    if (title.includes("moonage")) return 45;
+    if (title.includes("moon")) return 35;
+    if (title.includes("space")) return 28;
   }
 
   return 0;
