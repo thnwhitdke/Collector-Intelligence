@@ -5,21 +5,79 @@ import {
   detectMoodIntent,
   classifyTrackMood,
   scoreTrackForIntent,
+  type MoodIntent,
 } from "@/src/lib/track-mood-curation";
 import { buildListeningSession } from "@/src/lib/session-generator";
+
+type MoodTrackRow = {
+  discogs_release_id: string | null;
+  position: string | null;
+  title: string | null;
+  duration_seconds: number | null;
+  duration_raw?: string | null;
+  artist_credit?: string | null;
+  mood: string | null;
+  confidence: number | null;
+  energy_score: number | null;
+  reflection_score: number | null;
+  grounding_score: number | null;
+  focus_score: number | null;
+  nostalgia_score: number | null;
+  experimental_score: number | null;
+};
+
+function moodScore(row: MoodTrackRow, intent: MoodIntent) {
+  switch (intent.mood) {
+    case "energy":
+      return row.energy_score || 0;
+    case "reflective":
+      return row.reflection_score || 0;
+    case "grounding":
+      return row.grounding_score || 0;
+    case "focus":
+      return row.focus_score || 0;
+    case "nostalgic":
+      return row.nostalgia_score || 0;
+    case "experimental":
+      return row.experimental_score || 0;
+    case "late-night":
+      return Math.max(row.reflection_score || 0, row.experimental_score || 0);
+    case "melancholy":
+      return Math.max(row.reflection_score || 0, row.nostalgia_score || 0);
+    case "immersive":
+      return Math.max(row.focus_score || 0, row.reflection_score || 0);
+    case "short-form":
+      return row.duration_seconds && row.duration_seconds <= 150 ? 55 : 0;
+    default:
+      return Math.max(
+        row.energy_score || 0,
+        row.reflection_score || 0,
+        row.grounding_score || 0,
+        row.focus_score || 0,
+        row.nostalgia_score || 0,
+        row.experimental_score || 0,
+      );
+  }
+}
 
 export async function curateTracks(command: string) {
   const supabase = createAdminClient();
   const intent = detectMoodIntent(command);
 
-  const { data: tracks, error } = await supabase
-    .from("release_tracks")
+  const { data: moodRows, error } = await supabase
+    .from("track_mood_intelligence")
     .select(`
       discogs_release_id,
+      position,
       title,
-      duration_seconds,
-      duration_raw,
-      artist_credit
+      mood,
+      confidence,
+      energy_score,
+      reflection_score,
+      grounding_score,
+      focus_score,
+      nostalgia_score,
+      experimental_score
     `)
     .limit(20000);
 
@@ -27,30 +85,73 @@ export async function curateTracks(command: string) {
     throw new Error(error.message);
   }
 
-  const ranked = (tracks || [])
-    .map((track) => ({
-      ...track,
-      mood: classifyTrackMood({
-        title: track.title,
-        artistCredit: track.artist_credit,
-        durationSeconds: track.duration_seconds,
-      }),
-      score: scoreTrackForIntent(
-        {
-          title: track.title,
-          artistCredit: track.artist_credit,
-          durationSeconds: track.duration_seconds,
-        },
-        intent,
-      ),
-    }))
+  const { data: trackRows } = await supabase
+    .from("release_tracks")
+    .select(`
+      discogs_release_id,
+      position,
+      title,
+      duration_seconds,
+      duration_raw,
+      artist_credit
+    `)
+    .limit(30000);
+
+  const trackMap = new Map(
+    (trackRows || []).map((track) => [
+      `${track.discogs_release_id}::${track.position || ""}::${track.title}`,
+      track,
+    ]),
+  );
+
+  const ranked = ((moodRows || []) as MoodTrackRow[])
+    .map((row) => {
+      const key = `${row.discogs_release_id}::${row.position || ""}::${row.title}`;
+      const sourceTrack = trackMap.get(key);
+
+      const durationSeconds =
+        sourceTrack?.duration_seconds ??
+        row.duration_seconds ??
+        null;
+
+      const merged = {
+        discogs_release_id: row.discogs_release_id,
+        position: row.position,
+        title: row.title || "Untitled",
+        duration_seconds: durationSeconds,
+        durationSeconds,
+        duration_raw: sourceTrack?.duration_raw ?? null,
+        artist_credit: sourceTrack?.artist_credit ?? null,
+        artistCredit: sourceTrack?.artist_credit ?? null,
+        mood:
+          row.mood ||
+          classifyTrackMood({
+            title: row.title || "",
+            artistCredit: sourceTrack?.artist_credit,
+            durationSeconds,
+          }),
+        score:
+          moodScore(row, intent) +
+          Math.round((row.confidence || 0) / 10) +
+          scoreTrackForIntent(
+            {
+              title: row.title || "",
+              artistCredit: sourceTrack?.artist_credit,
+              durationSeconds,
+            },
+            intent,
+          ),
+      };
+
+      return merged;
+    })
     .filter((track) => track.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 25);
+    .slice(0, 40);
 
   return {
     intent,
-    tracks: ranked,
+    tracks: ranked.slice(0, 25),
     session: buildListeningSession(ranked, intent),
   };
 }
