@@ -149,34 +149,104 @@ export function detectMoodIntent(command: string): MoodIntent {
   };
 }
 
-export function scoreTrackForIntent(track: TrackMoodInput, intent: MoodIntent) {
-  let score = 0;
+function titleHas(title: string, terms: string[]) {
+  return terms.some((term) => title.includes(term));
+}
 
-  const mood = classifyTrackMood(track);
+export function scoreTrackForIntent(track: TrackMoodInput, intent: MoodIntent) {
   const seconds = track.durationSeconds || 0;
   const title = track.title.toLowerCase();
   const artist = String(track.artistCredit || "").toLowerCase();
 
-  if (mood === intent.mood) score += 60;
-  if (intent.mood === "catalog") score += 20;
+  let score = 0;
+
+  const disqualifiers = [
+    "interview",
+    "documentary",
+    "commentary",
+    "commercial",
+    "advert",
+    "radio spot",
+    "trailer",
+  ];
+
+  if (titleHas(title, disqualifiers)) return -100;
 
   if (intent.artistQuery && artist.includes(intent.artistQuery.toLowerCase())) {
-    score += 30;
+    score += 25;
   }
 
   if (intent.maxDurationSeconds !== null && seconds > intent.maxDurationSeconds) {
-    score -= 50;
+    score -= 40;
   }
 
   if (intent.minDurationSeconds !== null && seconds < intent.minDurationSeconds) {
-    score -= 50;
+    score -= 40;
   }
 
-  if (title.includes("interview") || title.includes("documentary") || title.includes("commentary")) {
-    score -= 100;
-  }
+  if (seconds > 0) score += 3;
 
-  if (seconds > 0) score += 5;
+  switch (intent.mood) {
+    case "grounding":
+      if (seconds > 0 && seconds <= 420) score += 8;
+      if (titleHas(title, ["peace", "calm", "light", "morning", "garden", "water", "warm"])) score += 18;
+      if (titleHas(title, ["home", "stay", "safe"])) score += 10;
+      if (titleHas(title, ["easy"])) score += 4;
+      if (titleHas(title, ["blackout", "dark", "shadow", "grief", "tears", "cry", "noise", "dub", "mix"])) score -= 25;
+      break;
+
+    case "late-night":
+      if (seconds >= 180 && seconds <= 480) score += 10;
+      if (titleHas(title, ["quiet", "slow", "light", "morning", "garden", "water", "drift", "dream"])) score += 14;
+      if (titleHas(title, ["moon", "space"])) score += 3;
+      if (titleHas(title, ["blackout", "dark", "shadow", "noise", "hard", "rock", "dance", "party"])) score -= 24;
+      break;
+
+    case "focus":
+      if (titleHas(title, ["instrumental", "theme", "ambient", "suite", "sequence", "part", "sound"])) score += 25;
+      if (seconds >= 150 && seconds <= 600) score += 12;
+      if (titleHas(title, ["party", "dance", "scream", "cry", "tears", "interview"])) score -= 20;
+      break;
+
+    case "reflective":
+      if (titleHas(title, ["memory", "time", "dream", "silence", "eyes", "soul", "garden"])) score += 18;
+      if (titleHas(title, ["moon", "space"])) score += 8;
+      if (titleHas(title, ["party", "dance", "rock", "noise"])) score -= 16;
+      break;
+
+    case "energy":
+      if (titleHas(title, ["rock", "dance", "party", "swing", "drive", "fire", "power", "young"])) score += 22;
+      if (seconds > 0 && seconds <= 300) score += 10;
+      if (titleHas(title, ["sleep", "silence", "ambient", "theme"])) score -= 15;
+      break;
+
+    case "nostalgic":
+      if (titleHas(title, ["time", "years", "young", "yesterday", "remember", "old", "again"])) score += 20;
+      if (titleHas(title, ["noise", "dub", "remix"])) score -= 15;
+      break;
+
+    case "experimental":
+      if (titleHas(title, ["dub", "mix", "remix", "version", "noise", "machine", "alternate", "demo"])) score += 22;
+      break;
+
+    case "immersive":
+      if (seconds >= 420) score += 28;
+      if (titleHas(title, ["suite", "part", "sequence", "journey", "space"])) score += 10;
+      break;
+
+    case "short-form":
+      if (seconds > 0 && seconds <= 150) score += 40;
+      break;
+
+    case "melancholy":
+      if (titleHas(title, ["blue", "sad", "lonely", "tears", "cry", "grief", "sorrow"])) score += 22;
+      if (titleHas(title, ["party", "dance", "happy"])) score -= 15;
+      break;
+
+    case "catalog":
+      score += 12;
+      break;
+  }
 
   return score;
 }
