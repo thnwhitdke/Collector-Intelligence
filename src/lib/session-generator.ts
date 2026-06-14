@@ -90,6 +90,7 @@ export function buildListeningSession<
   const stages: SessionStage[] = ["opening", "deepening", "peak", "resolve"];
   const usedReleaseIds = new Set<string>();
   const usedTrackKeys = new Set<string>();
+  const usedTitleKeys = new Set<string>();
 
   const stageTargets: Record<SessionStage, number> = {
     opening: 3,
@@ -113,9 +114,17 @@ export function buildListeningSession<
 
     for (const row of ranked) {
       const releaseKey = String(row.track.discogs_release_id || "");
-      const trackKey = `${releaseKey}-${row.track.title}`;
+      const titleKey = String(row.track.title || "")
+        .toLowerCase()
+        .replace(/\([^)]*\)/g, "")
+        .replace(/\[[^\]]*\]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
+      const trackKey = `${releaseKey}-${titleKey}`;
 
       if (usedTrackKeys.has(trackKey)) continue;
+      if (titleKey && usedTitleKeys.has(titleKey)) continue;
 
       if (
         releaseKey &&
@@ -133,6 +142,7 @@ export function buildListeningSession<
       });
 
       usedTrackKeys.add(trackKey);
+      if (titleKey) usedTitleKeys.add(titleKey);
       if (releaseKey) usedReleaseIds.add(releaseKey);
 
       if (selected.length >= stageTargets[stage]) break;
