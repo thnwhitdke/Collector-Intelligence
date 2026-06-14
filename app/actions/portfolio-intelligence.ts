@@ -42,6 +42,7 @@ function distribution(
 
 function recordValue(record: any): number {
   return (
+    toNumber(record.market_consensus_value) ||
     toNumber(record.estimated_value) ||
     toNumber(record.current_value) ||
     toNumber(record.market_median_price) ||
@@ -137,6 +138,7 @@ export async function recomputePortfolioIntelligenceSnapshot(
       title,
       country,
       genre,
+      market_consensus_value,
       estimated_value,
       current_value,
       market_median_price,
