@@ -1,4 +1,4 @@
-import { createClient } from "@/src/lib/supabase/server";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 
 export type PortfolioTrend = {
   firstValue: number;
@@ -31,14 +31,12 @@ function percentDelta(current: number, previous: number): number {
   return round(((current - previous) / previous) * 100, 2);
 }
 
-export async function getPortfolioTrend(): Promise<PortfolioTrend | null> {
-  const supabase = await createClient();
+export async function getPortfolioTrend(
+  userId?: string | null
+): Promise<PortfolioTrend | null> {
+  if (!userId) return null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from("portfolio_intelligence_snapshots")
@@ -48,7 +46,7 @@ export async function getPortfolioTrend(): Promise<PortfolioTrend | null> {
       total_collection_value,
       average_collector_iq
     `)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .gte("total_records", 100)
     .order("created_at", { ascending: true });
 

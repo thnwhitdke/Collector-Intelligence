@@ -1,7 +1,7 @@
 // ======================================================
 // Collector Intelligence
 // Dashboard Intelligence API
-// Portfolio Intelligence Gateway v2
+// Portfolio Intelligence Gateway v3
 // ======================================================
 
 import { NextResponse } from 'next/server'
@@ -24,23 +24,46 @@ function healthGrade(score: number) {
   return 'Early Signal'
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient()
     const admin = createAdminClient()
 
+    const authHeader = request.headers.get('authorization')
+    const bearerToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.replace('Bearer ', '')
+      : null
+
+    let userId: string | null = null
+
     const {
-      data: { user },
+      data: { user: cookieUser },
     } = await supabase.auth.getUser()
 
-    const [movers, portfolioTrend] = await Promise.all([
-      getTopMovers(5),
-      getPortfolioTrend(),
-    ])
+    if (cookieUser?.id) {
+      userId = cookieUser.id
+    }
+
+    if (!userId && bearerToken) {
+      const {
+        data: { user: tokenUser },
+      } = await admin.auth.getUser(bearerToken)
+
+      if (tokenUser?.id) {
+        userId = tokenUser.id
+      }
+    }
+
+    const [movers, portfolioTrend] = userId
+      ? await Promise.all([
+          getTopMovers(5, userId),
+          getPortfolioTrend(userId),
+        ])
+      : [[], null]
 
     let latestSnapshot = null
 
-    if (user?.id) {
+    if (userId) {
       const { data } = await admin
         .from('portfolio_intelligence_snapshots')
         .select(`
@@ -67,7 +90,7 @@ export async function GET() {
           intelligence_summary,
           intelligence_reasons
         `)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
@@ -81,6 +104,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      userId,
       movers,
       portfolioTrend,
       portfolioSnapshot: latestSnapshot,
