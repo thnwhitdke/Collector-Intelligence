@@ -29,6 +29,10 @@
       "schedule": "0 */2 * * *"
     },
     {
+      "path": "/api/cron/value-history-snapshot",
+      "schedule": "10 */6 * * *"
+    },
+    {
       "path": "/api/cron/repair-release-metadata",
       "schedule": "20 */2 * * *"
     },
