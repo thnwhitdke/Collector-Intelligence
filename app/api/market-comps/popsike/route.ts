@@ -13,10 +13,13 @@ export async function GET() {
 
     const html = await response.text();
 
+    const matches =
+      html.match(/\$[0-9,]+(?:\.[0-9]{2})?/g) || [];
+
     return NextResponse.json({
       ok: true,
-      htmlLength: html.length,
-      preview: html.substring(0, 500)
+      count: matches.length,
+      first20: matches.slice(0, 20)
     });
   } catch (error) {
     return NextResponse.json({
