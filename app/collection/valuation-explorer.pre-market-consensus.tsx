@@ -15,8 +15,6 @@ type RawRecord = {
   media_grade: string | null;
   sleeve_grade: string | null;
   estimated_value: string | null;
-  market_consensus_value: string | number | null;
-  discogs_median_price: string | number | null;
 };
 
 type Row = {
@@ -52,22 +50,10 @@ function pct(value: number | null | undefined) {
   return `${Number(value).toFixed(1)}%`;
 }
 
-function numericValue(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === "") return 0;
+function numericValue(value: string | null | undefined) {
+  if (!value) return 0;
   const parsed = Number(String(value).replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function consensusValue(record: Pick<RawRecord, "market_consensus_value" | "estimated_value" | "discogs_median_price">) {
-  const marketConsensus = numericValue(record.market_consensus_value);
-  const estimated = numericValue(record.estimated_value);
-  const discogsMedian = numericValue(record.discogs_median_price);
-
-  if (marketConsensus > 0) return marketConsensus;
-  if (estimated > 0) return estimated;
-  if (discogsMedian > 0) return discogsMedian;
-
-  return 0;
 }
 
 function decade(value: string | null | undefined) {
@@ -127,9 +113,7 @@ export default async function ValuationExplorerPage({
       year_released,
       media_grade,
       sleeve_grade,
-      estimated_value,
-      market_consensus_value,
-      discogs_median_price
+      estimated_value
     `)
     .limit(10000);
 
@@ -138,7 +122,7 @@ export default async function ValuationExplorerPage({
 
   records.forEach((record) => {
     const category = categoryFor(record, by);
-    const value = consensusValue(record);
+    const value = numericValue(record.estimated_value);
     const current = grouped.get(category) || { records: 0, total: 0 };
 
     grouped.set(category, {
@@ -178,8 +162,8 @@ export default async function ValuationExplorerPage({
           </h1>
 
           <p className="mt-5 max-w-3xl text-sm leading-7 text-[#B8AA96]">
-            Break down market consensus collection value by artist, country,
-            label, format, decade, and condition grade.
+            Break down estimated collection value by artist, country, label,
+            format, decade, and condition grade.
           </p>
 
           <form className="mt-7 flex flex-wrap gap-3">

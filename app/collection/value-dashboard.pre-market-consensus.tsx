@@ -1,0 +1,725 @@
+'use client'
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import CINavigation from '@/app/components/CINavigation'
+import { createClient } from '@/src/lib/supabase/client'
+
+export const dynamic = 'force-dynamic'
+
+const supabase = createClient()
+const PAGE_SIZE = 60
+const fallbackCover =
+  'https://upload.wikimedia.org/wikipedia/en/b/ba/Radioheadokcomputer.png'
+
+type AssetRecord = {
+  id: string
+  artist: string | null
+  title: string | null
+  cover_url: string | null
+  estimated_value: string | number | null
+  label: string | null
+  year_released: string | number | null
+  market_num_for_sale: number | null
+  collector_iq_score: number | null
+  rarity_score: number | null
+  demand_score: number | null
+  volatility_score: number | null
+  market_momentum: string | null
+  market_signal: string | null
+  value_pull_status: string | null
+}
+
+type Mover = {
+  recordId: number
+  artist?: string | null
+  title?: string | null
+  percentChange: number
+  delta: number
+  direction: string
+}
+
+type PortfolioTrend = {
+  firstValue: number
+  latestValue: number
+  deltaFromFirst?: number
+  percentFromFirst?: number
+  deltaFromPrevious?: number
+  percentFromPrevious?: number
+  direction: string
+  health?: string
+  snapshotCount?: number
+}
+
+type IntelligencePayload = {
+  success: boolean
+  movers: Mover[]
+  portfolioTrend: PortfolioTrend | null
+  portfolioSnapshot: any | null
+  portfolioHealth: any | null
+  portfolioDNA: {
+    genres: Array<{ label: string; count: number }>
+    countries: Array<{ label: string; count: number }>
+  }
+  opportunityRadar: any | null
+}
+
+function numeric(value: unknown) {
+  const parsed = Number(String(value ?? '0').replace(/[$,]/g, ''))
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function money(value: unknown) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(numeric(value))
+}
+
+function percent(value: unknown) {
+  const n = numeric(value)
+  if (!n) return '0%'
+  return `${n > 0 ? '+' : ''}${n.toFixed(1)}%`
+}
+
+function statusLabel(status: string | null) {
+  if (status === 'up_to_date') return 'Updated'
+  if (status === 'rare_no_sales_history') return 'Rare / No Sales'
+  if (status === 'needs_repair') return 'Repair'
+  return 'Needs Signal'
+}
+
+function assetTier(record: AssetRecord) {
+  const iq = numeric(record.collector_iq_score)
+  const rarity = numeric(record.rarity_score)
+  const demand = numeric(record.demand_score)
+  const volatility = numeric(record.volatility_score)
+  const momentum = String(record.market_momentum || '').toLowerCase()
+
+  if (demand >= 50) return 'High Demand'
+  if (momentum.includes('acceler')) return 'Accelerating'
+  if (volatility >= 50) return 'Volatile'
+  if (iq >= 85) return 'Elite'
+  if (rarity >= 40 && iq >= 70) return 'Hidden Gem'
+  return 'Stable'
+}
+
+export default function ValueDashboardPage() {
+  const [userId, setUserId] = useState<string | null>(null)
+  const [authReady, setAuthReady] = useState(false)
+  const [intelligence, setIntelligence] =
+    useState<IntelligencePayload | null>(null)
+  const [records, setRecords] = useState<AssetRecord[]>([])
+  const [search, setSearch] = useState('')
+  const [signalFilter, setSignalFilter] = useState('all')
+  const [loadingRecords, setLoadingRecords] = useState(false)
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (!mounted) return
+      setUserId(data.user?.id || null)
+      setAuthReady(true)
+    })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const loadIntelligence = useCallback(async () => {
+    const response = await fetch('/api/dashboard/intelligence', {
+      cache: 'no-store',
+    })
+
+    const data = await response.json()
+
+    if (data.success) {
+      setIntelligence(data)
+      setLastRefresh(new Date())
+    }
+  }, [])
+
+  const loadRecords = useCallback(async () => {
+    if (!userId) return
+
+    setLoadingRecords(true)
+
+    let query = supabase
+      .from('records_clean_safe')
+      .select(`
+        id,
+        artist,
+        title,
+        cover_url,
+        discogs_image_url,
+        estimated_value,
+        label,
+        year,
+        year_released,
+        market_num_for_sale,
+        collector_iq_score,
+        rarity_score,
+        demand_score,
+        volatility_score,
+        market_momentum,
+        market_signal,
+        value_pull_status,
+        genre,
+        style,
+        country,
+        format,
+        catalogue_number,
+        discogs_release_id
+      `)
+      .eq('user_id', userId)
+      .order('estimated_value', {
+        ascending: false,
+        nullsFirst: false,
+      })
+      .limit(PAGE_SIZE)
+
+    if (search.trim()) {
+      const term = search.trim()
+
+      query = query.or(
+        [
+          `artist.ilike.%${term}%`,
+          `title.ilike.%${term}%`,
+          `label.ilike.%${term}%`,
+          `genre.ilike.%${term}%`,
+          `style.ilike.%${term}%`,
+          `country.ilike.%${term}%`,
+          `format.ilike.%${term}%`,
+          `catalogue_number.ilike.%${term}%`,
+          `discogs_release_id.ilike.%${term}%`,
+          `market_signal.ilike.%${term}%`,
+          `market_momentum.ilike.%${term}%`,
+        ].join(','),
+      )
+    }
+
+    if (signalFilter === 'high_demand') {
+      query = query.gte('demand_score', 50)
+    }
+
+    if (signalFilter === 'accelerating') {
+      query = query.ilike('market_momentum', '%Accelerating%')
+    }
+
+    if (signalFilter === 'volatile') {
+      query = query.gte('volatility_score', 50)
+    }
+
+    if (signalFilter === 'elite') {
+      query = query.gte('collector_iq_score', 85)
+    }
+
+    if (signalFilter === 'hidden_gems') {
+      query = query.gte('rarity_score', 40).gte('collector_iq_score', 70)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error(error)
+      setRecords([])
+      setLoadingRecords(false)
+      return
+    }
+
+    setRecords(
+      (data || []).map((record: any) => ({
+        id: String(record.id),
+        artist: record.artist || 'Unknown Artist',
+        title: record.title || 'Unknown Release',
+        cover_url:
+          record.cover_url ||
+          record.discogs_image_url ||
+          null,
+        estimated_value: record.estimated_value ?? 0,
+        label: record.label || 'Unknown Label',
+        year_released: record.year_released || record.year || null,
+        market_num_for_sale: record.market_num_for_sale ?? 0,
+        collector_iq_score: record.collector_iq_score ?? null,
+        rarity_score: record.rarity_score ?? null,
+        demand_score: record.demand_score ?? null,
+        volatility_score: record.volatility_score ?? null,
+        market_momentum: record.market_momentum || null,
+        market_signal: record.market_signal || null,
+        value_pull_status: record.value_pull_status || null,
+      })),
+    )
+
+    setLoadingRecords(false)
+  }, [userId, search, signalFilter])
+
+  useEffect(() => {
+    if (!authReady || !userId) return
+
+    loadIntelligence()
+    loadRecords()
+  }, [authReady, userId, loadIntelligence, loadRecords])
+
+  const snapshot = intelligence?.portfolioSnapshot
+  const health = intelligence?.portfolioHealth
+  const dna = intelligence?.portfolioDNA
+  const radar = intelligence?.opportunityRadar
+  const trend = intelligence?.portfolioTrend
+
+  const gainers = (intelligence?.movers || [])
+    .filter((m) => m.direction === 'up')
+    .slice(0, 5)
+
+  const decliners = (intelligence?.movers || [])
+    .filter((m) => m.direction === 'down')
+    .slice(0, 5)
+
+  if (!authReady) {
+    return (
+      <main className="min-h-screen bg-[#050403] px-6 py-8 text-[#F4EFE6] lg:px-10">
+        <CINavigation />
+        <LoadingState />
+      </main>
+    )
+  }
+
+  if (!userId) {
+    return (
+      <main className="min-h-screen bg-[#050403] px-6 py-8 text-[#F4EFE6] lg:px-10">
+        <CINavigation />
+        <div className="mx-auto mt-24 max-w-3xl rounded-[34px] border border-amber-500/20 bg-amber-500/[0.06] p-10 text-center">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-300">
+            Authentication Required
+          </p>
+          <h1 className="mt-4 text-4xl font-black text-white">
+            Sign in to view Portfolio Intelligence
+          </h1>
+          <Link
+            href="/auth/login"
+            className="mt-8 inline-flex rounded-2xl bg-[#D8B65A] px-6 py-4 text-sm font-black text-black"
+          >
+            Sign In
+          </Link>
+        </div>
+      </main>
+    )
+  }
+
+  return (
+    <main className="min-h-screen bg-[#050403] px-6 py-8 text-[#F4EFE6] lg:px-10">
+      <CINavigation />
+
+      <div className="mx-auto flex max-w-[1800px] flex-col gap-8">
+        <section className="relative overflow-hidden rounded-[44px] border border-[#3A2A14] bg-[radial-gradient(circle_at_top_left,rgba(255,210,30,0.16),transparent_34%),linear-gradient(135deg,#170F08,#060403_54%,#130B05)] p-9 shadow-[0_24px_100px_rgba(0,0,0,.72)]">
+          <div className="relative grid gap-8 xl:grid-cols-[1.15fr_0.85fr] xl:items-center">
+            <div>
+              <div className="inline-flex rounded-full border border-[#D8B65A]/25 bg-[#D8B65A]/10 px-5 py-2 text-[11px] font-black uppercase tracking-[0.35em] text-[#F4CD68]">
+                Collector Intelligence Moat
+              </div>
+
+              <h1 className="mt-6 max-w-5xl text-5xl font-black leading-[0.92] tracking-tight md:text-7xl">
+                Portfolio <span className="text-[#FFD21E]">Intelligence</span>
+              </h1>
+
+              <p className="mt-6 max-w-3xl text-base leading-7 text-[#B8AA96]">
+                Strategic valuation, concentration, risk, opportunity, and
+                collector behavior analytics for your private music archive.
+              </p>
+
+              <div className="mt-7 flex flex-wrap gap-3">
+                <Link href="/collection" className="rounded-2xl border border-[#D8B65A]/25 bg-[#D8B65A]/10 px-5 py-3 text-sm font-black text-[#F4CD68]">
+                  Collection Archive
+                </Link>
+                <Link href="/collection/market-leaders" className="rounded-2xl border border-cyan-500/25 bg-cyan-500/10 px-5 py-3 text-sm font-black text-cyan-100">
+                  Market Leaders
+                </Link>
+                <Link href="/collection/market-intelligence" className="rounded-2xl border border-fuchsia-500/25 bg-fuchsia-500/10 px-5 py-3 text-sm font-black text-fuchsia-100">
+                  Market Intelligence
+                </Link>
+              </div>
+            </div>
+
+            <div className="rounded-[34px] border border-cyan-500/20 bg-black/40 p-6">
+              <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
+                Portfolio Health
+              </p>
+              <div className="mt-4 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-6xl font-black text-white">
+                    {health?.score ?? '—'}
+                  </p>
+                  <p className="mt-2 text-xl font-black text-[#F4CD68]">
+                    {health?.label || 'Building'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-5 py-4">
+                  <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-300">
+                    Engine
+                  </p>
+                  <p className="mt-1 text-2xl font-black text-white">Live</p>
+                </div>
+              </div>
+
+              <p className="mt-5 text-sm leading-6 text-zinc-300">
+                {health?.summary || 'Portfolio intelligence is building.'}
+              </p>
+
+              <p className="mt-5 text-xs font-bold text-zinc-500">
+                {lastRefresh
+                  ? `Updated ${lastRefresh.toLocaleTimeString([], {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}`
+                  : 'Connecting intelligence engine...'}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <Kpi label="Portfolio Health" value={String(health?.score ?? '—')} accent />
+          <Kpi label="Confidence" value={health?.label || '—'} />
+          <Kpi label="Collection Value" value={money(snapshot?.total_collection_value)} />
+          <Kpi label="High Value Assets" value={String(radar?.highValueAssets ?? 0)} />
+          <Kpi label="Elite Holdings" value={String(radar?.eliteValueAssets ?? 0)} />
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-2">
+          <DistributionCard
+            title="Collection DNA"
+            subtitle="Dominant genre signals across your archive"
+            rows={(dna?.genres || []).slice(0, 6)}
+            tone="cyan"
+          />
+
+          <DistributionCard
+            title="Geographic Pressing Profile"
+            subtitle="Country and market-origin concentration"
+            rows={(dna?.countries || []).slice(0, 6)}
+            tone="amber"
+          />
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Signal label="🔥 High Demand" value={radar?.highDemandAssets ?? 0} helper="Records with demand intelligence" tone="orange" />
+          <Signal label="⚡ Accelerating" value={radar?.acceleratingAssets ?? 0} helper="Momentum signals detected" tone="cyan" />
+          <Signal label="⚠ Volatile" value={radar?.volatileAssets ?? 0} helper="Pricing or market instability" tone="rose" />
+          <Signal label="💎 Elite Holdings" value={radar?.eliteValueAssets ?? 0} helper="Premium portfolio assets" tone="fuchsia" />
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+          <div className="rounded-[34px] border border-cyan-500/20 bg-cyan-500/[0.06] p-6">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
+              Portfolio Growth Intelligence
+            </p>
+            <h2 className="mt-3 text-3xl font-black text-white">
+              Historical Portfolio Trend
+            </h2>
+            <p className="mt-6 text-6xl font-black text-white">
+              {trend?.direction === 'up' ? '↗' : trend?.direction === 'down' ? '↘' : '→'}{' '}
+              {percent(trend?.percentFromFirst ?? trend?.percentFromPrevious ?? 0)}
+            </p>
+            <p className="mt-4 text-lg font-bold text-cyan-100">
+              Historical movement {money(trend?.deltaFromFirst ?? trend?.deltaFromPrevious ?? 0)}
+            </p>
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              <Mini label="First Value" value={money(trend?.firstValue)} />
+              <Mini label="Latest Value" value={money(trend?.latestValue)} />
+            </div>
+          </div>
+
+          <div className="rounded-[34px] border border-purple-500/20 bg-purple-500/[0.06] p-6">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-purple-300">
+              Market Movers
+            </p>
+            <h2 className="mt-3 text-3xl font-black text-white">
+              Top Portfolio Movers
+            </h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <MoverPanel title="Biggest Gainers" movers={gainers} empty="No gainers detected yet." />
+              <MoverPanel title="Risk Decliners" movers={decliners} empty="No decliners detected yet." />
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[34px] border border-[#32281D] bg-[#0F0C09] p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[#D8B65A]">
+                Portfolio Control Layer
+              </p>
+              <h2 className="mt-3 text-3xl font-black">
+                Portfolio Signal Search
+              </h2>
+            </div>
+
+            <div className="flex flex-col gap-3 md:flex-row">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search artist, title, label, country, genre..."
+                className="h-14 min-w-[320px] rounded-2xl border border-[#3A3025] bg-[#090705] px-5 text-white outline-none"
+              />
+
+              <select
+                value={signalFilter}
+                onChange={(e) => setSignalFilter(e.target.value)}
+                className="h-14 rounded-2xl border border-[#3A3025] bg-[#090705] px-5 text-white outline-none"
+              >
+                <option value="all">All Records</option>
+                <option value="high_demand">High Demand</option>
+                <option value="accelerating">Accelerating</option>
+                <option value="volatile">Volatile</option>
+                <option value="elite">Elite Holdings</option>
+                <option value="hidden_gems">Hidden Gems</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-5 pb-12">
+          {loadingRecords ? (
+            <div className="rounded-[34px] border border-white/10 bg-white/[0.03] p-10 text-center text-zinc-400">
+              Loading portfolio assets...
+            </div>
+          ) : records.length > 0 ? (
+            records.map((record) => (
+              <Link
+                key={record.id}
+                href={`/collection/${record.id}`}
+                className="group overflow-hidden rounded-[34px] border border-white/10 bg-gradient-to-br from-[#130F0B] to-[#070504] p-5 shadow-2xl shadow-black/40 transition duration-300 hover:-translate-y-1 hover:border-[#D8B65A]/35"
+              >
+                <div className="grid items-start gap-5 xl:grid-cols-[150px_1fr_280px]">
+                  <div className="h-[150px] w-[150px] overflow-hidden rounded-[26px] border border-white/10 bg-black">
+                    <img
+                      src={record.cover_url || fallbackCover}
+                      alt={record.title || 'Record'}
+                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-200">
+                      {assetTier(record)}
+                    </div>
+                    <p className="mt-5 text-sm font-black uppercase tracking-[0.3em] text-[#D8B65A]">
+                      {record.artist}
+                    </p>
+                    <h3 className="mt-2 text-4xl font-black text-white">
+                      {record.title}
+                    </h3>
+                    <p className="mt-3 text-sm text-[#A89782]">
+                      {[record.label, record.year_released].filter(Boolean).join(' • ') || 'Release details pending'}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[28px] border border-white/10 bg-black/40 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+                      Estimated Value
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-[#E5C67A]">
+                      {money(record.estimated_value)}
+                    </p>
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                      <Mini label="IQ" value={String(record.collector_iq_score ?? '—')} />
+                      <Mini label="Rarity" value={`${record.rarity_score ?? '—'}/100`} />
+                      <Mini label="Demand" value={String(record.demand_score ?? '—')} />
+                      <Mini label="Status" value={statusLabel(record.value_pull_status)} />
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <div className="rounded-[34px] border border-white/10 bg-white/[0.03] p-10 text-center text-zinc-400">
+              No portfolio assets match the current search.
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function LoadingState() {
+  return (
+    <div className="mx-auto mt-24 max-w-4xl rounded-[34px] border border-cyan-500/20 bg-cyan-500/[0.06] p-10 text-center">
+      <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
+        Portfolio Intelligence
+      </p>
+      <h1 className="mt-4 text-4xl font-black text-white">
+        Loading your portfolio intelligence…
+      </h1>
+      <p className="mt-4 text-zinc-400">
+        Connecting authenticated collection, market signals, and portfolio health.
+      </p>
+    </div>
+  )
+}
+
+function Kpi({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string
+  value: string
+  accent?: boolean
+}) {
+  return (
+    <div className="rounded-[28px] border border-[#32281D] bg-[#100D09] p-6">
+      <p className="text-xs uppercase tracking-[0.25em] text-[#8E8170]">
+        {label}
+      </p>
+      <p className={accent ? 'mt-3 text-3xl font-black text-[#D8B65A]' : 'mt-3 text-3xl font-black text-white'}>
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function Signal({
+  label,
+  value,
+  helper,
+  tone,
+}: {
+  label: string
+  value: number
+  helper: string
+  tone: 'orange' | 'cyan' | 'rose' | 'fuchsia'
+}) {
+  const tones = {
+    orange: 'border-orange-500/20 bg-orange-500/[0.08] text-orange-200',
+    cyan: 'border-cyan-500/20 bg-cyan-500/[0.08] text-cyan-200',
+    rose: 'border-rose-500/20 bg-rose-500/[0.08] text-rose-200',
+    fuchsia: 'border-fuchsia-500/20 bg-fuchsia-500/[0.08] text-fuchsia-200',
+  }
+
+  return (
+    <div className={`rounded-[28px] border p-5 ${tones[tone]}`}>
+      <p className="text-xs font-black uppercase tracking-[0.22em]">
+        {label}
+      </p>
+      <p className="mt-3 text-4xl font-black text-white">{value}</p>
+      <p className="mt-2 text-sm text-[#B8AA96]">{helper}</p>
+    </div>
+  )
+}
+
+function DistributionCard({
+  title,
+  subtitle,
+  rows,
+  tone,
+}: {
+  title: string
+  subtitle: string
+  rows: Array<{ label: string; count: number }>
+  tone: 'cyan' | 'amber'
+}) {
+  const max = Math.max(...rows.map((row) => Number(row.count || 0)), 1)
+
+  const styles = {
+    cyan: 'border-cyan-500/20 bg-cyan-500/[0.06] text-cyan-200',
+    amber: 'border-[#D8B65A]/20 bg-[#D8B65A]/[0.07] text-[#F4CD68]',
+  }
+
+  return (
+    <div className={`rounded-[34px] border p-6 shadow-2xl ${styles[tone]}`}>
+      <p className="text-xs font-black uppercase tracking-[0.3em]">
+        {title}
+      </p>
+      <h2 className="mt-3 text-2xl font-black text-white">
+        {subtitle}
+      </h2>
+      <div className="mt-6 space-y-4">
+        {rows.length > 0 ? (
+          rows.map((row) => {
+            const pct = Math.round((Number(row.count) / max) * 100)
+            return (
+              <div key={row.label}>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="font-bold text-white">{row.label}</span>
+                  <span className="text-zinc-400">{row.count}</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/40">
+                  <div
+                    className="h-full rounded-full bg-current"
+                    style={{ width: `${Math.max(4, pct)}%` }}
+                  />
+                </div>
+              </div>
+            )
+          })
+        ) : (
+          <p className="text-sm text-zinc-400">
+            Portfolio DNA is still building.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Mini({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
+      <p className="text-[10px] uppercase tracking-[0.18em] text-[#7B7061]">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-black text-white">
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function MoverPanel({
+  title,
+  movers,
+  empty,
+}: {
+  title: string
+  movers: Mover[]
+  empty: string
+}) {
+  return (
+    <div className="rounded-[26px] border border-white/10 bg-black/25 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-200">
+        {title}
+      </p>
+      <div className="mt-4 space-y-3">
+        {movers.length > 0 ? (
+          movers.map((mover) => (
+            <div
+              key={mover.recordId}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"
+            >
+              <p className="font-black text-white">{mover.artist}</p>
+              <p className="text-xs text-zinc-500">{mover.title}</p>
+              <p className="mt-2 text-sm font-bold text-cyan-300">
+                {mover.direction === 'up' ? '↗' : mover.direction === 'down' ? '↘' : '→'}{' '}
+                {percent(mover.percentChange)} • {money(mover.delta)}
+              </p>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-zinc-500">{empty}</p>
+        )}
+      </div>
+    </div>
+  )
+}

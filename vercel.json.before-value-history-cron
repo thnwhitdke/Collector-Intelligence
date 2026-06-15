@@ -1,0 +1,68 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/populate-enrichment-queue",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/process-enrichment",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/market-sync",
+      "schedule": "0 */3 * * *"
+    },
+    {
+      "path": "/api/cron/market-trends",
+      "schedule": "15 */3 * * *"
+    },
+    {
+      "path": "/api/cron/sales-pipeline",
+      "schedule": "30 */3 * * *"
+    },
+    {
+      "path": "/api/cron/sales-summary",
+      "schedule": "40 */3 * * *"
+    },
+    {
+      "path": "/api/cron/value-intelligence",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/repair-release-metadata",
+      "schedule": "20 */2 * * *"
+    },
+    {
+      "path": "/api/cron/track-sync",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/runout-sync",
+      "schedule": "0 */4 * * *"
+    },
+    {
+      "path": "/api/cron/repair-country-integrity",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/want-intelligence-sync",
+      "schedule": "0 */12 * * *"
+    },
+    {
+      "path": "/api/cron/backfill-release-tracks",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/portfolio-snapshots",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/market-observations",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/ci-value-recompute",
+      "schedule": "50 */3 * * *"
+    }
+  ]
+}
