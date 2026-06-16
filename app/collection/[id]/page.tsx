@@ -332,6 +332,20 @@ export default async function RecordDetailPage({
 
   if (error || !data) notFound();
 
+  const { data: auctionSummary } = await supabase
+    .from("external_market_comp_summary")
+    .select(`
+      auction_count,
+      avg_price,
+      median_price,
+      low_price,
+      high_price,
+      latest_sale
+    `)
+    .eq("record_id", id)
+    .eq("source", "popsike")
+    .maybeSingle();
+
   const record = data as RecordDetail;
 
   const title = getText(record, "title") || "Untitled";
@@ -346,6 +360,14 @@ export default async function RecordDetailPage({
   const demandScore = displayValue(getValue(record, "demand_score"));
   const supplyPressure = displayValue(getValue(record, "supply_pressure"));
   const explicitMarketSignal = displayValue(getValue(record, "market_signal"));
+
+  const auctionCount = Number(auctionSummary?.auction_count ?? 0);
+  const hasAuctionComps = auctionCount > 0;
+  const auctionMedian = money(auctionSummary?.median_price);
+  const auctionAverage = money(auctionSummary?.avg_price);
+  const auctionLow = money(auctionSummary?.low_price);
+  const auctionHigh = money(auctionSummary?.high_price);
+  const auctionLatestSale = formatDate(auctionSummary?.latest_sale);
 
   const forSale =
     getNumber(
@@ -696,6 +718,57 @@ export default async function RecordDetailPage({
                   </p>
                 </div>
               </div>
+
+              {hasAuctionComps ? (
+                <div className="mb-6 rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                        Auction Comps
+                      </p>
+                      <p className="mt-2 text-3xl font-black text-white">
+                        {auctionMedian}
+                      </p>
+                      <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
+                        {auctionCount} matched auction results · Median sale
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3 text-sm text-[#B8AA96] md:grid-cols-3">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-[#8E8170]">
+                          Average
+                        </p>
+                        <p className="mt-1 font-bold text-white">
+                          {auctionAverage}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-[#8E8170]">
+                          Range
+                        </p>
+                        <p className="mt-1 font-bold text-white">
+                          {auctionLow}–{auctionHigh}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-[#8E8170]">
+                          Latest
+                        </p>
+                        <p className="mt-1 font-bold text-white">
+                          {auctionLatestSale}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="mt-4 text-xs leading-6 text-[#8E8170]">
+                    External auction-history signal used as supporting evidence, not the sole valuation source.
+                  </p>
+                </div>
+              ) : null}
 
               <ValueIntelligenceCard
                 valueInput={{
