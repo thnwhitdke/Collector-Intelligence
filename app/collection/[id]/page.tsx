@@ -592,35 +592,6 @@ export default async function RecordDetailPage({
                 </form>
               </div>
             </section>
-
-            {/* QUICK SIGNALS */}
-            <div className="grid gap-4">
-              <SignalCard
-                label="Market Consensus"
-                value={marketConsensus.display}
-              />
-
-              <SignalCard
-                label="Market Momentum"
-                value={displayValue(
-                  getValue(record, "market_momentum")
-                )}
-              />
-
-              <SignalCard
-                label="Value Signal"
-                value={displayValue(
-                  getValue(record, "value_signal")
-                )}
-              />
-
-              <SignalCard
-                label="Collection IQ"
-                value={displayValue(
-                  getValue(record, "value_confidence_score")
-                )}
-              />
-            </div>
           </div>
 
           {/* RIGHT */}
