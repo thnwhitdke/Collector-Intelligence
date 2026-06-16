@@ -12,9 +12,12 @@ export async function GET() {
     });
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const supabase = createClient(
+    supabaseUrl,
+    serviceRoleKey
+  );
 
-  const { data: job, error } = await supabase
+  const { data: job, error: jobError } = await supabase
     .from("external_market_comp_queue")
     .select("*")
     .eq("status", "pending")
@@ -22,8 +25,11 @@ export async function GET() {
     .limit(1)
     .maybeSingle();
 
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message });
+  if (jobError) {
+    return NextResponse.json({
+      ok: false,
+      error: jobError.message
+    });
   }
 
   if (!job) {
@@ -33,10 +39,42 @@ export async function GET() {
     });
   }
 
+  const { data: record, error: recordError } =
+    await supabase
+      .from("records_clean_safe")
+      .select(`
+        id,
+        artist,
+        title,
+        catalogue_number,
+        discogs_release_id
+      `)
+      .eq("id", job.record_id)
+      .single();
+
+  if (recordError) {
+    return NextResponse.json({
+      ok: false,
+      error: recordError.message
+    });
+  }
+
+  const searchQuery = [
+    record.artist,
+    record.title,
+    record.catalogue_number
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return NextResponse.json({
     ok: true,
     queueId: job.id,
-    recordId: job.record_id,
-    source: job.source
+    recordId: record.id,
+    artist: record.artist,
+    title: record.title,
+    catalogue_number: record.catalogue_number,
+    discogs_release_id: record.discogs_release_id,
+    searchQuery
   });
 }
