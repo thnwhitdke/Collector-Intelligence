@@ -529,45 +529,6 @@ export default async function RecordDetailPage({
           </div>
         </div>
 
-        <section className="mb-8 rounded-[36px] border border-[#2A2418] bg-gradient-to-br from-[#15100A] via-[#0B0906] to-black p-6 shadow-2xl">
-          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-center">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B86A]">
-                Record Intelligence Summary
-              </p>
-
-              <h2 className="mt-3 text-3xl font-black text-white">
-                Why this record matters
-              </h2>
-
-              <p className="mt-3 max-w-4xl text-sm leading-7 text-[#B8AA96]">
-                {recordNarrative}
-              </p>
-            </div>
-
-            <div className={`rounded-[28px] border p-5 ${marketSignal.className}`}>
-              <p className="text-xs uppercase tracking-[0.2em] opacity-70">
-                Recommended Posture
-              </p>
-              <p className="mt-2 text-3xl font-black">
-                {marketSignal.label}
-              </p>
-              <p className="mt-2 text-xs leading-6 opacity-75">
-                {marketSignal.description}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-            <CommandMetric label="Market Consensus" value={marketConsensus.display} accent />
-            <CommandMetric label="Benchmark Source" value={marketConsensus.source} />
-            <CommandMetric label="Confidence" value={marketConfidence.label} />
-            <CommandMetric label="Demand" value={demandScore} />
-            <CommandMetric label="Supply" value={supplyPressure} />
-            <CommandMetric label="Market Signal" value={explicitMarketSignal} />
-          </div>
-        </section>
-
         {/* HERO */}
         <section className="grid gap-8 lg:grid-cols-[380px_1fr]">
           {/* LEFT */}
