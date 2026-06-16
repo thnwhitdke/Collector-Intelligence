@@ -346,6 +346,15 @@ export default async function RecordDetailPage({
     .eq("source", "popsike")
     .maybeSingle();
 
+  const { data: recentAuctionComps } = await supabase
+    .from("external_market_comps")
+    .select("auction_title, sale_price, currency, auction_date, source_record_url")
+    .eq("record_id", id)
+    .eq("source", "popsike")
+    .not("sale_price", "is", null)
+    .order("auction_date", { ascending: false })
+    .limit(5);
+
   const record = data as RecordDetail;
 
   const title = getText(record, "title") || "Untitled";
@@ -763,6 +772,36 @@ export default async function RecordDetailPage({
                       </div>
                     </div>
                   </div>
+
+                  {recentAuctionComps && recentAuctionComps.length > 0 ? (
+                    <div className="mt-5 border-t border-white/10 pt-4">
+                      <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                        Recent Matched Sales
+                      </p>
+
+                      <div className="space-y-3">
+                        {recentAuctionComps.map((comp, index) => (
+                          <div
+                            key={`${comp.source_record_url ?? comp.auction_title}-${index}`}
+                            className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3 md:flex-row md:items-center md:justify-between"
+                          >
+                            <div>
+                              <p className="text-sm font-bold text-white">
+                                {comp.auction_title}
+                              </p>
+                              <p className="mt-1 text-xs text-[#8E8170]">
+                                {formatDate(comp.auction_date)}
+                              </p>
+                            </div>
+
+                            <p className="text-lg font-black text-[#F4CD68]">
+                              {money(comp.sale_price)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
 
                   <p className="mt-4 text-xs leading-6 text-[#8E8170]">
                     External auction-history signal used as supporting evidence, not the sole valuation source.
