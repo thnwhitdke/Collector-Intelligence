@@ -332,6 +332,12 @@ export default async function RecordDetailPage({
 
   if (error || !data) notFound();
 
+  const { data: consensusV2 } = await supabase
+    .from("valuation_consensus_v2")
+    .select("*")
+    .eq("record_id", id)
+    .maybeSingle();
+
   const { data: auctionSummary } = await supabase
     .from("external_market_comp_summary")
     .select(`
@@ -364,6 +370,17 @@ export default async function RecordDetailPage({
 
   const marketConsensus = getMarketConsensus(record);
   const marketConfidence = normalizeConfidence(record);
+
+  const ciConsensusValue =
+    consensusV2?.consensus_value_v2 != null
+      ? money(consensusV2.consensus_value_v2)
+      : marketConsensus.display;
+
+  const ciConsensusConfidence =
+    consensusV2?.consensus_confidence ?? "legacy";
+
+  const auctionPremiumPercent =
+    consensusV2?.auction_premium_percent;
   const estimatedValue = money(getValue(record, "estimated_value"));
   const discogsBenchmark = money(getValue(record, "discogs_median_price"));
   const demandScore = displayValue(getValue(record, "demand_score"));
@@ -693,14 +710,21 @@ export default async function RecordDetailPage({
               <div className="mb-6 grid gap-4 md:grid-cols-3">
                 <div className="rounded-3xl border border-[#D8B65A]/20 bg-[#D8B65A]/10 p-5">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#F4CD68]">
-                    Market Consensus
+                    Collector Intelligence Consensus
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
-                    {marketConsensus.display}
+                    {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Source: {marketConsensus.source}
+                    Blended valuation from marketplace and auction-history signals.
                   </p>
+
+                  {auctionPremiumPercent != null ? (
+                    <p className="mt-2 text-xs leading-6 text-[#F4CD68]">
+                      Auction premium: {auctionPremiumPercent > 0 ? "+" : ""}
+                      {auctionPremiumPercent}%
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className={`rounded-3xl border p-5 ${marketConfidence.className}`}>
