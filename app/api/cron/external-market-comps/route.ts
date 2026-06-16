@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+const BATCH_SIZE = 25;
+
 function buildPopsikeUrl(searchQuery: string) {
   const encoded = encodeURIComponent(searchQuery).replace(/%20/g, "+");
   return `https://www.popsike.com/php/quicksearch.php?searchtext=${encoded}&sortord=ddate`;
@@ -19,10 +21,8 @@ function cleanText(value: string | null) {
 
 function parseAuctionDate(raw: string | null) {
   if (!raw) return null;
-
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return null;
-
   return parsed.toISOString().slice(0, 10);
 }
 
@@ -55,10 +55,6 @@ function parsePopsikeResults(html: string, record: any, searchQuery: string) {
     const salePrice = Number(priceMatch[2].replace(/,/g, ""));
     if (!Number.isFinite(salePrice)) continue;
 
-    const sourceRecordUrl = hrefMatch
-      ? `https://www.popsike.com${hrefMatch[1]}`
-      : null;
-
     rows.push({
       record_id: record.id,
       source: "popsike",
@@ -68,7 +64,7 @@ function parsePopsikeResults(html: string, record: any, searchQuery: string) {
       auction_date: parseAuctionDate(dateMatch[1]),
       sale_price: salePrice,
       currency,
-      source_record_url: sourceRecordUrl,
+      source_record_url: hrefMatch ? `https://www.popsike.com${hrefMatch[1]}` : null,
       confidence: "imported",
       raw_payload: {
         article_no: articleNo,
@@ -87,146 +83,178 @@ export async function GET() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const popsikeSession = process.env.POPSIKE_PHPSESSID;
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json({ ok: false, error: "Missing Supabase env vars" });
-  }
-
-  if (!popsikeSession) {
-    return NextResponse.json({ ok: false, error: "Missing POPSIKE_PHPSESSID env var" });
+  if (!supabaseUrl || !serviceRoleKey || !popsikeSession) {
+    return NextResponse.json({
+      ok: false,
+      error: "Missing required environment variables"
+    });
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const { data: job, error: jobError } = await supabase
+  const { data: jobs, error: jobError } = await supabase
     .from("external_market_comp_queue")
     .select("*")
     .eq("status", "pending")
     .order("created_at")
-    .limit(1)
-    .maybeSingle();
+    .limit(BATCH_SIZE);
 
-  if (jobError) return NextResponse.json({ ok: false, error: jobError.message });
-  if (!job) return NextResponse.json({ ok: true, message: "No pending jobs" });
-
-  const { data: record, error: recordError } = await supabase
-    .from("records_clean_safe")
-    .select("id, artist, title, catalogue_number, discogs_release_id")
-    .eq("id", job.record_id)
-    .single();
-
-  if (recordError || !record) {
-    await supabase
-      .from("external_market_comp_queue")
-      .update({
-        status: "failed",
-        attempts: (job.attempts ?? 0) + 1,
-        last_error: recordError?.message ?? "Record not found"
-      })
-      .eq("id", job.id);
-
-    return NextResponse.json({
-      ok: false,
-      queueId: job.id,
-      error: recordError?.message ?? "Record not found"
-    });
+  if (jobError) {
+    return NextResponse.json({ ok: false, error: jobError.message });
   }
 
-  const searchQuery = [
-    record.artist,
-    record.title,
-    record.catalogue_number
-  ].filter(Boolean).join(" ");
-
-  const popsikeUrl = buildPopsikeUrl(searchQuery);
-
-  const response = await fetch(popsikeUrl, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 Collector Intelligence",
-      "Cookie": `PHPSESSID=${popsikeSession}`
-    },
-    cache: "no-store"
-  });
-
-  const html = await response.text();
-
-  if (html.toLowerCase().includes("popsike.com - login")) {
-    await supabase
-      .from("external_market_comp_queue")
-      .update({
-        status: "failed",
-        attempts: (job.attempts ?? 0) + 1,
-        last_error: "Popsike session expired or login required"
-      })
-      .eq("id", job.id);
-
-    return NextResponse.json({
-      ok: false,
-      queueId: job.id,
-      error: "Popsike session expired or login required"
-    });
+  if (!jobs || jobs.length === 0) {
+    return NextResponse.json({ ok: true, message: "No pending jobs" });
   }
 
-  const rows = parsePopsikeResults(html, record, searchQuery);
+  const results = [];
 
-  let insertedCount = 0;
+  for (const job of jobs) {
+    const { data: record, error: recordError } = await supabase
+      .from("records_clean_safe")
+      .select("id, artist, title, catalogue_number, discogs_release_id")
+      .eq("id", job.record_id)
+      .single();
 
-  if (rows.length > 0) {
-    const { data: inserted, error: insertError } = await supabase
-      .from("external_market_comps")
-      .insert(rows)
-      .select("id");
-
-    if (insertError) {
+    if (recordError || !record) {
       await supabase
         .from("external_market_comp_queue")
         .update({
           status: "failed",
           attempts: (job.attempts ?? 0) + 1,
-          last_error: insertError.message
+          last_error: recordError?.message ?? "Record not found",
+          processed_at: new Date().toISOString()
         })
         .eq("id", job.id);
 
-      return NextResponse.json({
-        ok: false,
+      results.push({
         queueId: job.id,
-        error: insertError.message
+        recordId: job.record_id,
+        status: "failed",
+        error: recordError?.message ?? "Record not found"
       });
+
+      continue;
     }
 
-    insertedCount = inserted?.length ?? 0;
-  }
+    const searchQuery = [
+      record.artist,
+      record.title,
+      record.catalogue_number
+    ].filter(Boolean).join(" ");
 
-  const { error: updateError } = await supabase
-    .from("external_market_comp_queue")
-    .update({
-      status: "completed",
-      attempts: (job.attempts ?? 0) + 1,
-      comps_found: insertedCount,
-      completed_at: new Date().toISOString(),
-      processed_at: new Date().toISOString(),
-      last_error: null
-    })
-    .eq("id", job.id);
+    try {
+      const response = await fetch(buildPopsikeUrl(searchQuery), {
+        headers: {
+          "User-Agent": "Mozilla/5.0 Collector Intelligence",
+          "Cookie": `PHPSESSID=${popsikeSession}`
+        },
+        cache: "no-store"
+      });
 
-  if (updateError) {
-    return NextResponse.json({
-      ok: false,
-      queueId: job.id,
-      error: updateError.message
-    });
+      const html = await response.text();
+
+      if (html.toLowerCase().includes("popsike.com - login")) {
+        await supabase
+          .from("external_market_comp_queue")
+          .update({
+            status: "failed",
+            attempts: (job.attempts ?? 0) + 1,
+            last_error: "Popsike session expired or login required",
+            processed_at: new Date().toISOString()
+          })
+          .eq("id", job.id);
+
+        results.push({
+          queueId: job.id,
+          recordId: record.id,
+          status: "failed",
+          error: "Popsike session expired or login required"
+        });
+
+        continue;
+      }
+
+      const rows = parsePopsikeResults(html, record, searchQuery);
+
+      let insertedCount = 0;
+
+      if (rows.length > 0) {
+        const { data: inserted, error: insertError } = await supabase
+          .from("external_market_comps")
+          .upsert(rows, {
+            onConflict: "source,source_record_url",
+            ignoreDuplicates: true
+          })
+          .select("id");
+
+        if (insertError) {
+          await supabase
+            .from("external_market_comp_queue")
+            .update({
+              status: "failed",
+              attempts: (job.attempts ?? 0) + 1,
+              last_error: insertError.message,
+              processed_at: new Date().toISOString()
+            })
+            .eq("id", job.id);
+
+          results.push({
+            queueId: job.id,
+            recordId: record.id,
+            status: "failed",
+            error: insertError.message
+          });
+
+          continue;
+        }
+
+        insertedCount = inserted?.length ?? 0;
+      }
+
+      await supabase
+        .from("external_market_comp_queue")
+        .update({
+          status: "completed",
+          attempts: (job.attempts ?? 0) + 1,
+          comps_found: insertedCount,
+          completed_at: new Date().toISOString(),
+          processed_at: new Date().toISOString(),
+          last_error: null
+        })
+        .eq("id", job.id);
+
+      results.push({
+        queueId: job.id,
+        recordId: record.id,
+        status: "completed",
+        compsFound: insertedCount,
+        searchQuery
+      });
+    } catch (error) {
+      await supabase
+        .from("external_market_comp_queue")
+        .update({
+          status: "failed",
+          attempts: (job.attempts ?? 0) + 1,
+          last_error: String(error),
+          processed_at: new Date().toISOString()
+        })
+        .eq("id", job.id);
+
+      results.push({
+        queueId: job.id,
+        recordId: record.id,
+        status: "failed",
+        error: String(error)
+      });
+    }
   }
 
   return NextResponse.json({
     ok: true,
-    queueId: job.id,
-    recordId: record.id,
-    searchQuery,
-    insertedCount,
-    sample: rows.slice(0, 5).map((row) => ({
-      auction_title: row.auction_title,
-      sale_price: row.sale_price,
-      currency: row.currency,
-      auction_date: row.auction_date
-    }))
+    batchSize: BATCH_SIZE,
+    processed: results.length,
+    results
   });
 }
