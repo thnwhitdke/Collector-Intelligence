@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@supabase/supabase-js";
 
 export async function GET() {
-  const supabase = createAdminClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return NextResponse.json({
+      ok: false,
+      error: "Missing Supabase environment variables"
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   const { data: job, error } = await supabase
     .from("external_market_comp_queue")
