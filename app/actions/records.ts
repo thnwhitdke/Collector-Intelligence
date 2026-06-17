@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "../../src/lib/supabase/server";
+import { createAdminClient } from "../../src/lib/supabase/admin";
 import {
   extractDiscogsReleaseIdFromUrl,
   fetchDiscogsReleaseCoverUrl,
@@ -288,7 +289,9 @@ export async function addRecord(formData: FormData) {
       discogs_release_id !== null;
 
     if (shouldQueueExternalComps) {
-      await supabase
+      const adminSupabase = createAdminClient();
+
+      await adminSupabase
         .from("external_market_comp_queue")
         .insert({
           record_id: recordId,
