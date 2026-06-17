@@ -277,7 +277,25 @@ export async function addRecord(formData: FormData) {
   }
 
   if (data?.id != null) {
-    await tryBackfillCoverForRecord(Number(data.id), discogs_release_id, userId);
+    const recordId = Number(data.id);
+
+    await tryBackfillCoverForRecord(recordId, discogs_release_id, userId);
+
+    const shouldQueueExternalComps =
+      artist !== null ||
+      title !== null ||
+      catalogue_number !== null ||
+      discogs_release_id !== null;
+
+    if (shouldQueueExternalComps) {
+      await supabase
+        .from("external_market_comp_queue")
+        .insert({
+          record_id: recordId,
+          source: "popsike",
+          status: "pending",
+        });
+    }
   }
 
   revalidatePath("/collection");
