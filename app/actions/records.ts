@@ -288,13 +288,28 @@ export async function addRecord(formData: FormData) {
       discogs_release_id !== null;
 
     if (shouldQueueExternalComps) {
-      await supabase
+      const { error: queueError } = await supabase
         .from("external_market_comp_queue")
         .insert({
           record_id: recordId,
           source: "popsike",
           status: "pending",
         });
+
+      if (!queueError) {
+        const siteUrl =
+          process.env.NEXT_PUBLIC_SITE_URL ||
+          "https://www.collectorsintelligence.com";
+
+        try {
+          await fetch(`${siteUrl}/api/cron/external-market-comps`, {
+            method: "GET",
+            cache: "no-store",
+          });
+        } catch {
+          // Queue remains pending; cron will process it later.
+        }
+      }
     }
   }
 
