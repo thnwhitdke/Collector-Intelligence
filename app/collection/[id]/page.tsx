@@ -1121,71 +1121,7 @@ export default async function RecordDetailPage({
               </form>
             </Section>
 
-            {/* SNAPSHOT */}
-            <Section title="Archive Snapshot">
-              <div className="grid gap-4 md:grid-cols-3">
-                <Read
-                  label="Estimated Value"
-                  value={estimatedValue}
-                />
 
-                <Read
-                  label="Discogs Median"
-                  value={money(
-                    getValue(record, "discogs_median_price")
-                  )}
-                />
-
-                <Read
-                  label="Discogs High"
-                  value={money(
-                    getValue(record, "discogs_high_price")
-                  )}
-                />
-
-                <Read
-                  label="Discogs Low"
-                  value={money(
-                    getValue(record, "discogs_low_price")
-                  )}
-                />
-
-                <Read
-                  label="Last Sold"
-                  value={formatDate(
-                    getValue(
-                      record,
-                      "discogs_last_sold_date"
-                    )
-                  )}
-                />
-
-                <Read
-                  label="Copies For Sale"
-                  value={forSale ?? "—"}
-                />
-
-                <Read
-                  label="Value Source"
-                  value={getValue(record, "value_source")}
-                />
-
-                <Read
-                  label="Last Refreshed"
-                  value={formatDate(
-                    getValue(record, "value_last_updated")
-                  )}
-                />
-
-                <Read
-                  label="Discogs Release ID"
-                  value={getValue(
-                    record,
-                    "discogs_release_id"
-                  )}
-                />
-              </div>
-            </Section>
           </div>
         </section>
       </div>
