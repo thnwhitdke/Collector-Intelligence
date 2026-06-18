@@ -104,9 +104,10 @@ export default function AddRecordForm({ onSuccess }: Props) {
 
             try {
               await addRecord(formData);
-              router.refresh();
-              onSuccess?.();
               setPreview(INITIAL_PREVIEW);
+              onSuccess?.();
+              router.refresh();
+              window.location.href = `/collection?added=${Date.now()}`;
             } catch (e: unknown) {
               const message =
                 e instanceof Error ? e.message : "Failed to add record.";
