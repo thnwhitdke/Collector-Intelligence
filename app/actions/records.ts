@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "../../src/lib/supabase/server";
-import { createAdminClient } from "../../src/lib/supabase/admin";
 import {
   extractDiscogsReleaseIdFromUrl,
   fetchDiscogsReleaseCoverUrl,
@@ -282,23 +281,6 @@ export async function addRecord(formData: FormData) {
 
     await tryBackfillCoverForRecord(recordId, discogs_release_id, userId);
 
-    const shouldQueueExternalComps =
-      artist !== null ||
-      title !== null ||
-      catalogue_number !== null ||
-      discogs_release_id !== null;
-
-    if (shouldQueueExternalComps) {
-      const adminSupabase = createAdminClient();
-
-      await adminSupabase
-        .from("external_market_comp_queue")
-        .insert({
-          record_id: recordId,
-          source: "popsike",
-          status: "pending",
-        });
-    }
   }
 
   revalidatePath("/collection");
