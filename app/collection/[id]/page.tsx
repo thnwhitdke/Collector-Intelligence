@@ -7,6 +7,7 @@
 import { pullSingleDiscogsValue } from "../../actions/pull-single-discogs";
 import Image from "next/image";
 import RecordPressingIdentifier from "@/app/components/RecordPressingIdentifier";
+import RecordCommandTabs from "@/app/components/RecordCommandTabs";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "../../../src/lib/supabase/server";
@@ -597,6 +598,9 @@ export default async function RecordDetailPage({
 
           {/* RIGHT */}
           <div className="space-y-8">
+            <RecordCommandTabs
+              overview={
+                <>
             {/* MARKET STATUS */}
             <section
               className={`rounded-[32px] border p-6 backdrop-blur-xl ${marketSignal.className}`}
@@ -628,6 +632,11 @@ export default async function RecordDetailPage({
               </div>
             </section>
 
+
+                </>
+              }
+              value={
+                <>
             {/* VALUE INTELLIGENCE */}
             <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-2xl">
               <div className="mb-6">
@@ -811,6 +820,7 @@ export default async function RecordDetailPage({
               />
             </section>
 
+
             <MarketplaceVerification
   recordId={String(record.id)}
   releaseId={String(
@@ -820,6 +830,7 @@ export default async function RecordDetailPage({
     )
   )}
 />
+
 
             {/* MOMENTUM */}
             <section className="rounded-[32px] border border-cyan-400/20 bg-cyan-400/5 p-6">
@@ -872,110 +883,30 @@ export default async function RecordDetailPage({
               </div>
             </section>
 
-            {/* MARKET ACTIONS */}
-            <section className="rounded-[32px] border border-fuchsia-400/20 bg-fuchsia-400/5 p-6">
-              <div className="flex flex-wrap items-center justify-between gap-5">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-200">
-                    Market Intelligence Engine
-                  </p>
 
-                  <h3 className="mt-3 text-3xl font-black">
-                    Refresh Market Data
-                  </h3>
-
-                  <p className="mt-3 max-w-xl text-sm leading-7 text-white/70">
-                    Pull fresh Discogs marketplace intelligence,
-                    pricing analytics, and supply signals for this
-                    release.
-                  </p>
-                </div>
-
-                <form action={pullSingleDiscogsValue}>
-                  <input
-                    type="hidden"
-                    name="id"
-                    value={String(getValue(record, "id"))}
-                  />
-
-                  <input
-                    type="hidden"
-                    name="releaseId"
-                    value={discogsReleaseId}
-                  />
-
-                  <input
-                    type="hidden"
-                    name="returnTo"
-                    value={returnPath}
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={!discogsReleaseId}
-                    className="rounded-2xl bg-fuchsia-500 px-6 py-4 text-sm font-bold text-white transition hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:bg-neutral-700"
-                  >
-                    Pull Market Intelligence
-                  </button>
-                </form>
-              </div>
-            </section>
-
-            {/* MANUAL COMPS */}
-            <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-xl backdrop-blur-xl">
-              <div className="mb-6">
-                <p className="text-xs uppercase tracking-[0.2em] text-[#D8B86A]">
-                  Manual Value Intelligence
-                </p>
-
-                <h3 className="mt-3 text-3xl font-black">
-                  Collector Value Comps
-                </h3>
-              </div>
-
-              <ManualValueCompForm
-                recordId={String(getValue(record, "id"))}
-                currentValues={{
-                  manualCompPrice: getNumber(
-                    record,
-                    "manual_comp_price"
-                  ),
-                  manualCompNote: getText(
-                    record,
-                    "manual_comp_note"
-                  ),
-                  ebayLastSoldPrice: getNumber(
-                    record,
-                    "ebay_last_sold_price"
-                  ),
-                  ebayAvgSoldPrice: getNumber(
-                    record,
-                    "ebay_avg_sold_price"
-                  ),
-                  ebaySoldCount: getNumber(
-                    record,
-                    "ebay_sold_count"
-                  ),
-                  ebayCompUrl: getText(
-                    record,
-                    "ebay_comp_url"
-                  ),
-                  conditionGrade:
-                    getText(record, "condition_grade") ||
-                    getText(record, "media_grade"),
-                }}
-              />
-            </section>
-
+                </>
+              }
+              tracks={
+                <>
             <TrackIntelligenceSection
               tracks={tracks}
               discogsReleaseId={discogsReleaseId}
             />
 
+
+                </>
+              }
+              pressing={
+                <>
             <RecordPressingIdentifier
               recordId={Number(getValue(record, "id"))}
             />
 
+
+                </>
+              }
+              details={
+                <>
             {/* RELEASE DETAILS */}
             <Section title="Release Details">
               <form action={updateReleaseDetails} className="space-y-5">
@@ -1060,6 +991,7 @@ export default async function RecordDetailPage({
               </form>
             </Section>
 
+
             {/* COLLECTOR DETAILS */}
             <Section title="Collector Archive Details">
               <form action={updateCollectorDetails} className="space-y-5">
@@ -1125,6 +1057,111 @@ export default async function RecordDetailPage({
                 <SaveButton />
               </form>
             </Section>
+
+                </>
+              }
+              tools={
+                <>
+            {/* MARKET ACTIONS */}
+            <section className="rounded-[32px] border border-fuchsia-400/20 bg-fuchsia-400/5 p-6">
+              <div className="flex flex-wrap items-center justify-between gap-5">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-200">
+                    Market Intelligence Engine
+                  </p>
+
+                  <h3 className="mt-3 text-3xl font-black">
+                    Refresh Market Data
+                  </h3>
+
+                  <p className="mt-3 max-w-xl text-sm leading-7 text-white/70">
+                    Pull fresh Discogs marketplace intelligence,
+                    pricing analytics, and supply signals for this
+                    release.
+                  </p>
+                </div>
+
+                <form action={pullSingleDiscogsValue}>
+                  <input
+                    type="hidden"
+                    name="id"
+                    value={String(getValue(record, "id"))}
+                  />
+
+                  <input
+                    type="hidden"
+                    name="releaseId"
+                    value={discogsReleaseId}
+                  />
+
+                  <input
+                    type="hidden"
+                    name="returnTo"
+                    value={returnPath}
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={!discogsReleaseId}
+                    className="rounded-2xl bg-fuchsia-500 px-6 py-4 text-sm font-bold text-white transition hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:bg-neutral-700"
+                  >
+                    Pull Market Intelligence
+                  </button>
+                </form>
+              </div>
+            </section>
+
+
+            {/* MANUAL COMPS */}
+            <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-xl backdrop-blur-xl">
+              <div className="mb-6">
+                <p className="text-xs uppercase tracking-[0.2em] text-[#D8B86A]">
+                  Manual Value Intelligence
+                </p>
+
+                <h3 className="mt-3 text-3xl font-black">
+                  Collector Value Comps
+                </h3>
+              </div>
+
+              <ManualValueCompForm
+                recordId={String(getValue(record, "id"))}
+                currentValues={{
+                  manualCompPrice: getNumber(
+                    record,
+                    "manual_comp_price"
+                  ),
+                  manualCompNote: getText(
+                    record,
+                    "manual_comp_note"
+                  ),
+                  ebayLastSoldPrice: getNumber(
+                    record,
+                    "ebay_last_sold_price"
+                  ),
+                  ebayAvgSoldPrice: getNumber(
+                    record,
+                    "ebay_avg_sold_price"
+                  ),
+                  ebaySoldCount: getNumber(
+                    record,
+                    "ebay_sold_count"
+                  ),
+                  ebayCompUrl: getText(
+                    record,
+                    "ebay_comp_url"
+                  ),
+                  conditionGrade:
+                    getText(record, "condition_grade") ||
+                    getText(record, "media_grade"),
+                }}
+              />
+            </section>
+
+
+                </>
+              }
+            />
 
 
           </div>
