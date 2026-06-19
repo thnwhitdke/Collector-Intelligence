@@ -392,6 +392,13 @@ export default async function RecordDetailPage({
   const auctionCount = Number(auctionSummary?.auction_count ?? 0);
   const hasAuctionComps = auctionCount > 0;
 
+  const consensusSourceLabel =
+    auctionCount >= 5
+      ? `Discogs + ${auctionCount} auction comps`
+      : auctionCount > 0
+        ? `Discogs + ${auctionCount} light auction comp${auctionCount === 1 ? "" : "s"}`
+        : "Discogs benchmark only";
+
   const evidenceQuality =
     auctionCount >= 10 && auctionPremiumPercent !== null && Math.abs(Number(auctionPremiumPercent)) >= 100
       ? {
@@ -689,7 +696,7 @@ export default async function RecordDetailPage({
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Blended valuation from marketplace and auction-history signals.
+                    Source mix: {consensusSourceLabel}
                   </p>
 
                   {auctionPremiumPercent != null ? (
