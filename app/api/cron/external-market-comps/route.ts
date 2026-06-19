@@ -70,10 +70,19 @@ function parsePopsikeResults(html: string, record: any, searchQuery: string) {
     const next = html.indexOf("<div class='item-list make-list'", start + 1);
     const block = html.slice(start, next === -1 ? start + 9000 : next);
 
-    const titleMatch = block.match(/<h5 class="add-title">[\s\S]*?<a[^>]+>([\s\S]*?)<\/a>/);
+    const titleMatch =
+      block.match(/<h5 class=["']add-title["']>[\s\S]*?<a[^>]+>([\s\S]*?)<\/a>/) ??
+      block.match(/<a[^>]+href=["'][^"']*\/${articleNo}\.html["'][^>]*>([\s\S]*?)<\/a>/);
+
     const dateMatch = block.match(/([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})/);
-    const priceMatch = block.match(/class="item-price"[\s\S]*?<b>\s*([$€£])\s*<\/b>[\s\S]*?<b>\s*([0-9][0-9,.]*)\s*<\/b>/);
-    const hrefMatch = block.match(new RegExp("href=\\.\\.(/[^>]+?/" + articleNo + "\\.html)"));
+
+    const priceMatch =
+      block.match(/class=["']item-price["'][\s\S]*?<b>\s*([$€£])\s*<\/b>[\s\S]*?<b>\s*([0-9][0-9,.]*)\s*<\/b>/) ??
+      block.match(/([$€£])\s*([0-9][0-9,.]*)/);
+
+    const hrefMatch =
+      block.match(new RegExp("href=['\"]\\.\\.(/[^'\"]+?/" + articleNo + "\\.html)['\"]")) ??
+      block.match(new RegExp("href=['\"](/[^'\"]+?/" + articleNo + "\\.html)['\"]"));
 
     if (!titleMatch || !dateMatch || !priceMatch) continue;
 
