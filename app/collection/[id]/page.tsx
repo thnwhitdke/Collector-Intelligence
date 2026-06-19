@@ -391,6 +391,37 @@ export default async function RecordDetailPage({
 
   const auctionCount = Number(auctionSummary?.auction_count ?? 0);
   const hasAuctionComps = auctionCount > 0;
+
+  const evidenceQuality =
+    auctionCount >= 10 && auctionPremiumPercent !== null && Math.abs(Number(auctionPremiumPercent)) >= 100
+      ? {
+          label: "High Variance",
+          className: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+          description: "Auction history strongly differs from the marketplace benchmark. Verify pressing, condition, and sale context before relying on the value.",
+        }
+      : auctionCount >= 10
+        ? {
+            label: "Strong",
+            className: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
+            description: `Supported by Discogs benchmark plus ${auctionCount} matched auction results.`,
+          }
+        : auctionCount >= 5
+          ? {
+              label: "Supported",
+              className: "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
+              description: `Supported by Discogs benchmark plus ${auctionCount} matched auction results.`,
+            }
+          : auctionCount > 0
+            ? {
+                label: "Light Support",
+                className: "border-sky-300/25 bg-sky-300/10 text-sky-100",
+                description: `Only ${auctionCount} matched auction result${auctionCount === 1 ? "" : "s"} found. Treat as directional.`,
+              }
+            : {
+                label: "Developing",
+                className: "border-white/10 bg-black/25 text-white",
+                description: "Discogs or imported value exists, but no matched auction-history support is available yet.",
+              };
   const auctionMedian = money(auctionSummary?.median_price);
   const auctionAverage = money(auctionSummary?.avg_price);
   const auctionLow = money(auctionSummary?.low_price);
@@ -669,15 +700,15 @@ export default async function RecordDetailPage({
                   ) : null}
                 </div>
 
-                <div className={`rounded-3xl border p-5 ${marketConfidence.className}`}>
+                <div className={`rounded-3xl border p-5 ${evidenceQuality.className}`}>
                   <p className="text-xs font-black uppercase tracking-[0.2em] opacity-75">
-                    Confidence
+                    Evidence Quality
                   </p>
                   <p className="mt-2 text-3xl font-black">
-                    {marketConfidence.label}
+                    {evidenceQuality.label}
                   </p>
                   <p className="mt-2 text-xs leading-6 opacity-75">
-                    {marketConfidence.description}
+                    {evidenceQuality.description}
                   </p>
                 </div>
 
