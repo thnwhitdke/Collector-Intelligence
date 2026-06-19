@@ -8,6 +8,38 @@ function buildPopsikeUrl(searchQuery: string) {
   return `https://www.popsike.com/php/quicksearch.php?searchtext=${encoded}&sortord=ddate`;
 }
 
+
+function cleanSearchPart(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function uniqueSearchQueries(record: any): string[] {
+  const artist = cleanSearchPart(record.artist);
+  const title = cleanSearchPart(record.title);
+  const catalogue = cleanSearchPart(record.catalogue_number);
+
+  const titleNoParenthetical = title
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const queries = [
+    [artist, title, catalogue].filter(Boolean).join(" "),
+    [artist, title].filter(Boolean).join(" "),
+    [artist, titleNoParenthetical].filter(Boolean).join(" "),
+    [title, catalogue].filter(Boolean).join(" "),
+    title,
+  ].filter((query) => query.trim().length > 0);
+
+  return Array.from(new Set(queries));
+}
+
 function cleanText(value: string | null) {
   if (!value) return null;
   return value
@@ -137,46 +169,59 @@ export async function GET() {
       continue;
     }
 
-    const searchQuery = [
-      record.artist,
-      record.title,
-      record.catalogue_number
-    ].filter(Boolean).join(" ");
+    const searchQueries = uniqueSearchQueries(record);
+    let bestRows: any[] = [];
+    let bestSearchQuery = searchQueries[0] ?? "";
+    const attemptedQueries: string[] = [];
 
     try {
-      const response = await fetch(buildPopsikeUrl(searchQuery), {
-        headers: {
-          "User-Agent": "Mozilla/5.0 Collector Intelligence",
-          "Cookie": `PHPSESSID=${popsikeSession}`
-        },
-        cache: "no-store"
-      });
+      for (const searchQuery of searchQueries) {
+        attemptedQueries.push(searchQuery);
 
-      const html = await response.text();
-
-      if (html.toLowerCase().includes("popsike.com - login")) {
-        await supabase
-          .from("external_market_comp_queue")
-          .update({
-            status: "failed",
-            attempts: (job.attempts ?? 0) + 1,
-            last_error: "Popsike session expired or login required",
-            processed_at: new Date().toISOString()
-          })
-          .eq("id", job.id);
-
-        results.push({
-          queueId: job.id,
-          recordId: record.id,
-          status: "failed",
-          error: "Popsike session expired or login required"
+        const response = await fetch(buildPopsikeUrl(searchQuery), {
+          headers: {
+            "User-Agent": "Mozilla/5.0 Collector Intelligence",
+            "Cookie": `PHPSESSID=${popsikeSession}`
+          },
+          cache: "no-store"
         });
 
-        continue;
+        const html = await response.text();
+
+        if (html.toLowerCase().includes("popsike.com - login")) {
+          await supabase
+            .from("external_market_comp_queue")
+            .update({
+              status: "failed",
+              attempts: (job.attempts ?? 0) + 1,
+              last_error: "Popsike session expired or login required",
+              processed_at: new Date().toISOString()
+            })
+            .eq("id", job.id);
+
+          results.push({
+            queueId: job.id,
+            recordId: record.id,
+            status: "failed",
+            error: "Popsike session expired or login required"
+          });
+
+          continue;
+        }
+
+        const candidateRows = parsePopsikeResults(html, record, searchQuery);
+
+        if (candidateRows.length > bestRows.length) {
+          bestRows = candidateRows;
+          bestSearchQuery = searchQuery;
+        }
+
+        if (candidateRows.length >= 5) {
+          break;
+        }
       }
 
-      const rows = parsePopsikeResults(html, record, searchQuery);
-
+      const rows = bestRows;
       let insertedCount = 0;
 
       if (rows.length > 0) {
@@ -229,7 +274,8 @@ export async function GET() {
         recordId: record.id,
         status: "completed",
         compsFound: insertedCount,
-        searchQuery
+        searchQuery: bestSearchQuery,
+        attemptedQueries
       });
     } catch (error) {
       await supabase
