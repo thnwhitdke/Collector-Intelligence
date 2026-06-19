@@ -159,10 +159,12 @@ export function calculateValueIntelligence(
 
   if (salesValue !== null) {
     const salesWeight =
-      salesMatchedCount !== null && salesMatchedCount >= 5
-        ? 45
+      salesMatchedCount !== null && salesMatchedCount >= 10
+        ? 70
+        : salesMatchedCount !== null && salesMatchedCount >= 5
+        ? 60
         : salesMatchedCount !== null && salesMatchedCount >= 2
-        ? 38
+        ? 45
         : 30;
 
     sources.push({
@@ -173,10 +175,19 @@ export function calculateValueIntelligence(
   }
 
   if (discogsValue !== null) {
+    const discogsWeight =
+      salesMatchedCount !== null && salesMatchedCount >= 10
+        ? 20
+        : salesMatchedCount !== null && salesMatchedCount >= 5
+        ? 25
+        : salesValue !== null
+        ? 35
+        : 40;
+
     sources.push({
       name: "discogs",
       value: discogsValue,
-      baseWeight: salesValue !== null ? 35 : 40,
+      baseWeight: discogsWeight,
     });
   }
 
@@ -271,6 +282,16 @@ export function calculateValueIntelligence(
     badges.push("CI Sold-Market Intelligence");
   }
 
+  if (
+    salesValue !== null &&
+    discogsValue !== null &&
+    salesMatchedCount !== null &&
+    salesMatchedCount >= 5 &&
+    salesValue > discogsValue * 1.5
+  ) {
+    badges.push("Market Outperformer");
+  }
+
   badges.push(`Momentum: ${marketMomentum}`);
 
   let signal = "Needs More Data";
@@ -301,6 +322,21 @@ export function calculateValueIntelligence(
   if (marketMomentum === "Strong") {
     insight =
       "Market pressure appears favorable with relatively low supply pressure.";
+  }
+
+  if (
+    salesValue !== null &&
+    discogsValue !== null &&
+    salesMatchedCount !== null &&
+    salesMatchedCount >= 5 &&
+    salesValue > discogsValue * 1.5
+  ) {
+    const premium = Math.round(
+      ((salesValue - discogsValue) / discogsValue) * 100,
+    );
+
+    insight =
+      `Auction history exceeds marketplace benchmarks by approximately ${premium}%. Collector demand appears stronger than marketplace pricing suggests.`;
   }
 
   let collectorIqScore = 0;
