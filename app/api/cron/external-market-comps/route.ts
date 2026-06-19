@@ -77,8 +77,8 @@ function parsePopsikeResults(html: string, record: any, searchQuery: string) {
     const dateMatch = block.match(/([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})/);
 
     const priceMatch =
-      block.match(/class=["']item-price["'][\s\S]*?<b>\s*([$€£])\s*<\/b>[\s\S]*?<b>\s*([0-9][0-9,.]*)\s*<\/b>/) ??
-      block.match(/([$€£])\s*([0-9][0-9,.]*)/);
+      block.match(/class=["']item-price["'][\s\S]*?<b>\s*([$€£]|&pound;|&euro;|&#36;)\s*<\/b>[\s\S]*?<b>\s*([0-9][0-9,.]*)\s*<\/b>/) ??
+      block.match(/([$€£]|&pound;|&euro;|&#36;)\s*([0-9][0-9,.]*)/);
 
     const hrefMatch =
       block.match(new RegExp("href=['\"]\\.\\.(/[^'\"]+?/" + articleNo + "\\.html)['\"]")) ??
@@ -88,9 +88,9 @@ function parsePopsikeResults(html: string, record: any, searchQuery: string) {
 
     const symbol = priceMatch[1];
     const currency =
-      symbol === "$" ? "USD" :
-      symbol === "€" ? "EUR" :
-      symbol === "£" ? "GBP" :
+      symbol === "$" || symbol === "&#36;" ? "USD" :
+      symbol === "€" || symbol === "&euro;" ? "EUR" :
+      symbol === "£" || symbol === "&pound;" ? "GBP" :
       "UNKNOWN";
 
     const salePrice = Number(priceMatch[2].replace(/,/g, ""));
