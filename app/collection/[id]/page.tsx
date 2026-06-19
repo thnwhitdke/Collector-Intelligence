@@ -8,6 +8,7 @@ import { pullSingleDiscogsValue } from "../../actions/pull-single-discogs";
 import Image from "next/image";
 import RecordPressingIdentifier from "@/app/components/RecordPressingIdentifier";
 import RecordCommandTabs from "@/app/components/RecordCommandTabs";
+import DeleteRecordButton from "@/app/components/DeleteRecordButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "../../../src/lib/supabase/server";
@@ -1186,12 +1187,7 @@ export default async function RecordDetailPage({
 
                 <form action={deleteRecord}>
                   <input type="hidden" name="id" value={String(getValue(record, "id"))} />
-                  <button
-                    type="submit"
-                    className="w-full rounded-2xl border border-red-500/25 bg-red-500/10 px-5 py-4 text-sm font-black text-red-100"
-                  >
-                    Delete Record
-                  </button>
+                  <DeleteRecordButton />
                 </form>
               </div>
             </section>
