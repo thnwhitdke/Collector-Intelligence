@@ -58,6 +58,67 @@ function parseAuctionDate(raw: string | null) {
   return parsed.toISOString().slice(0, 10);
 }
 
+
+function normalizeMatchText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function compactMatchText(value: unknown): string {
+  return normalizeMatchText(value).replace(/\s+/g, "");
+}
+
+function scorePopsikeMatch(record: any, auctionTitle: string | null) {
+  const title = normalizeMatchText(auctionTitle);
+  const compactTitle = compactMatchText(auctionTitle);
+
+  const artist = normalizeMatchText(record.artist);
+  const recordTitle = normalizeMatchText(record.title);
+  const catalogue = normalizeMatchText(record.catalogue_number);
+  const compactCatalogue = compactMatchText(record.catalogue_number);
+
+  const artistHit = artist.length > 0 && title.includes(artist);
+  const titleHit = recordTitle.length > 0 && title.includes(recordTitle);
+
+  const catalogueHit =
+    (catalogue.length > 0 && title.includes(catalogue)) ||
+    (compactCatalogue.length > 0 && compactTitle.includes(compactCatalogue));
+
+  if (catalogueHit && (artistHit || titleHit)) {
+    return {
+      confidence: "exact_catalog_match",
+      match_quality: "exact_pressing_match",
+      valuation_eligible: true,
+    };
+  }
+
+  if (artistHit && titleHit) {
+    return {
+      confidence: "strong_artist_title_match",
+      match_quality: "strong_release_match",
+      valuation_eligible: true,
+    };
+  }
+
+  if (titleHit) {
+    return {
+      confidence: "loose_title_match",
+      match_quality: "loose_title_match",
+      valuation_eligible: false,
+    };
+  }
+
+  return {
+    confidence: "weak_match",
+    match_quality: "needs_review",
+    valuation_eligible: false,
+  };
+}
+
 function parsePopsikeResults(html: string, record: any, searchQuery: string) {
   const articleIds = Array.from(
     html.matchAll(/<div class='item-list make-list' id='p(\d+)'/g)
@@ -96,22 +157,27 @@ function parsePopsikeResults(html: string, record: any, searchQuery: string) {
     const salePrice = Number(priceMatch[2].replace(/,/g, ""));
     if (!Number.isFinite(salePrice)) continue;
 
+    const auctionTitle = cleanText(titleMatch[1]);
+    const match = scorePopsikeMatch(record, auctionTitle);
+
     rows.push({
       record_id: record.id,
       source: "popsike",
       artist: record.artist,
       title: record.title,
-      auction_title: cleanText(titleMatch[1]),
+      auction_title: auctionTitle,
       auction_date: parseAuctionDate(dateMatch[1]),
       sale_price: salePrice,
       currency,
       source_record_url: hrefMatch ? `https://www.popsike.com${hrefMatch[1]}` : null,
-      confidence: "imported",
+      confidence: match.confidence,
       raw_payload: {
         article_no: articleNo,
         search: searchQuery,
         discogs_release_id: record.discogs_release_id ?? null,
-        catalogue_number: record.catalogue_number ?? null
+        catalogue_number: record.catalogue_number ?? null,
+        match_quality: match.match_quality,
+        valuation_eligible: match.valuation_eligible
       }
     });
   }
