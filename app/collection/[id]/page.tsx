@@ -543,6 +543,18 @@ export default async function RecordDetailPage({
             <p className="mt-3 text-lg text-[#B8AA96]">
               {artist}
             </p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-white/50">
+                CI Record ID: {String(getValue(record, "id"))}
+              </span>
+
+              {getValue(record, "discogs_release_id") ? (
+                <span className="rounded-full border border-cyan-500/20 bg-cyan-500/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">
+                  Discogs Release: {String(getValue(record, "discogs_release_id"))}
+                </span>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
