@@ -6,6 +6,7 @@
 
 import { pullSingleDiscogsValue } from "../../actions/pull-single-discogs";
 import Image from "next/image";
+import RecordPressingIdentifier from "@/app/components/RecordPressingIdentifier";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "../../../src/lib/supabase/server";
@@ -969,6 +970,10 @@ export default async function RecordDetailPage({
             <TrackIntelligenceSection
               tracks={tracks}
               discogsReleaseId={discogsReleaseId}
+            />
+
+            <RecordPressingIdentifier
+              recordId={Number(getValue(record, "id"))}
             />
 
             {/* RELEASE DETAILS */}
