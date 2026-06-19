@@ -62,16 +62,48 @@ export async function refreshValueIntelligence(recordId: string) {
     .eq("record_id", recordId)
     .maybeSingle();
 
+  const { data: auctionSummary } = await supabase
+    .from("external_market_comp_summary")
+    .select(`
+      median_price,
+      avg_price,
+      low_price,
+      high_price,
+      auction_count
+    `)
+    .eq("record_id", recordId)
+    .maybeSingle();
+
+  const bestSalesMedian =
+    toNumber(auctionSummary?.median_price) ??
+    toNumber(salesSummary?.median_sale_price);
+
+  const bestSalesAverage =
+    toNumber(auctionSummary?.avg_price) ??
+    toNumber(salesSummary?.average_sale_price);
+
+  const bestSalesLowest =
+    toNumber(auctionSummary?.low_price) ??
+    toNumber(salesSummary?.lowest_sale_price);
+
+  const bestSalesHighest =
+    toNumber(auctionSummary?.high_price) ??
+    toNumber(salesSummary?.highest_sale_price);
+
+  const bestSalesCount =
+    toNumber(auctionSummary?.auction_count) ??
+    toNumber(salesSummary?.matched_sales_count);
+
   const result = calculateValueIntelligence({
     discogsLowPrice: toNumber(record.discogs_low_price),
     discogsMedianPrice: toNumber(record.discogs_median_price),
     discogsHighPrice: toNumber(record.discogs_high_price),
 
-    salesMedianPrice: toNumber(salesSummary?.median_sale_price),
-    salesAveragePrice: toNumber(salesSummary?.average_sale_price),
-    salesLowestPrice: toNumber(salesSummary?.lowest_sale_price),
-    salesHighestPrice: toNumber(salesSummary?.highest_sale_price),
-    salesMatchedCount: toNumber(salesSummary?.matched_sales_count),
+    salesMedianPrice: bestSalesMedian,
+    salesAveragePrice: bestSalesAverage,
+    salesLowestPrice: bestSalesLowest,
+    salesHighestPrice: bestSalesHighest,
+    salesMatchedCount: bestSalesCount,
     salesConfidenceScore: toNumber(salesSummary?.confidence_score),
 
     ebayLastSoldPrice: toNumber(record.ebay_last_sold_price),
