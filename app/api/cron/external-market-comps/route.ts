@@ -120,45 +120,43 @@ function scorePopsikeMatch(record: any, auctionTitle: string | null) {
 }
 
 function parsePopsikeResults(html: string, record: any, searchQuery: string) {
-  const articleIds = Array.from(
-    html.matchAll(/<div class='item-list make-list' id='p(\d+)'/g)
-  ).map((match) => match[1]);
-
   const rows = [];
 
-  for (const articleNo of articleIds.slice(0, 25)) {
-    const start = html.indexOf(`id='p${articleNo}'`);
-    const next = html.indexOf("<div class='item-list make-list'", start + 1);
-    const block = html.slice(start, next === -1 ? start + 9000 : next);
+  const titleRegex =
+    /<h5 class=["']add-title["'][\s\S]*?<a[^>]+href=['"](?:\.\.)?(\/[^'"]+?\/(\d+)\.html)['"][^>]*>([\s\S]*?)<\/a>/gi;
 
-    const titleMatch =
-      block.match(/<h5 class=["']add-title["']>[\s\S]*?<a[^>]+>([\s\S]*?)<\/a>/) ??
-      block.match(/<a[^>]+href=["'][^"']*\/${articleNo}\.html["'][^>]*>([\s\S]*?)<\/a>/);
+  const matches = Array.from(html.matchAll(titleRegex));
+
+  for (let index = 0; index < matches.length && rows.length < 25; index++) {
+    const match = matches[index];
+    const blockStart = match.index ?? 0;
+    const nextStart = matches[index + 1]?.index ?? blockStart + 9000;
+    const block = html.slice(blockStart, nextStart);
+
+    const href = match[1];
+    const articleNo = match[2];
+    const auctionTitle = cleanText(match[3]);
 
     const dateMatch = block.match(/([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})/);
 
     const priceMatch =
-      block.match(/class=["']item-price["'][\s\S]*?<b>\s*([$€£]|&pound;|&euro;|&#36;)\s*<\/b>[\s\S]*?<b>\s*([0-9][0-9,.]*)\s*<\/b>/) ??
-      block.match(/([$€£]|&pound;|&euro;|&#36;)\s*([0-9][0-9,.]*)/);
+      block.match(/class=["']item-price["'][\s\S]*?([$€£]|&pound;|&euro;|&#36;)[\s\S]*?([0-9][0-9,.]*)/i) ??
+      block.match(/([$€£]|&pound;|&euro;|&#36;)\s*([0-9][0-9,.]*)/i);
 
-    const hrefMatch =
-      block.match(new RegExp("href=['\"]\\.\\.(/[^'\"]+?/" + articleNo + "\\.html)['\"]")) ??
-      block.match(new RegExp("href=['\"](/[^'\"]+?/" + articleNo + "\\.html)['\"]"));
-
-    if (!titleMatch || !dateMatch || !priceMatch) continue;
+    if (!auctionTitle || !priceMatch) continue;
 
     const symbol = priceMatch[1];
+    const salePrice = Number(priceMatch[2].replace(/,/g, ""));
+
+    if (!Number.isFinite(salePrice)) continue;
+
     const currency =
       symbol === "$" || symbol === "&#36;" ? "USD" :
       symbol === "€" || symbol === "&euro;" ? "EUR" :
       symbol === "£" || symbol === "&pound;" ? "GBP" :
       "UNKNOWN";
 
-    const salePrice = Number(priceMatch[2].replace(/,/g, ""));
-    if (!Number.isFinite(salePrice)) continue;
-
-    const auctionTitle = cleanText(titleMatch[1]);
-    const match = scorePopsikeMatch(record, auctionTitle);
+    const matchQuality = scorePopsikeMatch(record, auctionTitle);
 
     rows.push({
       record_id: record.id,
@@ -166,18 +164,18 @@ function parsePopsikeResults(html: string, record: any, searchQuery: string) {
       artist: record.artist,
       title: record.title,
       auction_title: auctionTitle,
-      auction_date: parseAuctionDate(dateMatch[1]),
+      auction_date: parseAuctionDate(dateMatch?.[1] ?? null),
       sale_price: salePrice,
       currency,
-      source_record_url: hrefMatch ? `https://www.popsike.com${hrefMatch[1]}` : null,
-      confidence: match.confidence,
+      source_record_url: `https://www.popsike.com${href}`,
+      confidence: matchQuality.confidence,
       raw_payload: {
         article_no: articleNo,
         search: searchQuery,
         discogs_release_id: record.discogs_release_id ?? null,
         catalogue_number: record.catalogue_number ?? null,
-        match_quality: match.match_quality,
-        valuation_eligible: match.valuation_eligible
+        match_quality: matchQuality.match_quality,
+        valuation_eligible: matchQuality.valuation_eligible
       }
     });
   }
