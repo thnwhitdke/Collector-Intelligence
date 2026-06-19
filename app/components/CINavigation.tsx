@@ -44,7 +44,6 @@ const navGroups: NavGroup[] = [
   {
     label: 'Tools',
     items: [
-      { href: '/collection/ebay-sold-comp-helper', label: 'Comps' },
       { href: '/collection/operations-center', label: 'Operations' },
       { href: '/dashboard/enrichment-operations', label: 'Ops' },
     ],
