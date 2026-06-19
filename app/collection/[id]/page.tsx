@@ -611,27 +611,6 @@ export default async function RecordDetailPage({
               </div>
             </div>
 
-            <section className="rounded-[32px] border border-red-500/15 bg-red-500/[0.04] p-5 shadow-xl backdrop-blur-xl">
-              <p className="text-xs uppercase tracking-[0.2em] text-red-200">
-                Record Actions
-              </p>
-
-              <div className="mt-4 grid gap-3">
-                <form action={duplicateRecord}>
-                  <input type="hidden" name="id" value={String(getValue(record, "id"))} />
-                  <button className="w-full rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-4 text-sm font-black text-cyan-100">
-                    Duplicate Record
-                  </button>
-                </form>
-
-                <form action={deleteRecord}>
-                  <input type="hidden" name="id" value={String(getValue(record, "id"))} />
-                  <button className="w-full rounded-2xl border border-red-500/25 bg-red-500/10 px-5 py-4 text-sm font-black text-red-100">
-                    Delete Record
-                  </button>
-                </form>
-              </div>
-            </section>
           </div>
 
           {/* RIGHT */}
@@ -668,6 +647,98 @@ export default async function RecordDetailPage({
                   </p>
                 </div>
               </div>
+            </section>
+
+            <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-xl backdrop-blur-xl">
+              <p className="text-xs uppercase tracking-[0.2em] text-[#D8B86A]">
+                Collector Intelligence Summary
+              </p>
+
+              <p className="mt-4 text-sm leading-7 text-[#B8AA96]">
+                {recordNarrative}
+              </p>
+            </section>
+
+            <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-xl backdrop-blur-xl">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-3xl border border-[#D8B65A]/20 bg-[#D8B65A]/10 p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#F4CD68]">
+                    CI Consensus
+                  </p>
+                  <p className="mt-2 text-3xl font-black text-white">
+                    {ciConsensusValue}
+                  </p>
+                  <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
+                    Source mix: {consensusSourceLabel}
+                  </p>
+                </div>
+
+                <div className={`rounded-3xl border p-5 ${evidenceQuality.className}`}>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] opacity-75">
+                    Evidence Quality
+                  </p>
+                  <p className="mt-2 text-3xl font-black">
+                    {evidenceQuality.label}
+                  </p>
+                  <p className="mt-2 text-xs leading-6 opacity-75">
+                    {evidenceQuality.description}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                    Discogs Benchmark
+                  </p>
+                  <p className="mt-2 text-3xl font-black text-white">
+                    {discogsBenchmark}
+                  </p>
+                  <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
+                    Imported / marketplace benchmark
+                  </p>
+                </div>
+              </div>
+
+              {hasAuctionComps ? (
+                <div className="mt-5 rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                        Auction Median
+                      </p>
+                      <p className="mt-2 text-3xl font-black text-white">
+                        {auctionMedian}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                        Auction Count
+                      </p>
+                      <p className="mt-2 text-3xl font-black text-white">
+                        {auctionCount}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                        Range
+                      </p>
+                      <p className="mt-2 text-xl font-black text-white">
+                        {auctionLow}–{auctionHigh}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                        Latest Sale
+                      </p>
+                      <p className="mt-2 text-xl font-black text-white">
+                        {auctionLatestSale}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </section>
 
 
@@ -1100,6 +1171,28 @@ export default async function RecordDetailPage({
               }
               tools={
                 <>
+            <section className="rounded-[32px] border border-red-500/15 bg-red-500/[0.04] p-6 shadow-xl backdrop-blur-xl">
+              <p className="text-xs uppercase tracking-[0.2em] text-red-200">
+                Record Actions
+              </p>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <form action={duplicateRecord}>
+                  <input type="hidden" name="id" value={String(getValue(record, "id"))} />
+                  <button className="w-full rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-4 text-sm font-black text-cyan-100">
+                    Duplicate Record
+                  </button>
+                </form>
+
+                <form action={deleteRecord}>
+                  <input type="hidden" name="id" value={String(getValue(record, "id"))} />
+                  <button className="w-full rounded-2xl border border-red-500/25 bg-red-500/10 px-5 py-4 text-sm font-black text-red-100">
+                    Delete Record
+                  </button>
+                </form>
+              </div>
+            </section>
+
             {/* MARKET ACTIONS */}
             <section className="rounded-[32px] border border-fuchsia-400/20 bg-fuchsia-400/5 p-6">
               <div className="flex flex-wrap items-center justify-between gap-5">
