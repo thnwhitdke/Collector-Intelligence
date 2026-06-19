@@ -38,7 +38,6 @@ const navGroups: NavGroup[] = [
       { href: '/collection/integrity-center', label: 'Integrity' },
       { href: '/collection/track-intelligence', label: 'Tracks' },
       { href: '/collection/favorite-artists', label: 'Artists' },
-      { href: '/collection/runout-identifier', label: 'Pressing' },
     ],
   },
   {
