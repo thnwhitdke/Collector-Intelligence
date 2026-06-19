@@ -1188,11 +1188,6 @@ export default async function RecordDetailPage({
                   <input type="hidden" name="id" value={String(getValue(record, "id"))} />
                   <button
                     type="submit"
-                    onClick={(e) => {
-                      if (!confirm("Delete this record permanently? This action cannot be undone.")) {
-                        e.preventDefault();
-                      }
-                    }}
                     className="w-full rounded-2xl border border-red-500/25 bg-red-500/10 px-5 py-4 text-sm font-black text-red-100"
                   >
                     Delete Record
