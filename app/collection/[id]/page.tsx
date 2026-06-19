@@ -23,7 +23,6 @@ import {
 
 import ValueIntelligenceCard from "../../components/ValueIntelligenceCard";
 import ManualValueCompForm from "../../components/ManualValueCompForm";
-import MarketplaceVerification from "../../components/MarketplaceVerification";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
 type PageProps = {
@@ -930,16 +929,6 @@ export default async function RecordDetailPage({
               />
             </section>
 
-
-            <MarketplaceVerification
-  recordId={String(record.id)}
-  releaseId={String(
-    getText(
-      record,
-      "discogs_release_id"
-    )
-  )}
-/>
 
 
             {/* MOMENTUM */}
