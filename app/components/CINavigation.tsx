@@ -19,6 +19,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/collection/daily-briefing', label: 'Briefing' },
       { href: '/collection', label: 'Collection' },
+      { href: '/collection/intelligence', label: 'Intelligence' },
       { href: '/collection/want-list', label: 'Want List' },
       { href: '/collection/acquisition-radar', label: 'Acquisition' },
     ],

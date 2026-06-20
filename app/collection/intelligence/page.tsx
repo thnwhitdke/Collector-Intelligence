@@ -1,3 +1,4 @@
+import CINavigation from "@/app/components/CINavigation"
 import Link from "next/link"
 import { createClient } from '@/src/lib/supabase/server'
 
@@ -65,7 +66,7 @@ export default async function IntelligencePage() {
   )
 
   return (
-    <main className="min-h-screen bg-[#090909] px-6 py-10 text-[#F4EFE6]"><div className="mx-auto max-w-7xl space-y-8">
+    <main className="min-h-screen bg-[#090909] text-[#F4EFE6]"><CINavigation /><div className="mx-auto max-w-7xl space-y-8 px-6 py-10">
       <div>
         <h1 className="text-3xl font-bold">Collector Intelligence</h1>
         <p className="mt-2 text-[#B8AA96]">
