@@ -44,6 +44,26 @@ export async function GET() {
       throw new Error(error.message);
     }
 
+    const recordIds = (records || []).map((record) => record.id);
+
+    const { data: auctionSummaries, error: auctionError } = recordIds.length
+      ? await supabase
+          .from("external_market_comp_summary_safe")
+          .select("record_id, auction_count, median_price")
+          .in("record_id", recordIds)
+      : { data: [], error: null };
+
+    if (auctionError) {
+      throw new Error(auctionError.message);
+    }
+
+    const auctionSummaryByRecordId = new Map(
+      (auctionSummaries || []).map((summary) => [
+        summary.record_id,
+        summary,
+      ]),
+    );
+
     let updated = 0;
     const errors: string[] = [];
 
@@ -70,14 +90,48 @@ export async function GET() {
           marketForSaleRatio: toNumber(record.market_for_sale_ratio),
         });
 
+        const auctionSummary = auctionSummaryByRecordId.get(record.id);
+        const auctionMedian = toNumber(auctionSummary?.median_price);
+        const auctionCount = toNumber(auctionSummary?.auction_count);
+        const existingConsensus = toNumber(result.marketConsensusValue);
+        const hasAuctionMedian =
+          auctionMedian !== null &&
+          auctionMedian > 0 &&
+          auctionCount !== null &&
+          auctionCount > 0;
+
+        const blendedMarketConsensusValue =
+          hasAuctionMedian && existingConsensus !== null
+            ? Math.round(existingConsensus * 0.7 + auctionMedian * 0.3)
+            : hasAuctionMedian
+              ? Math.round(auctionMedian)
+              : result.marketConsensusValue;
+
+        const blendedMarketConsensusSource =
+          hasAuctionMedian && existingConsensus !== null
+            ? "discogs_plus_popsike_auction"
+            : hasAuctionMedian
+              ? "popsike_auction"
+              : result.marketConsensusSource;
+
+        const blendedMarketConsensusReason =
+          hasAuctionMedian && existingConsensus !== null
+            ? `${result.marketConsensusReason} Auction median from ${auctionCount} valuation-grade Popsike comp${auctionCount === 1 ? "" : "s"} blended at 30%.`
+            : hasAuctionMedian
+              ? `Auction median from ${auctionCount} valuation-grade Popsike comp${auctionCount === 1 ? "" : "s"}.`
+              : result.marketConsensusReason;
+
+        const blendedEstimatedValue =
+          blendedMarketConsensusValue ?? result.estimatedValue;
+
         const { error: updateError } = await supabase
           .from("records_clean_safe")
           .update({
-            estimated_value: result.estimatedValue,
-            market_consensus_value: result.marketConsensusValue,
+            estimated_value: blendedEstimatedValue,
+            market_consensus_value: blendedMarketConsensusValue,
             market_consensus_confidence: result.marketConsensusConfidence,
-            market_consensus_source: result.marketConsensusSource,
-            market_consensus_reason: result.marketConsensusReason,
+            market_consensus_source: blendedMarketConsensusSource,
+            market_consensus_reason: blendedMarketConsensusReason,
             value_confidence_score: result.confidenceScore,
             value_signal: result.signal,
             value_badges: result.badges,
