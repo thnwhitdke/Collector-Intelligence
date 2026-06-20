@@ -350,14 +350,14 @@ export default async function RecordDetailPage({
       high_price,
       latest_sale
     `)
-    .eq("record_id", id)
+    .eq("record_id", Number(id))
     .eq("source", "popsike")
     .maybeSingle();
 
   const { data: recentAuctionComps } = await supabase
     .from("external_market_comps")
     .select("auction_title, sale_price, currency, auction_date, source_record_url")
-    .eq("record_id", id)
+    .eq("record_id", Number(id))
     .eq("source", "popsike")
     .not("sale_price", "is", null)
     .order("auction_date", { ascending: false })
