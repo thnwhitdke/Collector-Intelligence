@@ -138,13 +138,20 @@ function parsePopsikeDetail(html: string, record: any, searchQuery: string, href
   const titleMatch = html.match(/<span class=["']auto-title left["'][^>]*>([\s\S]*?)<\/span>/i);
   const auctionTitle = cleanText(titleMatch?.[1] ?? null);
 
-  const soldForMatch = html.match(
-    /<span class=["']media-heading["'][^>]*>\s*(&pound;|&euro;|&#36;|\$|£|€)\s*(?:&nbsp;|\s)*([0-9][0-9,.]*)\s*<\/span>\s*<span class=["']data-type["'][^>]*>\s*Sold For\s*<\/span>/i
+  const soldForBlockMatch = html.match(
+    /<span class=["']media-heading["'][^>]*>([\s\S]*?)<\/span>\s*<span class=["']data-type["'][^>]*>\s*Sold For\s*<\/span>/i
   );
 
-  const soldDateMatch = html.match(
-    /<span class=["']media-heading["'][^>]*>\s*([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})\s*<\/span>\s*<span class=["']data-type["'][^>]*>\s*Sold Date\s*<\/span>/i
+  const soldForText = cleanText(soldForBlockMatch?.[1] ?? null);
+
+  const soldForMatch = soldForText?.match(/(&pound;|&euro;|&#36;|\$|£|€)\s*([0-9][0-9,.]*)/i) ?? null;
+
+  const soldDateBlockMatch = html.match(
+    /<span class=["']media-heading["'][^>]*>([\s\S]*?)<\/span>\s*<span class=["']data-type["'][^>]*>\s*Sold Date\s*<\/span>/i
   );
+
+  const soldDateText = cleanText(soldDateBlockMatch?.[1] ?? null);
+  const soldDateMatch = soldDateText?.match(/([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})/) ?? null;
 
   if (!auctionTitle || !soldForMatch) return null;
 
