@@ -381,13 +381,21 @@ export default async function RecordDetailPage({
   const marketConsensus = getMarketConsensus(record);
   const marketConfidence = normalizeConfidence(record);
 
+  const isBlockedMarket =
+    Boolean(getValue(record, "market_blocked_from_sale")) ||
+    Boolean(getValue(record, "discogs_sale_blocked"));
+
   const ciConsensusValue =
-    consensusV2?.consensus_value_v2 != null
-      ? money(consensusV2.consensus_value_v2)
-      : marketConsensus.display;
+    isBlockedMarket
+      ? money(getValue(record, "market_consensus_value"))
+      : consensusV2?.consensus_value_v2 != null
+        ? money(consensusV2.consensus_value_v2)
+        : marketConsensus.display;
 
   const ciConsensusConfidence =
-    consensusV2?.consensus_confidence ?? "legacy";
+    isBlockedMarket
+      ? "external-market-supported"
+      : consensusV2?.consensus_confidence ?? "legacy";
 
   const auctionPremiumPercent =
     consensusV2?.auction_premium_percent;
@@ -401,11 +409,13 @@ export default async function RecordDetailPage({
   const hasAuctionComps = auctionCount > 0;
 
   const consensusSourceLabel =
-    auctionCount >= 5
-      ? `Discogs + ${auctionCount} auction comps`
-      : auctionCount > 0
-        ? `Discogs + ${auctionCount} light auction comp${auctionCount === 1 ? "" : "s"}`
-        : "Discogs benchmark only";
+    isBlockedMarket && auctionCount > 0
+      ? `External comps preferred · ${auctionCount} auction comps`
+      : auctionCount >= 5
+        ? `Discogs + ${auctionCount} auction comps`
+        : auctionCount > 0
+          ? `Discogs + ${auctionCount} light auction comp${auctionCount === 1 ? "" : "s"}`
+          : "Discogs benchmark only";
 
   const evidenceQuality =
     auctionCount >= 10 && auctionPremiumPercent !== null && Math.abs(Number(auctionPremiumPercent)) >= 100
@@ -435,7 +445,9 @@ export default async function RecordDetailPage({
             : {
                 label: "Developing",
                 className: "border-white/10 bg-black/25 text-white",
-                description: "Discogs or imported value exists, but no matched auction-history support is available yet.",
+                description: isBlockedMarket
+                  ? "Discogs marketplace data is blocked or not comparable for this copy. External comps are preferred when available."
+                  : "Discogs or imported value exists, but no matched auction-history support is available yet.",
               };
   const auctionMedian = money(auctionSummary?.median_price);
   const auctionAverage = money(auctionSummary?.avg_price);
@@ -769,13 +781,13 @@ export default async function RecordDetailPage({
 
                 <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
-                    Discogs Benchmark
+                    {isBlockedMarket ? "Discogs Reference Only" : "Discogs Benchmark"}
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
                     {discogsBenchmark}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Imported / marketplace benchmark
+                    {isBlockedMarket ? "Suppressed from consensus for this copy" : "Imported / marketplace benchmark"}
                   </p>
                 </div>
               </div>
@@ -874,13 +886,13 @@ export default async function RecordDetailPage({
 
                 <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
-                    Discogs Benchmark
+                    {isBlockedMarket ? "Discogs Reference Only" : "Discogs Benchmark"}
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
                     {discogsBenchmark}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Legacy / imported estimate: {estimatedValue}
+                    {isBlockedMarket ? "Suppressed from consensus for this copy" : `Legacy / imported estimate: ${estimatedValue}`}
                   </p>
                 </div>
               </div>
