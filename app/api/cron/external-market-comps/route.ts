@@ -135,7 +135,18 @@ function parsePopsikeResults(html: string, record: any, searchQuery: string) {
 
     const href = match[1];
     const articleNo = match[2];
-    const auctionTitle = cleanText(match[3]);
+
+    const anchorTitle = cleanText(match[3]);
+    const slugTitle = cleanText(
+      href
+        .split("/")
+        .filter(Boolean)
+        .slice(0, -1)
+        .join(" ")
+        .replace(/-/g, " ")
+    );
+
+    const auctionTitle = anchorTitle || slugTitle;
 
     const dateMatch = block.match(/([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})/);
 
