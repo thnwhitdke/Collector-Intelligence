@@ -27,6 +27,8 @@ type CollectionRecord = {
   supply_pressure?: number | null;
   volatility_score?: number | null;
   collector_iq_score?: number | null;
+  format?: string | null;
+  notes?: string | null;
 };
 
 function numberValue(value: number | string | null | undefined) {
@@ -228,7 +230,9 @@ export default function CollectionPage() {
           demand_score,
           supply_pressure,
           volatility_score,
-          collector_iq_score
+          collector_iq_score,
+          format,
+          notes
           `,
           {
             count: "exact",
@@ -242,10 +246,28 @@ export default function CollectionPage() {
 
       if (searchTerm.trim()) {
         const term = searchTerm.trim();
+        const cleanTerm = term.replace(/[%_,]/g, " ").trim();
+        const numericTerm = cleanTerm.replace(/[^0-9]/g, "");
 
-        query = query.or(
-          `artist.ilike.%${term}%,title.ilike.%${term}%,label.ilike.%${term}%`,
-        );
+        const searchParts = [
+          `artist.ilike.%${cleanTerm}%`,
+          `title.ilike.%${cleanTerm}%`,
+          `label.ilike.%${cleanTerm}%`,
+          `catalogue_number.ilike.%${cleanTerm}%`,
+          `country.ilike.%${cleanTerm}%`,
+          `year_released.ilike.%${cleanTerm}%`,
+          `format.ilike.%${cleanTerm}%`,
+          `notes.ilike.%${cleanTerm}%`,
+          `discogs_release_id.ilike.%${cleanTerm}%`,
+        ];
+
+        if (numericTerm) {
+          searchParts.push(`id.eq.${numericTerm}`);
+          searchParts.push(`source_row_number.eq.${numericTerm}`);
+          searchParts.push(`discogs_release_id.ilike.%${numericTerm}%`);
+        }
+
+        query = query.or(searchParts.join(","));
       }
 
       const { data, error } = await query;
