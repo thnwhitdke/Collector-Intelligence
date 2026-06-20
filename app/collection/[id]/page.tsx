@@ -406,6 +406,7 @@ export default async function RecordDetailPage({
   const explicitMarketSignal = displayValue(getValue(record, "market_signal"));
 
   const auctionCount = Number(auctionSummary?.auction_count ?? 0);
+  const auctionSupportLevel = String(auctionSummary?.auction_support_level ?? "LOW");
   const hasAuctionComps = auctionCount > 0;
 
   const auctionReliability =
@@ -875,7 +876,7 @@ export default async function RecordDetailPage({
                     Source mix: {marketSource.includes("popsike") ? `Discogs + Popsike auction history (${auctionCount} sales)` : displayConsensusSourceLabel}
                     {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
-                        ✓ Valuation-grade Popsike auction history included
+                        ✓ Popsike auction support included
                       </span>
                     ) : null}
                     {hasAuctionComps ? (
@@ -957,10 +958,14 @@ export default async function RecordDetailPage({
                         Reliability
                       </p>
                       <p className="mt-2 text-xl font-black text-white">
-                        {auctionReliability.label}
+                        {auctionSupportLevel === "HIGH" ? "High Confidence" : auctionSupportLevel === "MEDIUM" ? "Directional" : auctionReliability.label}
                       </p>
                       <p className="mt-1 text-xs leading-5 text-[#B8AA96]">
-                        {auctionReliability.description}
+                        {auctionSupportLevel === "HIGH"
+                          ? `${auctionCount} high-confidence valuation-grade auction sales support this valuation.`
+                          : auctionSupportLevel === "MEDIUM"
+                            ? `${auctionCount} directional Popsike auction sales support this estimate with moderate confidence.`
+                            : auctionReliability.description}
                       </p>
                     </div>
 
@@ -1009,7 +1014,7 @@ export default async function RecordDetailPage({
                     Source mix: {marketSource.includes("popsike") ? `Discogs + Popsike auction history (${auctionCount} sales)` : displayConsensusSourceLabel}
                     {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
-                        ✓ Valuation-grade Popsike auction history included
+                        ✓ Popsike auction support included
                       </span>
                     ) : null}
                     {hasAuctionComps ? (
@@ -1105,7 +1110,7 @@ export default async function RecordDetailPage({
                           Reliability
                         </p>
                         <p className="mt-1 font-bold text-white">
-                          {auctionReliability.label}
+                          {auctionSupportLevel === "HIGH" ? "High Confidence" : auctionSupportLevel === "MEDIUM" ? "Directional" : auctionReliability.label}
                         </p>
                       </div>
 
