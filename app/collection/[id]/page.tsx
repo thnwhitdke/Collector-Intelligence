@@ -386,7 +386,7 @@ export default async function RecordDetailPage({
     Boolean(getValue(record, "discogs_sale_blocked"));
 
   const ciConsensusValue =
-    isBlockedMarket
+    getValue(record, "market_consensus_value") != null
       ? money(getValue(record, "market_consensus_value"))
       : consensusV2?.consensus_value_v2 != null
         ? money(consensusV2.consensus_value_v2)
