@@ -341,7 +341,7 @@ export default async function RecordDetailPage({
     .maybeSingle();
 
   const { data: auctionSummary } = await supabase
-    .from("external_market_comp_summary_all")
+    .from("external_market_comp_summary_safe")
     .select(`
       auction_count,
       avg_price,
