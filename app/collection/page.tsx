@@ -435,6 +435,23 @@ export default function CollectionPage() {
 
   return (
     <main className="min-h-screen bg-[#050403] text-[#F4EFE6]">
+      <div className="mx-auto mb-6 max-w-7xl px-6 pt-6">
+        <a
+          href="/collection/intelligence"
+          className="block rounded-3xl border border-fuchsia-400/30 bg-fuchsia-400/10 p-5 text-fuchsia-100 transition hover:bg-fuchsia-400/20"
+        >
+          <div className="text-xs font-black uppercase tracking-[0.2em] text-fuchsia-300">
+            New
+          </div>
+          <div className="mt-2 text-2xl font-black">
+            Collector Intelligence V2
+          </div>
+          <div className="mt-1 text-sm text-fuchsia-100/70">
+            View demand, scarcity, momentum, and valuation confidence leaderboards.
+          </div>
+        </a>
+      </div>
+
       <CINavigation />
 
       <section className="mx-auto max-w-7xl px-6 py-8">

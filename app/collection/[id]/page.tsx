@@ -566,6 +566,15 @@ export default async function RecordDetailPage({
           </div>
 
           <div className="flex flex-wrap gap-3">
+            {returnPath === "/collection/intelligence" ? (
+              <Link
+                href="/collection/intelligence"
+                className="rounded-2xl border border-fuchsia-400/30 bg-fuchsia-400/10 px-5 py-3 text-sm text-fuchsia-100 transition hover:bg-fuchsia-400/20"
+              >
+                Back to Intelligence Results
+              </Link>
+            ) : null}
+
             <Link
               href={returnPath}
               className="rounded-2xl border border-white/10 px-5 py-3 text-sm transition hover:bg-white/5"
