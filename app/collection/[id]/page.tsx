@@ -816,6 +816,11 @@ export default async function RecordDetailPage({
                     Source mix: {displayConsensusSourceLabel}
                     {hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
+                        ✓ Popsike auction history included
+                      </span>
+                    ) : null}
+                    {hasAuctionComps ? (
+                      <span className="mt-2 block font-bold text-[#F4CD68]">
                         ✓ Auction-supported valuation
                       </span>
                     ) : null}
@@ -917,6 +922,11 @@ export default async function RecordDetailPage({
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
                     Source mix: {displayConsensusSourceLabel}
+                    {hasAuctionComps ? (
+                      <span className="mt-2 block font-bold text-[#F4CD68]">
+                        ✓ Popsike auction history included
+                      </span>
+                    ) : null}
                     {hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
                         ✓ Auction-supported valuation
