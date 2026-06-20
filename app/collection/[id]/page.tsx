@@ -408,6 +408,53 @@ export default async function RecordDetailPage({
   const auctionCount = Number(auctionSummary?.auction_count ?? 0);
   const hasAuctionComps = auctionCount > 0;
 
+  const auctionReliability =
+    auctionCount >= 20
+      ? {
+          label: "Highly Reliable",
+          description: `${auctionCount} valuation-grade auction sales support this valuation.`,
+        }
+      : auctionCount >= 10
+        ? {
+            label: "Strong",
+            description: `${auctionCount} valuation-grade auction sales support this valuation.`,
+          }
+        : auctionCount >= 5
+          ? {
+              label: "Supported",
+              description: `${auctionCount} valuation-grade auction sales support this valuation.`,
+            }
+          : auctionCount >= 3
+            ? {
+                label: "Directional",
+                description: `${auctionCount} auction sales found. Treat as directional intelligence.`,
+              }
+            : auctionCount > 0
+              ? {
+                  label: "Informational",
+                  description: `${auctionCount} auction sale${auctionCount === 1 ? "" : "s"} found. Use cautiously.`,
+                }
+              : {
+                  label: "None",
+                  description: "No valuation-grade auction history available.",
+                };
+
+  const auctionVolatility =
+    auctionSummary?.median_price && auctionSummary?.high_price
+      ? Number(auctionSummary.high_price) / Number(auctionSummary.median_price)
+      : null;
+
+  const auctionVolatilityLabel =
+    auctionVolatility === null
+      ? "Unknown"
+      : auctionVolatility >= 10
+        ? "Highly Variant"
+        : auctionVolatility >= 5
+          ? "Volatile"
+          : auctionVolatility >= 2
+            ? "Moderate"
+            : "Stable";
+
   const consensusSourceLabel =
     isBlockedMarket && auctionCount > 0
       ? `External comps preferred · ${auctionCount} auction comps`
@@ -904,6 +951,30 @@ export default async function RecordDetailPage({
                         {auctionLatestSale}
                       </p>
                     </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                        Reliability
+                      </p>
+                      <p className="mt-2 text-xl font-black text-white">
+                        {auctionReliability.label}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#B8AA96]">
+                        {auctionReliability.description}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                        Market Stability
+                      </p>
+                      <p className="mt-2 text-xl font-black text-white">
+                        {auctionVolatilityLabel}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#B8AA96]">
+                        High-to-median auction spread analysis.
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -1001,7 +1072,7 @@ export default async function RecordDetailPage({
                       </p>
                     </div>
 
-                    <div className="grid gap-3 text-sm text-[#B8AA96] md:grid-cols-3">
+                    <div className="grid gap-3 text-sm text-[#B8AA96] md:grid-cols-5">
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.18em] text-[#8E8170]">
                           Average
@@ -1026,6 +1097,24 @@ export default async function RecordDetailPage({
                         </p>
                         <p className="mt-1 font-bold text-white">
                           {auctionLatestSale}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-[#8E8170]">
+                          Reliability
+                        </p>
+                        <p className="mt-1 font-bold text-white">
+                          {auctionReliability.label}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-[#8E8170]">
+                          Stability
+                        </p>
+                        <p className="mt-1 font-bold text-white">
+                          {auctionVolatilityLabel}
                         </p>
                       </div>
                     </div>
