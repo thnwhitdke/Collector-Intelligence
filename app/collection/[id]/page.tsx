@@ -341,7 +341,7 @@ export default async function RecordDetailPage({
     .maybeSingle();
 
   const { data: auctionSummary } = await supabase
-    .from("external_market_comp_summary_safe")
+    .from("external_market_comp_summary_all")
     .select(`
       auction_count,
       avg_price,
@@ -454,6 +454,56 @@ export default async function RecordDetailPage({
   const auctionLow = money(auctionSummary?.low_price);
   const auctionHigh = money(auctionSummary?.high_price);
   const auctionLatestSale = formatDate(auctionSummary?.latest_sale);
+
+  const auctionSupportLabel =
+    auctionCount >= 20
+      ? "Institutional"
+      : auctionCount >= 10
+        ? "Strong"
+        : auctionCount >= 3
+          ? "Supported"
+          : auctionCount > 0
+            ? "Limited"
+            : "Developing";
+
+  const auctionSupportDescription =
+    auctionCount >= 20
+      ? `${auctionCount} valuation-grade auction results strongly support this consensus.`
+      : auctionCount >= 10
+        ? `${auctionCount} valuation-grade auction results support this consensus.`
+        : auctionCount >= 3
+          ? `${auctionCount} matched auction results provide meaningful support.`
+          : auctionCount > 0
+            ? `${auctionCount} matched auction result${auctionCount === 1 ? "" : "s"} found. Treat as directional.`
+            : "No matched auction-history support is available yet.";
+
+  const auctionSupportClassName =
+    auctionCount >= 20
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+      : auctionCount >= 10
+        ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-200"
+        : auctionCount >= 3
+          ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
+          : auctionCount > 0
+            ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+            : "border-white/10 bg-black/25 text-[#B8AA96]";
+
+  const displayEvidenceQuality = hasAuctionComps
+    ? {
+        label: auctionSupportLabel,
+        description: auctionSupportDescription,
+        className: auctionSupportClassName,
+      }
+    : evidenceQuality;
+
+  const displayConsensusSourceLabel =
+    auctionCount >= 20
+      ? `Discogs + ${auctionCount} Auction Sales`
+      : auctionCount >= 5
+        ? `Discogs + ${auctionCount} Auction Sales`
+        : auctionCount > 0
+          ? `Discogs + ${auctionCount} Auction Sale${auctionCount === 1 ? "" : "s"}`
+          : consensusSourceLabel;
 
   const forSale =
     getNumber(
@@ -763,19 +813,24 @@ export default async function RecordDetailPage({
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Source mix: {consensusSourceLabel}
+                    Source mix: {displayConsensusSourceLabel}
+                    {hasAuctionComps ? (
+                      <span className="mt-2 block font-bold text-[#F4CD68]">
+                        ✓ Auction-supported valuation
+                      </span>
+                    ) : null}
                   </p>
                 </div>
 
-                <div className={`rounded-3xl border p-5 ${evidenceQuality.className}`}>
+                <div className={`rounded-3xl border p-5 ${displayEvidenceQuality.className}`}>
                   <p className="text-xs font-black uppercase tracking-[0.2em] opacity-75">
                     Evidence Quality
                   </p>
                   <p className="mt-2 text-3xl font-black">
-                    {evidenceQuality.label}
+                    {displayEvidenceQuality.label}
                   </p>
                   <p className="mt-2 text-xs leading-6 opacity-75">
-                    {evidenceQuality.description}
+                    {displayEvidenceQuality.description}
                   </p>
                 </div>
 
@@ -861,7 +916,12 @@ export default async function RecordDetailPage({
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Source mix: {consensusSourceLabel}
+                    Source mix: {displayConsensusSourceLabel}
+                    {hasAuctionComps ? (
+                      <span className="mt-2 block font-bold text-[#F4CD68]">
+                        ✓ Auction-supported valuation
+                      </span>
+                    ) : null}
                   </p>
 
                   {auctionPremiumPercent != null ? (
@@ -872,15 +932,15 @@ export default async function RecordDetailPage({
                   ) : null}
                 </div>
 
-                <div className={`rounded-3xl border p-5 ${evidenceQuality.className}`}>
+                <div className={`rounded-3xl border p-5 ${displayEvidenceQuality.className}`}>
                   <p className="text-xs font-black uppercase tracking-[0.2em] opacity-75">
                     Evidence Quality
                   </p>
                   <p className="mt-2 text-3xl font-black">
-                    {evidenceQuality.label}
+                    {displayEvidenceQuality.label}
                   </p>
                   <p className="mt-2 text-xs leading-6 opacity-75">
-                    {evidenceQuality.description}
+                    {displayEvidenceQuality.description}
                   </p>
                 </div>
 
@@ -909,6 +969,9 @@ export default async function RecordDetailPage({
                       </p>
                       <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
                         {auctionCount} matched auction results · Median sale
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-[#F4CD68]">
+                        Source: Popsike auction history · 30% consensus weight
                       </p>
                     </div>
 
@@ -973,7 +1036,7 @@ export default async function RecordDetailPage({
                   ) : null}
 
                   <p className="mt-4 text-xs leading-6 text-[#8E8170]">
-                    External auction-history signal used as supporting evidence, not the sole valuation source.
+                    Valuation-grade auction history is blended with marketplace benchmarks to produce the Collector Intelligence consensus.
                   </p>
                 </div>
               ) : null}
