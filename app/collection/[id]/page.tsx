@@ -455,6 +455,8 @@ export default async function RecordDetailPage({
   const auctionHigh = money(auctionSummary?.high_price);
   const auctionLatestSale = formatDate(auctionSummary?.latest_sale);
 
+  const marketSource = String(getValue(record, "market_consensus_source") ?? "");
+
   const auctionSupportLabel =
     auctionCount >= 20
       ? "Institutional"
