@@ -145,7 +145,15 @@ function parsePopsikeDetail(html: string, record: any, searchQuery: string, href
 
   const soldForText = cleanText(soldForBlockMatch?.[1] ?? null);
 
-  const soldForMatch = soldForText?.match(/(&pound;|&euro;|&#36;|\$|£|€)\s*([0-9][0-9,.]*)/i) ?? null;
+  const normalizedSoldForText = soldForText
+    ?.replace(/&nbsp;?/gi, " ")
+    ?.replace(/\s+/g, " ")
+    ?.trim();
+
+  const soldForMatch =
+    normalizedSoldForText?.match(
+      /(&pound;|&euro;|&#36;|\$|£|€)\s*([0-9][0-9,.]*)/i
+    ) ?? null;
 
   const soldDateBlockMatch = html.match(
     /<span class=["']media-heading["'][^>]*>([\s\S]*?)<\/span>\s*<span class=["']data-type["'][^>]*>\s*Sold Date\s*<\/span>/i
