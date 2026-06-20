@@ -312,7 +312,7 @@ export async function GET() {
         const { data: inserted, error: insertError } = await supabase
           .from("external_market_comps")
           .upsert(rows, {
-            onConflict: "source,source_record_url",
+            onConflict: "record_id,source,source_record_url",
             ignoreDuplicates: true
           })
           .select("id");
