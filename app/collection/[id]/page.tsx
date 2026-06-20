@@ -184,7 +184,7 @@ function getMarketConsensus(record: RecordDetail) {
     marketMedian !== null && marketMedian > 0
       ? "Market Median"
       : discogsMedian !== null && discogsMedian > 0
-        ? "Discogs Benchmark"
+        ? "Marketplace Benchmark"
         : estimated !== null && estimated > 0
           ? "Manual / Imported"
           : "Unavailable";
@@ -554,7 +554,7 @@ export default async function RecordDetailPage({
     marketSource?.includes("popsike") && auctionCount > 0
       ? {
           label: auctionCount >= 10 ? "Auction-Supported" : "Auction-Aware",
-          description: `${auctionCount} valuation-grade Popsike auction sale${auctionCount === 1 ? "" : "s"} are included in the Collector Intelligence consensus.`,
+          description: `${auctionCount} valuation-grade auction sale${auctionCount === 1 ? "" : "s"} are included in the Collector Intelligence consensus.`,
           className:
             "border-[#D8B65A]/40 bg-[#D8B65A]/10 text-[#F4CD68]",
         }
@@ -568,7 +568,7 @@ export default async function RecordDetailPage({
 
   const displayConsensusSourceLabel =
     marketSource?.includes("popsike") && auctionCount > 0
-      ? `Discogs + Popsike auction history (${auctionCount} sales)`
+      ? `Marketplace benchmark + (${auctionCount} sales)`
       : auctionCount >= 20
         ? `Discogs + ${auctionCount} Auction Sales`
         : auctionCount >= 5
@@ -879,13 +879,13 @@ export default async function RecordDetailPage({
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-3xl border border-[#D8B65A]/20 bg-[#D8B65A]/10 p-5">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#F4CD68]">
-                    CI Consensus
+                    Collector Intelligence Value
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Source mix: {marketSource.includes("popsike") ? `Discogs + Popsike auction history (${auctionCount} sales)` : displayConsensusSourceLabel}
+                    Source mix: {marketSource.includes("popsike") ? `Marketplace benchmark + (${auctionCount} sales)` : displayConsensusSourceLabel}
                     {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
                         ✓ Popsike auction support included
@@ -908,20 +908,20 @@ export default async function RecordDetailPage({
                   </p>
                   <p className="mt-2 text-xs leading-6 opacity-75">
                     {marketSource.includes("popsike")
-                      ? `${auctionCount} valuation-grade Popsike auction sale${auctionCount === 1 ? "" : "s"} are included in this consensus.`
+                      ? `${auctionCount} valuation-grade auction sale${auctionCount === 1 ? "" : "s"} are included in this consensus.`
                       : displayEvidenceQuality.description}
                   </p>
                 </div>
 
                 <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
-                    {isBlockedMarket ? "Discogs Reference Only" : "Discogs Benchmark"}
+                    {isBlockedMarket ? "Discogs Reference Only" : "Marketplace Benchmark"}
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
                     {discogsBenchmark}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    {isBlockedMarket ? "Suppressed from consensus for this copy" : "Imported / marketplace benchmark"}
+                    {isBlockedMarket ? "Suppressed from consensus for this copy" : "Discogs marketplace median reference"}
                   </p>
                 </div>
               </div>
@@ -1023,7 +1023,7 @@ export default async function RecordDetailPage({
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Source mix: {marketSource.includes("popsike") ? `Discogs + Popsike auction history (${auctionCount} sales)` : displayConsensusSourceLabel}
+                    Source mix: {marketSource.includes("popsike") ? `Marketplace benchmark + (${auctionCount} sales)` : displayConsensusSourceLabel}
                     {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
                         ✓ Popsike auction support included
@@ -1053,14 +1053,14 @@ export default async function RecordDetailPage({
                   </p>
                   <p className="mt-2 text-xs leading-6 opacity-75">
                     {marketSource.includes("popsike")
-                      ? `${auctionCount} valuation-grade Popsike auction sale${auctionCount === 1 ? "" : "s"} are included in this consensus.`
+                      ? `${auctionCount} valuation-grade auction sale${auctionCount === 1 ? "" : "s"} are included in this consensus.`
                       : displayEvidenceQuality.description}
                   </p>
                 </div>
 
                 <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
-                    {isBlockedMarket ? "Discogs Reference Only" : "Discogs Benchmark"}
+                    {isBlockedMarket ? "Discogs Reference Only" : "Marketplace Benchmark"}
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
                     {discogsBenchmark}
