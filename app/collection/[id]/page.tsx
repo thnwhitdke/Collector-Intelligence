@@ -568,7 +568,7 @@ export default async function RecordDetailPage({
 
   const displayConsensusSourceLabel =
     marketSource?.includes("popsike") && auctionCount > 0
-      ? `Marketplace benchmark + (${auctionCount} sales)`
+      ? `Marketplace benchmark + ${auctionCount} auction sales`
       : auctionCount >= 20
         ? `Discogs + ${auctionCount} Auction Sales`
         : auctionCount >= 5
@@ -885,7 +885,7 @@ export default async function RecordDetailPage({
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Source mix: {marketSource.includes("popsike") ? `Marketplace benchmark + (${auctionCount} sales)` : displayConsensusSourceLabel}
+                    Valuation method: {marketSource.includes("popsike") ? `Marketplace benchmark + ${auctionCount} auction sales` : displayConsensusSourceLabel}
                     {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
                         ✓ Popsike auction support included
@@ -908,7 +908,7 @@ export default async function RecordDetailPage({
                   </p>
                   <p className="mt-2 text-xs leading-6 opacity-75">
                     {marketSource.includes("popsike")
-                      ? `${auctionCount} valuation-grade auction sale${auctionCount === 1 ? "" : "s"} are included in this consensus.`
+                      ? `${auctionCount} valuation-grade auction sale${auctionCount === 1 ? "" : "s"} support this valuation.`
                       : displayEvidenceQuality.description}
                   </p>
                 </div>
@@ -1023,7 +1023,7 @@ export default async function RecordDetailPage({
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Source mix: {marketSource.includes("popsike") ? `Marketplace benchmark + (${auctionCount} sales)` : displayConsensusSourceLabel}
+                    Valuation method: {marketSource.includes("popsike") ? `Marketplace benchmark + ${auctionCount} auction sales` : displayConsensusSourceLabel}
                     {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
                         ✓ Popsike auction support included
@@ -1053,7 +1053,7 @@ export default async function RecordDetailPage({
                   </p>
                   <p className="mt-2 text-xs leading-6 opacity-75">
                     {marketSource.includes("popsike")
-                      ? `${auctionCount} valuation-grade auction sale${auctionCount === 1 ? "" : "s"} are included in this consensus.`
+                      ? `${auctionCount} valuation-grade auction sale${auctionCount === 1 ? "" : "s"} support this valuation.`
                       : displayEvidenceQuality.description}
                   </p>
                 </div>
