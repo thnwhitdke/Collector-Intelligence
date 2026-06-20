@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const BATCH_SIZE = 25;
+const DEFAULT_BATCH_SIZE = 25;
+const MAX_BATCH_SIZE = 150;
 
 function buildPopsikeUrl(searchQuery: string) {
   const encoded = encodeURIComponent(searchQuery).replace(/%20/g, "+");
@@ -201,7 +202,13 @@ function parsePopsikeDetail(html: string, record: any, searchQuery: string, href
 }
 
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const requestedBatchSize = Number(searchParams.get("batchSize") ?? DEFAULT_BATCH_SIZE);
+  const batchSize = Math.min(
+    MAX_BATCH_SIZE,
+    Math.max(1, Number.isFinite(requestedBatchSize) ? requestedBatchSize : DEFAULT_BATCH_SIZE)
+  );
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const popsikeSession = process.env.POPSIKE_PHPSESSID;
@@ -220,7 +227,7 @@ export async function GET() {
     .select("*")
     .eq("status", "pending")
     .order("created_at")
-    .limit(BATCH_SIZE);
+    .limit(batchSize);
 
   if (jobError) {
     return NextResponse.json({ ok: false, error: jobError.message });
@@ -414,7 +421,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    batchSize: BATCH_SIZE,
+    batchSize,
     processed: results.length,
     results
   });
