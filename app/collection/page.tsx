@@ -255,7 +255,7 @@ export default function CollectionPage() {
           `label.ilike.%${cleanTerm}%`,
           `catalogue_number.ilike.%${cleanTerm}%`,
           `country.ilike.%${cleanTerm}%`,
-          `year_released.ilike.%${cleanTerm}%`,
+          `year.ilike.%${cleanTerm}%`,
           `format.ilike.%${cleanTerm}%`,
           `notes.ilike.%${cleanTerm}%`,
           `discogs_release_id.ilike.%${cleanTerm}%`,
@@ -263,7 +263,7 @@ export default function CollectionPage() {
 
         if (numericTerm) {
           searchParts.push(`id.eq.${numericTerm}`);
-          searchParts.push(`source_row_number.eq.${numericTerm}`);
+          // source_row_number removed: not guaranteed on records_clean_safe
           searchParts.push(`discogs_release_id.ilike.%${numericTerm}%`);
         }
 
