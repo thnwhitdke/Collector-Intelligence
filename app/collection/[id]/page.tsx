@@ -405,8 +405,20 @@ export default async function RecordDetailPage({
   const supplyPressure = displayValue(getValue(record, "supply_pressure"));
   const explicitMarketSignal = displayValue(getValue(record, "market_signal"));
 
-  const auctionCount = Number(auctionSummary?.auction_count ?? 0);
-  const auctionSupportLevel = String(auctionSummary?.auction_support_level ?? "LOW");
+  const auctionSummaryTyped = auctionSummary as
+    | {
+        auction_support_level?: string | null;
+        auction_count?: number | string | null;
+        avg_price?: number | string | null;
+        median_price?: number | string | null;
+        low_price?: number | string | null;
+        high_price?: number | string | null;
+        latest_sale?: string | null;
+      }
+    | null;
+
+  const auctionCount = Number(auctionSummaryTyped?.auction_count ?? 0);
+  const auctionSupportLevel = String(auctionSummaryTyped?.auction_support_level ?? "LOW");
   const hasAuctionComps = auctionCount > 0;
 
   const auctionReliability =
@@ -441,8 +453,8 @@ export default async function RecordDetailPage({
                 };
 
   const auctionVolatility =
-    auctionSummary?.median_price && auctionSummary?.high_price
-      ? Number(auctionSummary.high_price) / Number(auctionSummary.median_price)
+    auctionSummaryTyped?.median_price && auctionSummaryTyped?.high_price
+      ? Number(auctionSummaryTyped.high_price) / Number(auctionSummaryTyped.median_price)
       : null;
 
   const auctionVolatilityLabel =
@@ -497,11 +509,11 @@ export default async function RecordDetailPage({
                   ? "Discogs marketplace data is blocked or not comparable for this copy. External comps are preferred when available."
                   : "Discogs or imported value exists, but no matched auction-history support is available yet.",
               };
-  const auctionMedian = money(auctionSummary?.median_price);
-  const auctionAverage = money(auctionSummary?.avg_price);
-  const auctionLow = money(auctionSummary?.low_price);
-  const auctionHigh = money(auctionSummary?.high_price);
-  const auctionLatestSale = formatDate(auctionSummary?.latest_sale);
+  const auctionMedian = money(auctionSummaryTyped?.median_price);
+  const auctionAverage = money(auctionSummaryTyped?.avg_price);
+  const auctionLow = money(auctionSummaryTyped?.low_price);
+  const auctionHigh = money(auctionSummaryTyped?.high_price);
+  const auctionLatestSale = formatDate(auctionSummaryTyped?.latest_sale);
 
   const marketSource = String(getValue(record, "market_consensus_source") ?? "");
 
