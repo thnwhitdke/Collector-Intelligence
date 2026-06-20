@@ -138,7 +138,7 @@ select
   now() as calculated_at
 
 from public.records_clean_safe r
-left join public.external_market_comp_summary e
+left join public.external_market_comp_summary_safe e
   on e.record_id = r.id;
 
 create view public.portfolio_intelligence_v2 as
