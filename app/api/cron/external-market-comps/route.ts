@@ -154,7 +154,16 @@ function parsePopsikeDetail(html: string, record: any, searchQuery: string, href
   const soldDateText = cleanText(soldDateBlockMatch?.[1] ?? null);
   const soldDateMatch = soldDateText?.match(/([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})/) ?? null;
 
-  if (!auctionTitle || !soldForMatch) return null;
+  if (!auctionTitle || !soldForMatch) {
+    console.log("POPSIKE DEBUG", {
+      auctionTitle,
+      soldForText,
+      soldForMatch,
+      href
+    });
+
+    return null;
+  }
 
   const symbol = soldForMatch[1];
   const salePrice = Number(soldForMatch[2].replace(/,/g, ""));
@@ -293,6 +302,11 @@ export async function GET() {
         }
 
         const links = parsePopsikeSearchResults(html);
+
+        console.log("POPSIKE SEARCH LINKS", {
+          searchQuery,
+          linksFound: links.length
+        });
         const candidateRows = [];
 
         for (const link of links) {
