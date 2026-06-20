@@ -825,7 +825,7 @@ export default async function RecordDetailPage({
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Source mix: {displayConsensusSourceLabel}
+                    Source mix: {marketSource.includes("popsike") ? `Discogs + Popsike auction history (${auctionCount} sales)` : displayConsensusSourceLabel}
                     {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
                         ✓ Valuation-grade Popsike auction history included
@@ -844,10 +844,12 @@ export default async function RecordDetailPage({
                     Evidence Quality
                   </p>
                   <p className="mt-2 text-3xl font-black">
-                    {displayEvidenceQuality.label}
+                    {marketSource.includes("popsike") ? "Auction-Supported" : displayEvidenceQuality.label}
                   </p>
                   <p className="mt-2 text-xs leading-6 opacity-75">
-                    {displayEvidenceQuality.description}
+                    {marketSource.includes("popsike")
+                      ? `${auctionCount} valuation-grade Popsike auction sale${auctionCount === 1 ? "" : "s"} are included in this consensus.`
+                      : displayEvidenceQuality.description}
                   </p>
                 </div>
 
@@ -933,7 +935,7 @@ export default async function RecordDetailPage({
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Source mix: {displayConsensusSourceLabel}
+                    Source mix: {marketSource.includes("popsike") ? `Discogs + Popsike auction history (${auctionCount} sales)` : displayConsensusSourceLabel}
                     {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
                         ✓ Valuation-grade Popsike auction history included
@@ -959,10 +961,12 @@ export default async function RecordDetailPage({
                     Evidence Quality
                   </p>
                   <p className="mt-2 text-3xl font-black">
-                    {displayEvidenceQuality.label}
+                    {marketSource.includes("popsike") ? "Auction-Supported" : displayEvidenceQuality.label}
                   </p>
                   <p className="mt-2 text-xs leading-6 opacity-75">
-                    {displayEvidenceQuality.description}
+                    {marketSource.includes("popsike")
+                      ? `${auctionCount} valuation-grade Popsike auction sale${auctionCount === 1 ? "" : "s"} are included in this consensus.`
+                      : displayEvidenceQuality.description}
                   </p>
                 </div>
 
