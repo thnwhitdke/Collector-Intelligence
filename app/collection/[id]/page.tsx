@@ -363,7 +363,15 @@ export default async function RecordDetailPage({
     .order("auction_date", { ascending: false })
     .limit(5);
 
+
+  const { data: intelligenceV2 } = await supabase
+    .from("ci_intelligence_engine_v2")
+    .select("*")
+    .eq("record_id", id)
+    .maybeSingle();
+
   const record = data as RecordDetail;
+
 
   const title = getText(record, "title") || "Untitled";
   const artist = getText(record, "artist") || "Unknown Artist";
@@ -669,6 +677,59 @@ export default async function RecordDetailPage({
               <p className="mt-4 text-sm leading-7 text-[#B8AA96]">
                 {recordNarrative}
               </p>
+            </section>
+
+            <section className="rounded-[32px] border border-fuchsia-400/20 bg-fuchsia-400/5 p-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-300">
+                Collector Intelligence V2
+              </p>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-4">
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/60">
+                    Demand
+                  </p>
+                  <p className="mt-2 text-4xl font-black">
+                    {intelligenceV2?.demand_score_v2 ?? "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/60">
+                    Scarcity
+                  </p>
+                  <p className="mt-2 text-4xl font-black">
+                    {intelligenceV2?.rarity_score_v2 ?? "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/60">
+                    Momentum
+                  </p>
+                  <p className="mt-2 text-4xl font-black">
+                    {intelligenceV2?.momentum_score_v2 ?? "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/60">
+                    Confidence
+                  </p>
+                  <p className="mt-2 text-2xl font-black">
+                    {intelligenceV2?.intelligence_confidence_v2 ?? "—"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-white/50">
+                  Why
+                </p>
+                <p className="mt-2 text-sm text-[#B8AA96]">
+                  {intelligenceV2?.intelligence_reason_v2 ?? "No intelligence narrative available."}
+                </p>
+              </div>
             </section>
 
             <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-xl backdrop-blur-xl">
