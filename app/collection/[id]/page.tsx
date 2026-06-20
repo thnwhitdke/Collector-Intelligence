@@ -488,22 +488,32 @@ export default async function RecordDetailPage({
             ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
             : "border-white/10 bg-black/25 text-[#B8AA96]";
 
-  const displayEvidenceQuality = hasAuctionComps
-    ? {
-        label: auctionSupportLabel,
-        description: auctionSupportDescription,
-        className: auctionSupportClassName,
-      }
-    : evidenceQuality;
+  const displayEvidenceQuality =
+    marketSource?.includes("popsike") && auctionCount > 0
+      ? {
+          label: auctionCount >= 10 ? "Auction-Supported" : "Auction-Aware",
+          description: `${auctionCount} valuation-grade Popsike auction sale${auctionCount === 1 ? "" : "s"} are included in the Collector Intelligence consensus.`,
+          className:
+            "border-[#D8B65A]/40 bg-[#D8B65A]/10 text-[#F4CD68]",
+        }
+      : hasAuctionComps
+        ? {
+            label: auctionSupportLabel,
+            description: auctionSupportDescription,
+            className: auctionSupportClassName,
+          }
+        : evidenceQuality;
 
   const displayConsensusSourceLabel =
-    auctionCount >= 20
-      ? `Discogs + ${auctionCount} Auction Sales`
-      : auctionCount >= 5
+    marketSource?.includes("popsike") && auctionCount > 0
+      ? `Discogs + Popsike auction history (${auctionCount} sales)`
+      : auctionCount >= 20
         ? `Discogs + ${auctionCount} Auction Sales`
-        : auctionCount > 0
-          ? `Discogs + ${auctionCount} Auction Sale${auctionCount === 1 ? "" : "s"}`
-          : consensusSourceLabel;
+        : auctionCount >= 5
+          ? `Discogs + ${auctionCount} Auction Sales`
+          : auctionCount > 0
+            ? `Discogs + ${auctionCount} Auction Sale${auctionCount === 1 ? "" : "s"}`
+            : consensusSourceLabel;
 
   const forSale =
     getNumber(
@@ -814,9 +824,9 @@ export default async function RecordDetailPage({
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
                     Source mix: {displayConsensusSourceLabel}
-                    {hasAuctionComps ? (
+                    {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
-                        ✓ Popsike auction history included
+                        ✓ Valuation-grade Popsike auction history included
                       </span>
                     ) : null}
                     {hasAuctionComps ? (
@@ -922,9 +932,9 @@ export default async function RecordDetailPage({
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
                     Source mix: {displayConsensusSourceLabel}
-                    {hasAuctionComps ? (
+                    {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
-                        ✓ Popsike auction history included
+                        ✓ Valuation-grade Popsike auction history included
                       </span>
                     ) : null}
                     {hasAuctionComps ? (
