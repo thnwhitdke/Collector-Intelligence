@@ -43,6 +43,7 @@ export async function GET() {
       topIq,
       snapshots,
       latestSalesSummaries,
+      releaseWarehouseSummary,
     ] = await Promise.all([
       supabase.from("records_clean_safe").select("id", { count: "exact", head: true }),
       supabase.from("market_history").select("id", { count: "exact", head: true }),
@@ -109,6 +110,11 @@ export async function GET() {
         .select("record_id, median_sale_price, average_sale_price, matched_sales_count, confidence_score, confidence_label, updated_at")
         .order("updated_at", { ascending: false })
         .limit(5),
+
+      supabase
+        .from("release_warehouse_summary")
+        .select("releases, artists, labels, countries, vinyl_releases, refreshed_at")
+        .single(),
     ]);
 
     const moverRecordIds = (rawTopMovers.data ?? [])
@@ -273,6 +279,7 @@ export async function GET() {
         over100Count: over100Count.count ?? 0,
         missingIqCount: missingIqCount.count ?? 0,
       },
+      releaseWarehouse: releaseWarehouseSummary.data ?? null,
       portfolioTrend,
       intelligenceFeed,
       topMovers,

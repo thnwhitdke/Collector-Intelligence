@@ -29,6 +29,14 @@ type OpsData = {
     styles: number;
     genres: number;
   };
+  releaseWarehouse: {
+    releases: number;
+    artists: number;
+    labels: number;
+    countries: number;
+    vinyl_releases: number;
+    refreshed_at: string;
+  } | null;
   iqHealth: {
     maxIq: number;
     averageIq: number;
@@ -334,6 +342,18 @@ export default function EnrichmentOperationsDashboard() {
         </section>
 
         <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Release Warehouse"
+            value={(ops?.releaseWarehouse?.vinyl_releases ?? 0).toLocaleString()}
+            subtitle={`${(ops?.releaseWarehouse?.artists ?? 0).toLocaleString()} artists • ${(ops?.releaseWarehouse?.labels ?? 0).toLocaleString()} labels`}
+            icon={<Database className="h-6 w-6" />}
+          />
+          <MetricCard
+            title="Warehouse Countries"
+            value={(ops?.releaseWarehouse?.countries ?? 0).toLocaleString()}
+            subtitle={`${(ops?.releaseWarehouse?.releases ?? 0).toLocaleString()} total release references`}
+            icon={<Layers3 className="h-6 w-6" />}
+          />
           <MetricCard
             title="Records"
             value={ops?.counts.records ?? 0}
