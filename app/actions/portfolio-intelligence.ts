@@ -41,13 +41,7 @@ function distribution(
 }
 
 function recordValue(record: any): number {
-  return (
-    toNumber(record.market_consensus_value) ||
-    toNumber(record.estimated_value) ||
-    toNumber(record.current_value) ||
-    toNumber(record.market_median_price) ||
-    toNumber(record.discogs_median_price)
-  );
+  return toNumber(record.market_consensus_value);
 }
 
 function confidenceLabel(score: number): string {
