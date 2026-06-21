@@ -119,11 +119,7 @@ function consensusValue(record: AssetRecord) {
     return 0
   }
 
-  return (
-    numeric(record.market_consensus_value) ||
-    numeric(record.estimated_value) ||
-    numeric(record.discogs_median_price)
-  )
+  return numeric(record.market_consensus_value)
 }
 
 function statusLabel(status: string | null) {
