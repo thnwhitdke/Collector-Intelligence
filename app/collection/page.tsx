@@ -242,7 +242,7 @@ export default function CollectionPage() {
         .order("id", {
           ascending: false,
         })
-        .limit(1000);
+        .limit(searchTerm.trim() ? 5000 : 1000);
 
       if (searchTerm.trim()) {
         const term = searchTerm.trim();
