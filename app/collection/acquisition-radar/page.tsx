@@ -70,6 +70,28 @@ function tone(score: number) {
   return "border-cyan-500/25 bg-cyan-500/[0.08] text-cyan-100";
 }
 
+
+function acquisitionReasons(item: RadarItem) {
+  const reasons: string[] = [];
+
+  if ((item.marketplace_for_sale ?? 999) <= 2)
+    reasons.push("Only a few copies currently available");
+
+  if ((item.want_count ?? 0) > (item.have_count ?? 0))
+    reasons.push("Demand exceeds ownership");
+
+  if ((item.want_count ?? 0) > 250)
+    reasons.push("Strong collector demand");
+
+  if (String(item.signal_type || "").includes("Rare"))
+    reasons.push("Rare supply signal detected");
+
+  if (String(item.signal_type || "").includes("Demand"))
+    reasons.push("Demand acceleration detected");
+
+  return reasons.slice(0, 4);
+}
+
 export default async function AcquisitionRadarPage() {
   const supabase = createAdminClient();
 
@@ -168,9 +190,9 @@ export default async function AcquisitionRadarPage() {
           <Kpi label="Monitor" value={String(monitor.length)} />
         </section>
 
-        <RadarSection title="Critical Opportunities" subtitle="Score 90+" items={critical} />
-        <RadarSection title="Active Hunt Targets" subtitle="Score 70–89" items={active} />
-        <RadarSection title="Monitor Closely" subtitle="Below 70" items={monitor} />
+        <RadarSection title="🔥 Buy Now" subtitle="Score 90+" items={critical} />
+        <RadarSection title="⚡ Buy Soon" subtitle="Score 70–89" items={active} />
+        <RadarSection title="👁 Watch List" subtitle="Below 70" items={monitor} />
       </div>
     </main>
   );
@@ -215,6 +237,17 @@ function RadarSection({
                 <p className="mt-3 text-sm leading-7 text-[#D8CDBE]">
                   {item.recommendation}
                 </p>
+
+                <div className="mt-4 space-y-2">
+                  {acquisitionReasons(item).map((reason) => (
+                    <div
+                      key={reason}
+                      className="text-sm font-medium text-[#F4EFE6]/85"
+                    >
+                      ✓ {reason}
+                    </div>
+                  ))}
+                </div>
 
                 <p className="mt-3 text-sm leading-7 text-[#D8CDBE]">
                   {item.marketplace_for_sale ?? "—"} for sale · {item.want_count ?? "—"} want · {item.have_count ?? "—"} have · lowest ask {money(item.lowest_price)}
