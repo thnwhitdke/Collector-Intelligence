@@ -211,7 +211,7 @@ export default function CollectionPage() {
     try {
       setLoading(true);
 
-      let query = supabase
+      const { data, error } = await supabase
         .from("records_clean_safe")
         .select(
           `
@@ -241,61 +241,11 @@ export default function CollectionPage() {
           notes,
           search_text
           `,
-          {
-            count: "exact",
-          },
+          { count: "exact" },
         )
         .eq("user_id", currentUserId || userId || "")
-        .order("id", {
-          ascending: false,
-        })
-        .limit(searchTerm.trim() ? 5000 : 1000);
-
-      if (searchTerm.trim()) {
-        const cleanTerm = searchTerm
-          .trim()
-          .toLowerCase()
-          .replace(/[%_,]/g, " ")
-          .replace(/\s+/g, " ");
-
-        const numericTerm = cleanTerm.replace(/[^0-9]/g, "");
-
-        const searchParts = [
-          `search_text.ilike.%${cleanTerm}%`,
-          `artist.ilike.%${cleanTerm}%`,
-          `artist_canonical.ilike.%${cleanTerm}%`,
-          `title.ilike.%${cleanTerm}%`,
-          `label.ilike.%${cleanTerm}%`,
-          `catalogue_number.ilike.%${cleanTerm}%`,
-          `country.ilike.%${cleanTerm}%`,
-          `year.ilike.%${cleanTerm}%`,
-          `year_released.ilike.%${cleanTerm}%`,
-          `format.ilike.%${cleanTerm}%`,
-          `notes.ilike.%${cleanTerm}%`,
-          `discogs_release_id.ilike.%${cleanTerm}%`,
-          `discogs_url.ilike.%${cleanTerm}%`,
-        ];
-
-        for (const part of cleanTerm.split(" ").filter(Boolean)) {
-          searchParts.push(`search_text.ilike.%${part}%`);
-          searchParts.push(`artist.ilike.%${part}%`);
-          searchParts.push(`artist_canonical.ilike.%${part}%`);
-          searchParts.push(`title.ilike.%${part}%`);
-          searchParts.push(`label.ilike.%${part}%`);
-          searchParts.push(`catalogue_number.ilike.%${part}%`);
-          searchParts.push(`notes.ilike.%${part}%`);
-        }
-
-        if (numericTerm) {
-          searchParts.push(`id.eq.${numericTerm}`);
-          searchParts.push(`discogs_release_id.ilike.%${numericTerm}%`);
-          searchParts.push(`search_text.ilike.%${numericTerm}%`);
-        }
-
-        query = query.or(searchParts.join(","));
-      }
-
-      const { data, error } = await query;
+        .order("id", { ascending: false })
+        .limit(5000);
 
       if (error) {
         console.error(error);
@@ -303,7 +253,41 @@ export default function CollectionPage() {
         return;
       }
 
-      setCollectionRecords((data || []) as CollectionRecord[]);
+      const rows = (data || []) as CollectionRecord[];
+      const cleaned = searchTerm.trim().toLowerCase();
+
+      if (!cleaned) {
+        setCollectionRecords(rows.slice(0, 1000));
+      } else {
+        const terms = cleaned.split(/\s+/).filter(Boolean);
+
+        const matched = rows.filter((record: any) => {
+          const haystack = [
+            record.id,
+            record.artist,
+            record.artist_canonical,
+            record.title,
+            record.year,
+            record.year_released,
+            record.label,
+            record.country,
+            record.catalogue_number,
+            record.discogs_release_id,
+            record.discogs_url,
+            record.format,
+            record.notes,
+            record.search_text,
+          ]
+            .filter((value) => value !== null && value !== undefined)
+            .join(" ")
+            .toLowerCase();
+
+          return terms.every((term) => haystack.includes(term));
+        });
+
+        setCollectionRecords(matched);
+      }
+
       setLastRefresh(new Date());
     } catch (e) {
       console.error(e);
