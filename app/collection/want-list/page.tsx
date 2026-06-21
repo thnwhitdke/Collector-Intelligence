@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import CINavigation from "@/app/components/CINavigation";
+import WantListSearchAdd from "./WantListSearchAdd";
 import WantAlertFeed from "@/app/components/WantAlertFeed";
 import {
   addDiscogsReleaseToWantList,
@@ -507,51 +508,19 @@ export default async function WantListPage() {
               </p>
               <h2 className="mt-2 text-3xl font-black">Add Want Target</h2>
               <p className="mt-2 text-sm text-[#9C8D78]">
-                Add a Discogs release ID and the intelligence engine will enrich
-                marketplace supply, demand, rarity, and acquisition pressure.
+                Search by artist, title, catalog number, country, or pressing.
+                Choose the exact Discogs release and Collector Intelligence will
+                enrich marketplace supply, demand, rarity, and acquisition pressure.
               </p>
             </div>
 
             <div className="rounded-3xl border border-[#2E2418] bg-[#090705] p-4 text-xs leading-6 text-[#9C8D78]">
-              Tip: add the specific release ID, not the master ID, so the system
-              can evaluate the exact pressing or variant.
+              Tip: choose the exact pressing from search results. Manual release ID
+              entry remains available for advanced collectors.
             </div>
           </div>
 
-          <form
-            action={addDiscogsReleaseToWantList}
-            className="mt-6 grid gap-3 lg:grid-cols-[1fr_180px_1fr_auto]"
-          >
-            <input
-              name="discogs_release_id"
-              required
-              placeholder="Discogs release ID"
-              className="rounded-3xl border border-[#3A3025] bg-[#090705] px-5 py-4 text-sm outline-none transition focus:border-[#C7A45D]"
-            />
-
-            <select
-              name="priority"
-              defaultValue="Medium"
-              className="rounded-3xl border border-[#3A3025] bg-[#090705] px-5 py-4 text-sm outline-none transition focus:border-[#C7A45D]"
-            >
-              <option>High</option>
-              <option>Medium</option>
-              <option>Low</option>
-            </select>
-
-            <input
-              name="notes"
-              placeholder="Acquisition notes"
-              className="rounded-3xl border border-[#3A3025] bg-[#090705] px-5 py-4 text-sm outline-none transition focus:border-[#C7A45D]"
-            />
-
-            <button
-              type="submit"
-              className="rounded-3xl bg-[#C7A45D] px-6 py-4 text-sm font-black text-black transition hover:bg-[#E0BF73]"
-            >
-              Add Target
-            </button>
-          </form>
+          <WantListSearchAdd />
         </section>
 
         {activeItems.length === 0 ? (
