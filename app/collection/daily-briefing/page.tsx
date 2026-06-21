@@ -276,46 +276,47 @@ export default async function DailyBriefingPage() {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-[38px] border border-red-500/25 bg-red-500/[0.07] p-7">
-            <p className="text-xs font-black uppercase tracking-[0.32em] text-red-100">
-              Today's Most Important Signal
+          <section className="rounded-[38px] border border-amber-400/25 bg-amber-400/[0.07] p-7">
+            <p className="text-xs font-black uppercase tracking-[0.32em] text-amber-100">
+              Today's Action Center
             </p>
 
             <h2 className="mt-4 text-4xl font-black text-white">
-              {topObservation?.artist_name || "No market signal yet"}
+              {valueMismatches > 0
+                ? `${valueMismatches} valuation reviews needed`
+                : urlIdMismatches > 0
+                  ? `${urlIdMismatches} release ID repairs needed`
+                  : missingCovers > 0
+                    ? `${missingCovers} cover art gaps found`
+                    : "No urgent collection actions"}
             </h2>
 
-            <p className="mt-2 text-2xl font-black text-[#FFD21E]">
-              {topObservation?.release_title || "Awaiting observations"}
-            </p>
-
             <p className="mt-5 text-sm leading-7 text-[#F4EFE6]/80">
-              {topObservation
-                ? `${topObservation.marketplace_for_sale ?? "—"} for sale · ${topObservation.want_count ?? "—"} want · ${topObservation.have_count ?? "—"} have · lowest ask ${money(topObservation.lowest_price)}.`
-                : "Market observations will populate as the scheduled engine runs."}
+              {recommendedAction}
             </p>
 
-            {topObservation ? (
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/collection/acquisition-radar"
-                  className="rounded-2xl border border-red-300/20 bg-red-300/10 px-5 py-3 text-sm font-black text-red-100"
-                >
-                  Open Acquisition Radar
-                </Link>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/collection/integrity-center"
+                className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-5 py-3 text-sm font-black text-amber-100"
+              >
+                Open Integrity Center
+              </Link>
 
-                {topObservation.discogs_release_id ? (
-                  <a
-                    href={`https://www.discogs.com/release/${topObservation.discogs_release_id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-2xl border border-white/10 bg-black/25 px-5 py-3 text-sm font-black text-white"
-                  >
-                    Discogs
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
+              <Link
+                href="/collection/value-queue"
+                className="rounded-2xl border border-white/10 bg-black/25 px-5 py-3 text-sm font-black text-white"
+              >
+                Open Value Queue
+              </Link>
+
+              <Link
+                href="/collection/acquisition-radar"
+                className="rounded-2xl border border-white/10 bg-black/25 px-5 py-3 text-sm font-black text-white"
+              >
+                Acquisition Radar
+              </Link>
+            </div>
           </section>
 
           <section className="rounded-[38px] border border-[#D8B65A]/20 bg-[#D8B65A]/[0.06] p-7">
