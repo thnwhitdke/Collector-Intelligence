@@ -42,8 +42,8 @@ function radarScore(item: Observation) {
 
   score += Math.min(35, want * 0.05);
 
-  if (forSale === 0) score += 45;
-  else if (forSale !== null && forSale <= 2) score += 35;
+  if (forSale === 0) score += 10;
+  else if (forSale !== null && forSale <= 2) score += 40;
   else if (forSale !== null && forSale <= 5) score += 25;
   else if (forSale !== null && forSale <= 10) score += 10;
 
@@ -56,9 +56,10 @@ function radarScore(item: Observation) {
   return Math.min(100, Math.round(score));
 }
 
-function recommendation(score: number) {
-  if (score >= 90) return "Immediate acquisition candidate";
-  if (score >= 70) return "Active hunt target";
+function recommendation(score: number, item?: Observation) {
+  if ((item?.marketplace_for_sale ?? null) === 0) return "Scarcity watch — not currently actionable";
+  if (score >= 90) return "Buy now candidate";
+  if (score >= 70) return "Buy soon target";
   if (score >= 50) return "Monitor closely";
   return "Low urgency watch";
 }
@@ -118,14 +119,15 @@ export default async function AcquisitionRadarPage() {
       return {
         ...item,
         radar_score: score,
-        recommendation: recommendation(score),
+        recommendation: recommendation(score, item),
       };
     })
     .sort((a, b) => b.radar_score - a.radar_score);
 
-  const critical = items.filter((item) => item.radar_score >= 90).slice(0, 8);
-  const active = items.filter((item) => item.radar_score >= 70 && item.radar_score < 90).slice(0, 8);
-  const monitor = items.filter((item) => item.radar_score < 70).slice(0, 8);
+  const critical = items.filter((item) => (item.marketplace_for_sale ?? 0) > 0 && item.radar_score >= 90).slice(0, 6);
+  const active = items.filter((item) => (item.marketplace_for_sale ?? 0) > 0 && item.radar_score >= 70 && item.radar_score < 90).slice(0, 6);
+  const monitor = items.filter((item) => item.radar_score < 70).slice(0, 6);
+  const unavailable = items.filter((item) => (item.marketplace_for_sale ?? 0) === 0).slice(0, 6);
 
   const top = items[0];
 
@@ -190,8 +192,9 @@ export default async function AcquisitionRadarPage() {
           <Kpi label="Monitor" value={String(monitor.length)} />
         </section>
 
-        <RadarSection title="🔥 Buy Now" subtitle="Score 90+" items={critical} />
-        <RadarSection title="⚡ Buy Soon" subtitle="Score 70–89" items={active} />
+        <RadarSection title="🔥 Buy Now" subtitle="Available now · Score 90+" items={critical} />
+        <RadarSection title="⚡ Buy Soon" subtitle="Available now · Score 70–89" items={active} />
+        <RadarSection title="🔒 Scarcity Watch" subtitle="High demand but currently unavailable" items={unavailable} />
         <RadarSection title="👁 Watch List" subtitle="Below 70" items={monitor} />
       </div>
     </main>
@@ -217,20 +220,20 @@ function RadarSection({
         {title}
       </h2>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-2">
+      <div className="mt-6 grid gap-3 xl:grid-cols-3">
         {items.map((item) => (
-          <article key={item.id} className={`rounded-[28px] border p-5 ${tone(item.radar_score)}`}>
+          <article key={item.id} className={`rounded-[24px] border p-4 ${tone(item.radar_score)}`}>
             <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em]">
                   {item.signal_type || "Market Observation"}
                 </p>
 
-                <h3 className="mt-2 text-2xl font-black text-white">
+                <h3 className="mt-2 text-xl font-black text-white">
                   {item.artist_name}
                 </h3>
 
-                <p className="mt-2 text-lg font-black text-[#F4EFE6]">
+                <p className="mt-2 text-base font-black text-[#F4EFE6]">
                   {item.release_title || "Untitled Release"}
                 </p>
 
