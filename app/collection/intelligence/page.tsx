@@ -78,7 +78,7 @@ export default async function IntelligencePage() {
         <section className="grid gap-4 md:grid-cols-4">
           <div className="rounded-2xl border border-white/10 bg-[#111111] p-5">
             <div className="text-sm text-[#B8AA96]">Portfolio Value</div>
-            <div className="text-2xl font-bold">${Number(portfolio.portfolio_value || 0).toLocaleString()}</div>
+            <div className="text-2xl font-bold">${Math.round(Number(portfolio.portfolio_value || 0)).toLocaleString()}</div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-[#111111] p-5">
             <div className="text-sm text-[#B8AA96]">Avg Demand</div>
