@@ -243,6 +243,7 @@ export default function ValueDashboardPage() {
   const [records, setRecords] = useState<AssetRecord[]>([])
   const [history, setHistory] = useState<ValueHistoryRow[]>([])
   const [portfolioSnapshots, setPortfolioSnapshots] = useState<Array<{ created_at: string; total_collection_value: number | string | null; total_records: number | null }>>([])
+  const [authorityPortfolioValue, setAuthorityPortfolioValue] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [loading, setLoading] = useState(true)
@@ -310,6 +311,15 @@ export default function ValueDashboardPage() {
 
       const safeRecords = (recordData || []) as AssetRecord[]
       setRecords(safeRecords)
+
+      const { data: authorityPortfolio } = await supabase
+        .from('portfolio_intelligence_v2')
+        .select('portfolio_value')
+        .eq('user_id', userId)
+        .limit(1)
+        .single()
+
+      setAuthorityPortfolioValue(numeric(authorityPortfolio?.portfolio_value))
 
       const ids = safeRecords.map((record) => record.id)
       const historyRows: ValueHistoryRow[] = []
@@ -518,7 +528,7 @@ export default function ValueDashboardPage() {
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Kpi label="Portfolio Health" value={loading ? '—' : String(healthScore)} accent />
           <Kpi label="Confidence" value={loading ? '—' : confidence} />
-          <Kpi label="Collection Value" value={loading ? '—' : money(portfolioValue)} helper="Show all records" active={filter === 'all'} onClick={() => setFilter('all')} />
+          <Kpi label="Collection Value" value={loading ? '—' : money(authorityPortfolioValue ?? portfolioValue)} helper="Authority: market consensus" active={filter === 'all'} onClick={() => setFilter('all')} />
           <Kpi label="High Value Assets" value={String(highValue.length)} helper="Filter value > $500" active={filter === 'high_value'} onClick={() => setFilter('high_value')} />
           <Kpi label="Elite Holdings" value={String(elite.length)} helper="Filter value > $1,000" active={filter === 'elite'} onClick={() => setFilter('elite')} />
         </section>
