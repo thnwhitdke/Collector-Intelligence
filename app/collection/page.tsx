@@ -452,11 +452,29 @@ export default function CollectionPage() {
     return Array.from(counts.values()).filter((c) => c > 1).length;
   }, [collectionRecords]);
 
-  const hotMarketCount = feedCounts.hot;
-  const tightSupplyCount = feedCounts.supply;
-  const buyWatchCount = feedCounts.buy;
-  const riskWatchCount = feedCounts.risk;
-  const iqLeaderCount = feedCounts.iq;
+  const isContextView = Boolean(searchQuery.trim()) || signalFilter !== "all" || showDuplicatesOnly;
+
+  const hotMarketCount = isContextView
+    ? displayedRecords.filter((record) =>
+        String(record.market_momentum || "").toLowerCase().includes("acceler"),
+      ).length
+    : feedCounts.hot;
+
+  const tightSupplyCount = isContextView
+    ? displayedRecords.filter((record) => score(record.supply_pressure) >= 50).length
+    : feedCounts.supply;
+
+  const buyWatchCount = isContextView
+    ? displayedRecords.filter((record) => score(record.demand_score) >= 50).length
+    : feedCounts.buy;
+
+  const riskWatchCount = isContextView
+    ? displayedRecords.filter((record) => score(record.volatility_score) >= 50).length
+    : feedCounts.risk;
+
+  const iqLeaderCount = isContextView
+    ? displayedRecords.filter((record) => score(record.collector_iq_score) >= 100).length
+    : feedCounts.iq;
 
   const tickerMessages = [
     `Portfolio Value ${money(portfolioValue)}`,
