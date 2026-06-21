@@ -411,24 +411,26 @@ export default function CollectionPage() {
     });
   }, [collectionRecords, showDuplicatesOnly, signalFilter]);
 
+  const visiblePortfolioValue = useMemo(
+    () => displayedRecords.reduce((sum, r) => sum + consensusValue(r), 0),
+    [displayedRecords],
+  );
+
+  const visibleRecordCount = displayedRecords.length;
+
   const enrichmentCoverage = useMemo(() => {
-    if (!collectionRecords.length) return 0;
+    if (!displayedRecords.length) return 0;
 
-    const enriched = collectionRecords.filter((r) => coverFor(r)).length;
+    const enriched = displayedRecords.filter((r) => coverFor(r)).length;
 
-    return Math.round((enriched / collectionRecords.length) * 100);
-  }, [collectionRecords]);
+    return Math.round((enriched / displayedRecords.length) * 100);
+  }, [displayedRecords]);
 
   const avgValue = useMemo(() => {
-    if (!collectionRecords.length) return 0;
+    if (!displayedRecords.length) return 0;
 
-    return (
-      collectionRecords.reduce(
-        (sum, r) => sum + consensusValue(r),
-        0,
-      ) / collectionRecords.length
-    );
-  }, [collectionRecords]);
+    return visiblePortfolioValue / displayedRecords.length;
+  }, [displayedRecords, visiblePortfolioValue]);
 
   const duplicateCount = useMemo(() => {
     const counts = new Map<string, number>();
@@ -612,10 +614,10 @@ export default function CollectionPage() {
         </section>
 
         <section className="mt-8 grid gap-4 md:grid-cols-4">
-          <MetricCard label="Archive Size" value={String(collectionCount)} />
-          <MetricCard label="Portfolio Value" value={money(portfolioValue)} accent />
+          <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Result Count" : "Archive Size"} value={String(visibleRecordCount)} />
+          <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Result Value" : "Portfolio Value"} value={money(searchQuery || signalFilter !== "all" || showDuplicatesOnly ? visiblePortfolioValue : portfolioValue)} accent />
           <MetricCard label="Cover Intelligence" value={`${enrichmentCoverage}%`} />
-          <MetricCard label="Avg Record Value" value={money(avgValue)} />
+          <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Avg Result Value" : "Avg Record Value"} value={money(avgValue)} />
         </section>
 
         <section className="mt-8 rounded-[34px] border border-[#2E251B] bg-[linear-gradient(135deg,_#12100C,_#0A0907)] p-5 shadow-2xl">
