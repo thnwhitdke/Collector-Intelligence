@@ -169,50 +169,75 @@ export default function AddRecordForm({ onSuccess }: Props) {
 </button>
 
 
-      {results.map((r) => (
-        <div
-          key={r.id}
-          className="rounded-xl border border-white/10 p-3"
-        >
-          <div className="font-semibold text-white">
-            {r.title}
-          </div>
+      {results.length > 0 ? (
+        <div className="mt-4 grid gap-3 xl:grid-cols-2">
+          {results.map((r) => (
+            <div
+              key={r.id}
+              className="rounded-[28px] border border-[#32281D] bg-[#090705] p-4"
+            >
+              <div className="flex gap-4">
+                {r.thumb ? (
+                  <img
+                    src={r.thumb}
+                    alt=""
+                    className="h-20 w-20 rounded-2xl object-cover"
+                  />
+                ) : (
+                  <div className="h-20 w-20 rounded-2xl bg-white/10" />
+                )}
 
-          <div className="text-sm text-slate-400">
-            {r.year} · {r.format}
-          </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg font-black text-white">
+                    {r.title}
+                  </p>
 
-          <button
-            type="button"
-            onClick={() => {
-              const parts =
-                (r.title || "").split(" - ");
+                  <p className="mt-1 text-sm text-[#CDBB9F]">
+                    {[r.country, r.year, r.catno]
+                      .filter(Boolean)
+                      .join(" • ")}
+                  </p>
 
-              const artist =
-                parts.length > 1
-                  ? parts[0]
-                  : "";
+                  <p className="mt-1 line-clamp-2 text-xs text-[#8E8170]">
+                    {r.format}
+                  </p>
 
-              const album =
-                parts.length > 1
-                  ? parts.slice(1).join(" - ")
-                  : r.title || "";
+                  <p className="mt-1 text-xs text-[#8E8170]">
+                    Release ID: {r.id}
+                  </p>
+                </div>
 
-              setPreview((prev) => ({
-                ...prev,
-                artist,
-                title: album,
-                year: r.year || "",
-                format: r.format || "",
-                discogs_release_id: r.id || "",
-              }));
-            }}
-            className="mt-2 rounded-lg bg-fuchsia-500 px-3 py-2 text-sm text-white"
-          >
-            Import
-          </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const parts = (r.title || "").split(" - ");
+
+                    const artist =
+                      parts.length > 1 ? parts[0] : "";
+
+                    const album =
+                      parts.length > 1
+                        ? parts.slice(1).join(" - ")
+                        : r.title || "";
+
+                    setPreview((prev) => ({
+                      ...prev,
+                      artist,
+                      title: album,
+                      year: r.year || "",
+                      format: r.format || "",
+                      discogs_release_id: r.id || "",
+                    }));
+                  }}
+                  className="self-center rounded-2xl bg-[#C7A45D] px-4 py-3 text-xs font-black text-black"
+                >
+                  Import
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      ) : null}
     </div>
   </div>
 )}
