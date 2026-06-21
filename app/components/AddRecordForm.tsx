@@ -194,12 +194,22 @@ export default function AddRecordForm({ onSuccess }: Props) {
               )}
 
               <div className="min-w-0 flex-1">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
+                    r.source === "ci_warehouse"
+                      ? "bg-cyan-400/15 text-cyan-200 border border-cyan-300/20"
+                      : "bg-amber-400/15 text-amber-200 border border-amber-300/20"
+                  }`}>
+                    {r.sourceLabel || "Discogs Live"}
+                  </span>
+                </div>
+
                 <p className="text-lg font-black text-white">
                   {r.title}
                 </p>
 
                 <p className="mt-1 text-sm text-[#CDBB9F]">
-                  {[r.country, r.year, r.catno]
+                  {[r.country, r.year, r.label, r.catno]
                     .filter(Boolean)
                     .join(" • ")}
                 </p>

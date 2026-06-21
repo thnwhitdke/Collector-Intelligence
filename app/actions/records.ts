@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "../../src/lib/supabase/server";
+import { createAdminClient } from "../../src/lib/supabase/admin";
 import {
   extractDiscogsReleaseIdFromUrl,
   fetchDiscogsReleaseCoverUrl,
@@ -15,6 +16,7 @@ type DiscogsSearchApiResult = {
   country?: string | null;
   format?: string[] | null;
   label?: string[] | null;
+  catno?: string | null;
   thumb?: string | null;
   uri?: string | null;
 };
@@ -814,11 +816,23 @@ export type DiscogsMatchResult = {
   label: string | null;
   thumb: string | null;
   uri: string | null;
+  source?: "ci_warehouse" | "discogs_live";
+  sourceLabel?: string;
+  catno?: string | null;
 };
+
+function matchKey(item: DiscogsMatchResult) {
+  return [
+    item.id,
+    item.title.toLowerCase(),
+    item.year ?? "",
+    item.country?.toLowerCase() ?? "",
+  ].join("|");
+}
 
 export async function searchDiscogsMatches(
   query: string,
-  limit = 5
+  limit = 10
 ): Promise<DiscogsMatchResult[]> {
   const trimmed = query.trim();
 
@@ -827,39 +841,87 @@ export async function searchDiscogsMatches(
   }
 
   const safeLimit =
-    Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 10) : 5;
+    Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 20) : 10;
 
-  const url = new URL("https://api.discogs.com/database/search");
-  url.searchParams.set("q", trimmed);
-  url.searchParams.set("type", "release");
-  url.searchParams.set("per_page", String(safeLimit));
-  url.searchParams.set("page", "1");
+  const supabase = createAdminClient();
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Discogs token=${process.env.DISCOGS_TOKEN}`,
-      "User-Agent": process.env.DISCOGS_USER_AGENT || "CollectorApp/1.0",
-    },
-    cache: "no-store",
-  });
+  const warehousePromise = supabase
+    .from("release_reference")
+    .select("source_release_id, artist, title, release_year, country, format, label, catalog_number")
+    .or(
+      `artist.ilike.%${trimmed}%,title.ilike.%${trimmed}%,label.ilike.%${trimmed}%,catalog_number.ilike.%${trimmed}%`
+    )
+    .limit(safeLimit);
 
-  if (!res.ok) {
-    throw new Error(`Discogs search failed: ${res.status}`);
+  const discogsPromise = (async () => {
+    const url = new URL("https://api.discogs.com/database/search");
+    url.searchParams.set("q", trimmed);
+    url.searchParams.set("type", "release");
+    url.searchParams.set("per_page", String(safeLimit));
+    url.searchParams.set("page", "1");
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Discogs token=${process.env.DISCOGS_TOKEN}`,
+        "User-Agent": process.env.DISCOGS_USER_AGENT || "CollectorApp/1.0",
+      },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return [] as DiscogsMatchResult[];
+    }
+
+    const data: { results?: DiscogsSearchApiResult[] } = await res.json();
+    const results = Array.isArray(data.results) ? data.results : [];
+
+    return results.map((item: DiscogsSearchApiResult) => ({
+      id: String(item.id),
+      title: item.title ? String(item.title) : "Untitled",
+      year: item.year ? String(item.year) : null,
+      country: item.country ? String(item.country) : null,
+      format: Array.isArray(item.format) ? item.format.join(", ") : null,
+      label: Array.isArray(item.label) ? item.label.join(", ") : null,
+      thumb: item.thumb ? String(item.thumb) : null,
+      uri: item.uri ? `https://www.discogs.com${item.uri}` : null,
+      source: "discogs_live" as const,
+      sourceLabel: "Discogs Live",
+      catno: item.catno ? String(item.catno) : null,
+    }));
+  })();
+
+  const [warehouseResponse, discogsResults] = await Promise.all([
+    warehousePromise,
+    discogsPromise,
+  ]);
+
+  const warehouseResults: DiscogsMatchResult[] = (warehouseResponse.data ?? []).map(
+    (item) => ({
+      id: String(item.source_release_id),
+      title: [item.artist, item.title].filter(Boolean).join(" - ") || "Untitled",
+      year: item.release_year ? String(item.release_year) : null,
+      country: item.country ? String(item.country) : null,
+      format: item.format ? String(item.format) : null,
+      label: item.label ? String(item.label) : null,
+      thumb: null,
+      uri: `https://www.discogs.com/release/${item.source_release_id}`,
+      source: "ci_warehouse",
+      sourceLabel: "CI Warehouse",
+      catno: item.catalog_number ? String(item.catalog_number) : null,
+    })
+  );
+
+  const merged: DiscogsMatchResult[] = [];
+  const seen = new Set<string>();
+
+  for (const item of [...warehouseResults, ...discogsResults]) {
+    const key = matchKey(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
   }
 
-  const data: { results?: DiscogsSearchApiResult[] } = await res.json();
-  const results = Array.isArray(data.results) ? data.results : [];
-
-  return results.map((item: DiscogsSearchApiResult) => ({
-    id: String(item.id),
-    title: item.title ? String(item.title) : "Untitled",
-    year: item.year ? String(item.year) : null,
-    country: item.country ? String(item.country) : null,
-    format: Array.isArray(item.format) ? item.format.join(", ") : null,
-    label: Array.isArray(item.label) ? item.label.join(", ") : null,
-    thumb: item.thumb ? String(item.thumb) : null,
-    uri: item.uri ? `https://www.discogs.com${item.uri}` : null,
-  }));
+  return merged.slice(0, safeLimit * 2);
 }
 
 export async function saveDiscogsMatch(
