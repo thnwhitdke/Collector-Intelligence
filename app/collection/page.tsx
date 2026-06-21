@@ -171,12 +171,15 @@ export default function CollectionPage() {
         .select(`
           id,
           artist,
+          artist_canonical,
           title,
           year,
+          year_released,
           label,
           country,
           catalogue_number,
           discogs_release_id,
+          discogs_url,
           estimated_value,
           market_consensus_value,
           discogs_median_price,
@@ -214,12 +217,15 @@ export default function CollectionPage() {
           `
           id,
           artist,
+          artist_canonical,
           title,
           year,
+          year_released,
           label,
           country,
           catalogue_number,
           discogs_release_id,
+          discogs_url,
           estimated_value,
           market_consensus_value,
           discogs_median_price,
@@ -232,7 +238,8 @@ export default function CollectionPage() {
           volatility_score,
           collector_iq_score,
           format,
-          notes
+          notes,
+          search_text
           `,
           {
             count: "exact",
@@ -245,26 +252,44 @@ export default function CollectionPage() {
         .limit(searchTerm.trim() ? 5000 : 1000);
 
       if (searchTerm.trim()) {
-        const term = searchTerm.trim();
-        const cleanTerm = term.replace(/[%_,]/g, " ").trim();
+        const cleanTerm = searchTerm
+          .trim()
+          .toLowerCase()
+          .replace(/[%_,]/g, " ")
+          .replace(/\s+/g, " ");
+
         const numericTerm = cleanTerm.replace(/[^0-9]/g, "");
 
         const searchParts = [
+          `search_text.ilike.%${cleanTerm}%`,
           `artist.ilike.%${cleanTerm}%`,
+          `artist_canonical.ilike.%${cleanTerm}%`,
           `title.ilike.%${cleanTerm}%`,
           `label.ilike.%${cleanTerm}%`,
           `catalogue_number.ilike.%${cleanTerm}%`,
           `country.ilike.%${cleanTerm}%`,
           `year.ilike.%${cleanTerm}%`,
+          `year_released.ilike.%${cleanTerm}%`,
           `format.ilike.%${cleanTerm}%`,
           `notes.ilike.%${cleanTerm}%`,
           `discogs_release_id.ilike.%${cleanTerm}%`,
+          `discogs_url.ilike.%${cleanTerm}%`,
         ];
+
+        for (const part of cleanTerm.split(" ").filter(Boolean)) {
+          searchParts.push(`search_text.ilike.%${part}%`);
+          searchParts.push(`artist.ilike.%${part}%`);
+          searchParts.push(`artist_canonical.ilike.%${part}%`);
+          searchParts.push(`title.ilike.%${part}%`);
+          searchParts.push(`label.ilike.%${part}%`);
+          searchParts.push(`catalogue_number.ilike.%${part}%`);
+          searchParts.push(`notes.ilike.%${part}%`);
+        }
 
         if (numericTerm) {
           searchParts.push(`id.eq.${numericTerm}`);
-          // source_row_number removed: not guaranteed on records_clean_safe
           searchParts.push(`discogs_release_id.ilike.%${numericTerm}%`);
+          searchParts.push(`search_text.ilike.%${numericTerm}%`);
         }
 
         query = query.or(searchParts.join(","));
