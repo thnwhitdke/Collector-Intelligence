@@ -152,93 +152,98 @@ export default function AddRecordForm({ onSuccess }: Props) {
           </div>
 {mode === "discogs" && (
   <div className="mb-5 rounded-2xl border border-white/10 p-4">
-    <div className="flex gap-2">
-<input
-  value={search}
-  onChange={(e) => setSearch(e.target.value)}
-  placeholder="Search Discogs..."
-  className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-white"
-/>
+    <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            runSearch();
+          }
+        }}
+        placeholder="Search artist, title, catalog number, pressing..."
+        className="rounded-3xl border border-[#3A3025] bg-[#090705] px-5 py-4 text-sm text-white outline-none transition placeholder:text-[#756A5B] focus:border-[#C7A45D]"
+      />
 
-<button
-  type="button"
-  onClick={runSearch}
-  className="rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950"
->
-  Search
-</button>
-
-
-      {results.length > 0 ? (
-        <div className="mt-4 grid gap-3 xl:grid-cols-2">
-          {results.map((r) => (
-            <div
-              key={r.id}
-              className="rounded-[28px] border border-[#32281D] bg-[#090705] p-4"
-            >
-              <div className="flex gap-4">
-                {r.thumb ? (
-                  <img
-                    src={r.thumb}
-                    alt=""
-                    className="h-20 w-20 rounded-2xl object-cover"
-                  />
-                ) : (
-                  <div className="h-20 w-20 rounded-2xl bg-white/10" />
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <p className="text-lg font-black text-white">
-                    {r.title}
-                  </p>
-
-                  <p className="mt-1 text-sm text-[#CDBB9F]">
-                    {[r.country, r.year, r.catno]
-                      .filter(Boolean)
-                      .join(" • ")}
-                  </p>
-
-                  <p className="mt-1 line-clamp-2 text-xs text-[#8E8170]">
-                    {r.format}
-                  </p>
-
-                  <p className="mt-1 text-xs text-[#8E8170]">
-                    Release ID: {r.id}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const parts = (r.title || "").split(" - ");
-
-                    const artist =
-                      parts.length > 1 ? parts[0] : "";
-
-                    const album =
-                      parts.length > 1
-                        ? parts.slice(1).join(" - ")
-                        : r.title || "";
-
-                    setPreview((prev) => ({
-                      ...prev,
-                      artist,
-                      title: album,
-                      year: r.year || "",
-                      format: r.format || "",
-                      discogs_release_id: r.id || "",
-                    }));
-                  }}
-                  className="self-center rounded-2xl bg-[#C7A45D] px-4 py-3 text-xs font-black text-black"
-                >
-                  Import
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      <button
+        type="button"
+        onClick={runSearch}
+        className="rounded-3xl bg-[#C7A45D] px-6 py-4 text-sm font-black text-black transition hover:bg-[#E0BF73]"
+      >
+        Search
+      </button>
     </div>
+
+    {results.length > 0 ? (
+      <div className="mt-5 grid gap-3 xl:grid-cols-2">
+        {results.map((r) => (
+          <div
+            key={r.id}
+            className="rounded-[28px] border border-[#32281D] bg-[#090705] p-4"
+          >
+            <div className="flex gap-4">
+              {r.thumb ? (
+                <img
+                  src={r.thumb}
+                  alt=""
+                  className="h-20 w-20 rounded-2xl object-cover"
+                />
+              ) : (
+                <div className="h-20 w-20 rounded-2xl bg-white/10" />
+              )}
+
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-black text-white">
+                  {r.title}
+                </p>
+
+                <p className="mt-1 text-sm text-[#CDBB9F]">
+                  {[r.country, r.year, r.catno]
+                    .filter(Boolean)
+                    .join(" • ")}
+                </p>
+
+                <p className="mt-1 line-clamp-2 text-xs text-[#8E8170]">
+                  {r.format}
+                </p>
+
+                <p className="mt-1 text-xs text-[#8E8170]">
+                  Release ID: {r.id}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const parts = (r.title || "").split(" - ");
+
+                  const artist =
+                    parts.length > 1 ? parts[0] : "";
+
+                  const album =
+                    parts.length > 1
+                      ? parts.slice(1).join(" - ")
+                      : r.title || "";
+
+                  setPreview((prev) => ({
+                    ...prev,
+                    artist,
+                    title: album,
+                    year: r.year || "",
+                    format: r.format || "",
+                    discogs_release_id: r.id || "",
+                  }));
+                }}
+                className="self-center rounded-2xl bg-[#C7A45D] px-4 py-3 text-xs font-black text-black"
+              >
+                Import
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : null}
   </div>
 )}
 
