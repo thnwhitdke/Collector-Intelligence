@@ -36,6 +36,7 @@ export default async function IntelligencePage() {
     momentumRes,
     warehouseRes,
     collectionRes,
+    artistDepthRes,
   ] = await Promise.all([
     supabase
       .from("portfolio_intelligence_v2")
@@ -76,6 +77,13 @@ export default async function IntelligencePage() {
       .select("id, artist, title, label, country, format, discogs_release_id, estimated_value")
       .eq("user_id", userId)
       .limit(10000),
+
+    admin
+      .from("artist_collection_depth")
+      .select("*")
+      .eq("user_id", userId)
+      .order("owned_records", { ascending: false })
+      .limit(10),
   ])
 
   const portfolio = portfolioRes.data
@@ -87,6 +95,7 @@ export default async function IntelligencePage() {
 console.log("WAREHOUSE DEBUG", warehouseRes)
 
   const collection = collectionRes.data ?? []
+  const artistDepth = artistDepthRes.data ?? []
 
   const ownedRecords = collection.length
   const ownedArtists = new Set(collection.map((r) => String(r.artist || "").trim()).filter(Boolean)).size
@@ -219,6 +228,33 @@ console.log("WAREHOUSE DEBUG", warehouseRes)
             value="Active"
             helper="Vercel crons refresh market, value, sales, tracks, queue, and snapshots"
           />
+        </section>
+
+
+        <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+          <h2 className="text-2xl font-black">Artist Depth</h2>
+          <p className="mt-2 text-sm text-[#B8AA96]">
+            Your deepest artist holdings compared against the 5M-release warehouse.
+          </p>
+
+          <div className="mt-6 space-y-3">
+            {artistDepth.map((row: any) => (
+              <div key={row.artist} className="rounded-2xl bg-[#1A1A1A] p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="font-bold">{row.artist}</div>
+                    <div className="text-sm text-[#8E8170]">
+                      {num(row.owned_records)} owned • {num(row.warehouse_releases)} warehouse releases
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-black">{Number(row.coverage_percent || 0).toFixed(2)}%</div>
+                    <div className="text-xs text-[#B8AA96]">Coverage</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
 
         <div className="grid gap-6 lg:grid-cols-3">
