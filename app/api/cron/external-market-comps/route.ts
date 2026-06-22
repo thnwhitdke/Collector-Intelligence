@@ -346,42 +346,17 @@ export async function GET(request: Request) {
       for (const searchQuery of searchQueries) {
         attemptedQueries.push(searchQuery);
 
-        const response = await fetch(buildPopsikeUrl(searchQuery), {
-          headers: {
-            "User-Agent": "Mozilla/5.0 Collector Intelligence",
-            "Cookie": `PHPSESSID=${popsikeSession}`
-          },
-          cache: "no-store"
-        });
-
-        const html = await response.text();
-
-        if (html.toLowerCase().includes("popsike.com - login")) {
-          await supabase
-            .from("external_market_comp_queue")
-            .update({
-              status: "failed",
-              attempts: (job.attempts ?? 0) + 1,
-              last_error: "Popsike session expired or login required",
-              processed_at: new Date().toISOString()
-            })
-            .eq("id", job.id);
-
-          results.push({
-            queueId: job.id,
-            recordId: record.id,
-            status: "failed",
-            error: "Popsike session expired or login required"
-          });
-
-          continue;
-        }
-
-        const links = parsePopsikeSearchResults(html, manualQuery ? 150 : 50);
         const candidateRows = [];
+        const seenArticleNos = new Set<string>();
+        const maxPages = manualQuery || requestedRecordId > 0 ? 5 : 1;
 
-        for (const link of links) {
-          const detailResponse = await fetch(`https://www.popsike.com${link.href}`, {
+        for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+          const pageUrl =
+            pageNum === 1
+              ? buildPopsikeUrl(searchQuery)
+              : `${buildPopsikeUrl(searchQuery)}&pagenum=${pageNum}`;
+
+          const response = await fetch(pageUrl, {
             headers: {
               "User-Agent": "Mozilla/5.0 Collector Intelligence",
               "Cookie": `PHPSESSID=${popsikeSession}`
@@ -389,18 +364,60 @@ export async function GET(request: Request) {
             cache: "no-store"
           });
 
-          const detailHtml = await detailResponse.text();
+          const html = await response.text();
 
-          const detailRow = parsePopsikeDetail(
-            detailHtml,
-            record,
-            searchQuery,
-            link.href,
-            link.articleNo
-          );
+          if (html.toLowerCase().includes("popsike.com - login")) {
+            await supabase
+              .from("external_market_comp_queue")
+              .update({
+                status: "failed",
+                attempts: (job.attempts ?? 0) + 1,
+                last_error: "Popsike session expired or login required",
+                processed_at: new Date().toISOString()
+              })
+              .eq("id", job.id);
 
-          if (detailRow) candidateRows.push(detailRow);
-          if (candidateRows.length >= (manualQuery ? 50 : 15)) break;
+            results.push({
+              queueId: job.id,
+              recordId: record.id,
+              status: "failed",
+              error: "Popsike session expired or login required"
+            });
+
+            break;
+          }
+
+          const links = parsePopsikeSearchResults(html, manualQuery ? 150 : 50);
+
+          if (links.length === 0) break;
+
+          for (const link of links) {
+            if (seenArticleNos.has(link.articleNo)) continue;
+            seenArticleNos.add(link.articleNo);
+
+            const detailResponse = await fetch(`https://www.popsike.com${link.href}`, {
+              headers: {
+                "User-Agent": "Mozilla/5.0 Collector Intelligence",
+                "Cookie": `PHPSESSID=${popsikeSession}`
+              },
+              cache: "no-store"
+            });
+
+            const detailHtml = await detailResponse.text();
+
+            const detailRow = parsePopsikeDetail(
+              detailHtml,
+              record,
+              searchQuery,
+              link.href,
+              link.articleNo
+            );
+
+            if (detailRow) candidateRows.push(detailRow);
+            if (candidateRows.length >= (manualQuery ? 75 : 20)) break;
+          }
+
+          if (candidateRows.length >= (manualQuery ? 75 : 20)) break;
         }
 
         if (candidateRows.length > bestRows.length) {
