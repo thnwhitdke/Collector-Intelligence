@@ -7,11 +7,33 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("records_clean_safe")
-    .select("id,artist,title,estimated_value,market_consensus_value,cover_url,discogs_image_url,discogs_thumbnail_url")
-    .limit(50);
+    .select(`
+      id,
+      artist,
+      title,
+      label,
+      catalogue_number,
+      country,
+      year,
+      year_released,
+      estimated_value,
+      market_consensus_value,
+      market_signal,
+      market_trend,
+      value_signal,
+      collector_iq_score,
+      confidence_score,
+      cover_url,
+      discogs_image_url,
+      discogs_thumbnail_url
+    `)
+    .order("market_consensus_value", { ascending: false, nullsFirst: false })
+    .limit(75);
 
   if (search.length > 0) {
-    query = query.or(`artist.ilike.%${search}%,title.ilike.%${search}%`);
+    query = query.or(
+      `artist.ilike.%${search}%,title.ilike.%${search}%,label.ilike.%${search}%,catalogue_number.ilike.%${search}%`
+    );
   }
 
   const { data, error } = await query;
