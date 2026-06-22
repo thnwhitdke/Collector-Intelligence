@@ -92,12 +92,12 @@ textarea {
 }
 
 
-/* --- Mobile iPhone fit fixes --- */
+/* --- iPhone polished responsive fixes --- */
 html,
 body {
-  width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
 * {
@@ -109,55 +109,47 @@ body {
     overflow-x: hidden;
   }
 
-  main,
-  section,
-  header,
-  nav,
-  footer,
-  div {
-    max-width: 100%;
-  }
-
-  h1,
-  h2,
-  h3,
-  p,
-  span,
-  a,
-  button {
-    overflow-wrap: break-word;
-    word-break: normal;
+  header {
+    overflow: hidden;
   }
 
   h1 {
-    font-size: clamp(3rem, 15vw, 5.25rem) !important;
-    line-height: 0.95 !important;
-    letter-spacing: -0.06em !important;
+    max-width: 100%;
+    overflow-wrap: normal;
   }
 
-  .container,
-  .mx-auto {
-    max-width: 100% !important;
-  }
-
-  .grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .flex {
-    min-width: 0;
+  a,
+  button {
+    max-width: 100%;
   }
 
   .whitespace-nowrap {
-    white-space: normal !important;
+    white-space: normal;
   }
 
-  [class*="min-w-"],
-  [class*="w-["] {
-    min-width: 0 !important;
+  [class*="text-8xl"],
+  [class*="text-9xl"] {
+    font-size: clamp(3.4rem, 16vw, 5.25rem) !important;
+    line-height: 0.9 !important;
+    letter-spacing: -0.06em !important;
   }
 
-  [class*="overflow-x"] {
-    -webkit-overflow-scrolling: touch;
+  [class*="max-w-7xl"],
+  [class*="max-w-6xl"],
+  [class*="max-w-5xl"] {
+    max-width: 100% !important;
+  }
+
+  [class*="px-10"],
+  [class*="px-12"],
+  [class*="px-16"] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  [class*="gap-8"],
+  [class*="gap-10"],
+  [class*="gap-12"] {
+    gap: 1rem !important;
   }
 }
