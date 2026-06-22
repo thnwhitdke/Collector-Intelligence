@@ -161,7 +161,7 @@ function scorePopsikeMatch(record: any, auctionTitle: string | null) {
 }
 
 
-function parsePopsikeSearchResults(html: string) {
+function parsePopsikeSearchResults(html: string, maxLinks = 100) {
   const links: { href: string; articleNo: string }[] = [];
 
   const titleRegex =
@@ -169,7 +169,7 @@ function parsePopsikeSearchResults(html: string) {
 
   for (const match of html.matchAll(titleRegex)) {
     links.push({ href: match[1], articleNo: match[2] });
-    if (links.length >= 25) break;
+    if (links.length >= maxLinks) break;
   }
 
   return links;
@@ -377,7 +377,7 @@ export async function GET(request: Request) {
           continue;
         }
 
-        const links = parsePopsikeSearchResults(html);
+        const links = parsePopsikeSearchResults(html, manualQuery ? 150 : 50);
         const candidateRows = [];
 
         for (const link of links) {
@@ -400,7 +400,7 @@ export async function GET(request: Request) {
           );
 
           if (detailRow) candidateRows.push(detailRow);
-          if (candidateRows.length >= 10) break;
+          if (candidateRows.length >= (manualQuery ? 50 : 15)) break;
         }
 
         if (candidateRows.length > bestRows.length) {
@@ -408,7 +408,7 @@ export async function GET(request: Request) {
           bestSearchQuery = searchQuery;
         }
 
-        if (candidateRows.length >= 5) {
+        if (!manualQuery && candidateRows.length >= 5) {
           break;
         }
       }
