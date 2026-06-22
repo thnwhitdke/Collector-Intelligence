@@ -205,6 +205,7 @@ function parsePopsikeDetail(html: string, record: any, searchQuery: string, href
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const requestedBatchSize = Number(searchParams.get("batchSize") ?? DEFAULT_BATCH_SIZE);
+  const requestedRecordId = Number(searchParams.get("recordId") ?? 0);
   const batchSize = Math.min(
     MAX_BATCH_SIZE,
     Math.max(1, Number.isFinite(requestedBatchSize) ? requestedBatchSize : DEFAULT_BATCH_SIZE)
@@ -222,12 +223,39 @@ export async function GET(request: Request) {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const { data: jobs, error: jobError } = await supabase
+  let jobsQuery = supabase
     .from("external_market_comp_queue")
     .select("*")
     .eq("status", "pending")
     .order("created_at")
     .limit(batchSize);
+
+  if (Number.isFinite(requestedRecordId) && requestedRecordId > 0) {
+    const { data: existingJob } = await supabase
+      .from("external_market_comp_queue")
+      .select("*")
+      .eq("record_id", requestedRecordId)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (!existingJob) {
+      await supabase.from("external_market_comp_queue").insert({
+        record_id: requestedRecordId,
+        status: "pending",
+        attempts: 0,
+      });
+    }
+
+    jobsQuery = supabase
+      .from("external_market_comp_queue")
+      .select("*")
+      .eq("record_id", requestedRecordId)
+      .eq("status", "pending")
+      .order("created_at")
+      .limit(1);
+  }
+
+  const { data: jobs, error: jobError } = await jobsQuery;
 
   if (jobError) {
     return NextResponse.json({ ok: false, error: jobError.message });
