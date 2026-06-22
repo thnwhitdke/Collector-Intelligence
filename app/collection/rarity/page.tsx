@@ -20,7 +20,13 @@ function money(value: unknown) {
   }).format(Number.isFinite(n) ? n : 0)
 }
 
-export default async function RarityPage() {
+export default async function RarityPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ rarity?: string }>
+}) {
+  const resolvedSearchParams = await searchParams
+  const activeRarity = resolvedSearchParams?.rarity ?? "all"
   const supabase = await createClient()
   const admin = createAdminClient()
 
@@ -72,11 +78,16 @@ export default async function RarityPage() {
     Common: (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Common").length,
   }
 
-  const elite = rows.filter((r: any) => r.warehouse_rarity_label === "Elite").slice(0, 25)
-  const veryRare = rows.filter((r: any) => r.warehouse_rarity_label === "Very Rare").slice(0, 25)
-  const rare = rows.filter((r: any) => r.warehouse_rarity_label === "Rare").slice(0, 25)
-  const valuableRare = [...rows]
-    .filter((r: any) => ["Elite", "Very Rare", "Rare"].includes(r.warehouse_rarity_label))
+  const filteredRows =
+    activeRarity === "all"
+      ? rows
+      : rows.filter((r: any) => r.warehouse_rarity_label === activeRarity)
+
+  const elite = filteredRows.filter((r: any) => r.warehouse_rarity_label === "Elite").slice(0, 25)
+  const veryRare = filteredRows.filter((r: any) => r.warehouse_rarity_label === "Very Rare").slice(0, 25)
+  const rare = filteredRows.filter((r: any) => r.warehouse_rarity_label === "Rare").slice(0, 25)
+  const valuableRare = [...filteredRows]
+    .filter((r: any) => ["Elite", "Very Rare", "Rare", "Uncommon", "Common"].includes(r.warehouse_rarity_label))
     .sort((a: any, b: any) => Number(b.value || 0) - Number(a.value || 0))
     .slice(0, 25)
 
@@ -128,27 +139,35 @@ export default async function RarityPage() {
           </p>
         </div>
 
-        <section className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
-            <div className="text-sm text-[#B8AA96]">Elite Records</div>
+        <section className="grid gap-4 md:grid-cols-5">
+          <Link href="/collection/rarity?rarity=all" className={`rounded-3xl border p-6 transition hover:bg-[#1A1A1A] ${activeRarity === "all" ? "border-cyan-400/40 bg-cyan-400/10" : "border-white/10 bg-[#111111]"}`}>
+            <div className="text-sm text-[#B8AA96]">All Indexed</div>
+            <div className="mt-2 text-4xl font-black">{num((allRarityRows ?? []).length)}</div>
+          </Link>
+
+          <Link href="/collection/rarity?rarity=Elite" className={`rounded-3xl border p-6 transition hover:bg-[#1A1A1A] ${activeRarity === "Elite" ? "border-cyan-400/40 bg-cyan-400/10" : "border-white/10 bg-[#111111]"}`}>
+            <div className="text-sm text-[#B8AA96]">Elite</div>
             <div className="mt-2 text-4xl font-black">{num(rarityCounts.Elite)}</div>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+          </Link>
+
+          <Link href="/collection/rarity?rarity=Very%20Rare" className={`rounded-3xl border p-6 transition hover:bg-[#1A1A1A] ${activeRarity === "Very Rare" ? "border-cyan-400/40 bg-cyan-400/10" : "border-white/10 bg-[#111111]"}`}>
             <div className="text-sm text-[#B8AA96]">Very Rare</div>
             <div className="mt-2 text-4xl font-black">{num(rarityCounts["Very Rare"])}</div>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+          </Link>
+
+          <Link href="/collection/rarity?rarity=Rare" className={`rounded-3xl border p-6 transition hover:bg-[#1A1A1A] ${activeRarity === "Rare" ? "border-cyan-400/40 bg-cyan-400/10" : "border-white/10 bg-[#111111]"}`}>
             <div className="text-sm text-[#B8AA96]">Rare</div>
             <div className="mt-2 text-4xl font-black">{num(rarityCounts.Rare)}</div>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
-            <div className="text-sm text-[#B8AA96]">Indexed Rarity Records</div>
-            <div className="mt-2 text-4xl font-black">{num((allRarityRows ?? []).length)}</div>
-          </div>
+          </Link>
+
+          <Link href="/collection/rarity?rarity=Uncommon" className={`rounded-3xl border p-6 transition hover:bg-[#1A1A1A] ${activeRarity === "Uncommon" ? "border-cyan-400/40 bg-cyan-400/10" : "border-white/10 bg-[#111111]"}`}>
+            <div className="text-sm text-[#B8AA96]">Uncommon</div>
+            <div className="mt-2 text-4xl font-black">{num(rarityCounts.Uncommon)}</div>
+          </Link>
         </section>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <CardList title="Most Valuable Rare Records" helper="Rare records sorted by highest current value." data={valuableRare} />
+          <CardList title={activeRarity === "all" ? "Most Valuable Rare Records" : `${activeRarity} Records`} helper="Records sorted by highest current value inside the selected rarity segment." data={valuableRare} />
           <CardList title="Elite Records" helper="No exact artist-label warehouse match found or only ultra-thin reference presence." data={elite} />
           <CardList title="Very Rare Records" helper="Five or fewer similar artist-label releases in the warehouse." data={veryRare} />
           <CardList title="Rare Records" helper="Twenty-five or fewer similar artist-label releases in the warehouse." data={rare} />
