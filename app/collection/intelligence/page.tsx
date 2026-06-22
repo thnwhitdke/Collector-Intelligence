@@ -5,6 +5,7 @@ import CINavigation from "@/app/components/CINavigation"
 import Link from "next/link"
 import { createClient } from "@/src/lib/supabase/server"
 import { createAdminClient } from "@/src/lib/supabase/admin"
+import { displayArtistName } from "@/src/lib/display/artist"
 
 function pct(part: number, whole: number) {
   if (!whole) return "0%"
@@ -143,7 +144,7 @@ console.log("WAREHOUSE DEBUG", warehouseRes)
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="font-medium">{r.artist}</div>
+                <div className="font-medium">{displayArtistName(r.artist)}</div>
                 <div className="text-sm text-[#B8AA96]">{r.title}</div>
                 <div className="mt-1 text-xs text-[#8E8170]">{r.intelligence_reason_v2}</div>
               </div>
@@ -239,10 +240,10 @@ console.log("WAREHOUSE DEBUG", warehouseRes)
 
           <div className="mt-6 space-y-3">
             {artistDepth.map((row: any) => (
-              <div key={row.artist} className="rounded-2xl bg-[#1A1A1A] p-4">
+              <div key={displayArtistName(row.artist)} className="rounded-2xl bg-[#1A1A1A] p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="font-bold">{row.artist}</div>
+                    <div className="font-bold">{displayArtistName(row.artist)}</div>
                     <div className="text-sm text-[#8E8170]">
                       {num(row.owned_records)} owned • {num(row.warehouse_releases)} warehouse releases
                     </div>
