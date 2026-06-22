@@ -6,6 +6,7 @@ import { createClient } from "@/src/lib/supabase/client";
 import CINavigation from "../components/CINavigation";
 import AddRecordSlideOver from "./AddRecordSlideOver";
 import LiveMarketFeed from "../components/LiveMarketFeed";
+import { displayArtistName } from "@/src/lib/display/artist";
 
 type CollectionRecord = {
   id: number;
@@ -29,6 +30,11 @@ type CollectionRecord = {
   collector_iq_score?: number | null;
   format?: string | null;
   notes?: string | null;
+  warehouse_rarity_label?: string | null;
+  warehouse_similar_releases?: number | null;
+  auction_count?: number | null;
+  auction_high?: number | string | null;
+  valuation_conflict_type?: string | null;
 };
 
 function numberValue(value: number | string | null | undefined) {
@@ -253,7 +259,54 @@ export default function CollectionPage() {
         return;
       }
 
-      const rows = (data || []) as CollectionRecord[];
+      const baseRows = (data || []) as CollectionRecord[];
+      const recordIds = baseRows.map((record) => record.id).filter(Boolean);
+
+      const [{ data: rarityRows }, { data: auctionRows }, { data: conflictRows }] =
+        recordIds.length > 0
+          ? await Promise.all([
+              supabase
+                .from("record_warehouse_rarity_metrics")
+                .select("record_id, warehouse_rarity_label, warehouse_similar_releases")
+                .in("record_id", recordIds),
+              supabase
+                .from("external_market_comp_summary_safe")
+                .select("record_id, auction_count, high_price")
+                .in("record_id", recordIds)
+                .eq("source", "popsike"),
+              supabase
+                .from("valuation_conflict_metrics")
+                .select("record_id, conflict_type")
+                .in("record_id", recordIds)
+                .neq("conflict_type", "aligned"),
+            ])
+          : [{ data: [] }, { data: [] }, { data: [] }];
+
+      const rarityByRecord = new Map(
+        (rarityRows || []).map((row: any) => [Number(row.record_id), row])
+      );
+      const auctionByRecord = new Map(
+        (auctionRows || []).map((row: any) => [Number(row.record_id), row])
+      );
+      const conflictByRecord = new Map(
+        (conflictRows || []).map((row: any) => [Number(row.record_id), row])
+      );
+
+      const rows = baseRows.map((record) => {
+        const rarity = rarityByRecord.get(Number(record.id));
+        const auction = auctionByRecord.get(Number(record.id));
+        const conflict = conflictByRecord.get(Number(record.id));
+
+        return {
+          ...record,
+          warehouse_rarity_label: rarity?.warehouse_rarity_label ?? null,
+          warehouse_similar_releases: rarity?.warehouse_similar_releases ?? null,
+          auction_count: auction?.auction_count ?? null,
+          auction_high: auction?.high_price ?? null,
+          valuation_conflict_type: conflict?.conflict_type ?? null,
+        };
+      });
+
       const cleaned = searchTerm.trim().toLowerCase();
 
       if (!cleaned) {
@@ -828,7 +881,7 @@ export default function CollectionPage() {
 
                   <div className="p-5">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#B48A4D]">
-                      {record.artist || "Unknown Artist"}
+                      {displayArtistName(record.artist)}
                     </p>
 
                     <p className="mt-2 line-clamp-2 text-2xl font-black text-white">
@@ -838,6 +891,31 @@ export default function CollectionPage() {
                     <p className="mt-2 text-sm text-[#A89782]">
                       {releaseMeta(record)}
                     </p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {record.warehouse_rarity_label ? (
+                        <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">
+                          {record.warehouse_rarity_label}
+                          {record.warehouse_similar_releases !== null && record.warehouse_similar_releases !== undefined
+                            ? ` · ${Number(record.warehouse_similar_releases).toLocaleString()} similar`
+                            : ""}
+                        </span>
+                      ) : null}
+
+                      {Number(record.auction_count || 0) > 0 ? (
+                        <span className="rounded-full border border-[#D8B65A]/30 bg-[#D8B65A]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#F4CD68]">
+                          {Number(record.auction_count).toLocaleString()} auction
+                          {Number(record.auction_count) === 1 ? "" : "s"}
+                          {Number(record.auction_high || 0) > 0 ? ` · high ${money(record.auction_high)}` : ""}
+                        </span>
+                      ) : null}
+
+                      {record.valuation_conflict_type ? (
+                        <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-200">
+                          ⚠ Value Conflict
+                        </span>
+                      ) : null}
+                    </div>
 
                     <div className="mt-5 grid grid-cols-3 gap-3">
                       <MiniStat label="Consensus" value={money(consensusValue(record))} />
