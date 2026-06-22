@@ -251,7 +251,7 @@ export default function CollectionPage() {
         )
         .eq("user_id", currentUserId || userId || "")
         .order("id", { ascending: false })
-        .limit(100);
+        .limit(5000);
 
       if (error) {
         console.error(error);
@@ -749,7 +749,7 @@ export default function CollectionPage() {
               onClick={handleSearch}
               className="h-16 rounded-3xl bg-[#C7A45D] px-10 font-black text-black transition hover:bg-[#D8B86A]"
             >
-              {loading ? "Searching Fast..." : "Search"}
+              {loading ? "Searching..." : "Search"}
             </button>
           </div>
 
