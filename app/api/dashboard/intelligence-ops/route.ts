@@ -112,7 +112,7 @@ export async function GET() {
         .limit(5),
 
       supabase
-        .from("release_warehouse_summary")
+        .from("release_warehouse_metrics")
         .select("releases, artists, labels, countries, vinyl_releases, refreshed_at")
         .single(),
     ]);

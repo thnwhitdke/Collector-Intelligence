@@ -67,7 +67,7 @@ export default async function IntelligencePage() {
       .limit(10),
 
     admin
-      .from("release_warehouse_summary")
+      .from("release_warehouse_metrics")
       .select("releases, artists, labels, countries, vinyl_releases, refreshed_at")
       .single(),
 
