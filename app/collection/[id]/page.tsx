@@ -340,6 +340,12 @@ export default async function RecordDetailPage({
     .eq("record_id", id)
     .maybeSingle();
 
+  const { data: warehouseRarity } = await createAdminClient()
+    .from("record_warehouse_rarity_metrics")
+    .select("*")
+    .eq("record_id", Number(id))
+    .maybeSingle();
+
   const { data: valuationConflict } = await createAdminClient()
     .from("valuation_conflict_metrics")
     .select("*")
@@ -836,6 +842,49 @@ export default async function RecordDetailPage({
                 {recordNarrative}
               </p>
             </section>
+
+            {warehouseRarity ? (
+              <section className="rounded-[32px] border border-cyan-400/25 bg-cyan-400/10 p-6 shadow-xl backdrop-blur-xl">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-200">
+                  Warehouse Rarity
+                </p>
+                <h2 className="mt-3 text-3xl font-black text-white">
+                  {warehouseRarity.warehouse_rarity_label}
+                </h2>
+                <p className="mt-3 text-sm leading-7 text-cyan-100/80">
+                  Based on matching this record's normalized artist and label against the 5M-release Collector Intelligence warehouse.
+                </p>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                      Similar Warehouse Releases
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-white">
+                      {Number(warehouseRarity.warehouse_similar_releases || 0).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                      Artist
+                    </p>
+                    <p className="mt-2 text-lg font-black text-white">
+                      {warehouseRarity.artist ?? "—"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                      Label
+                    </p>
+                    <p className="mt-2 text-lg font-black text-white">
+                      {warehouseRarity.label ?? "—"}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            ) : null}
 
             <section className="rounded-[32px] border border-fuchsia-400/20 bg-fuchsia-400/5 p-6">
               <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-300">
@@ -1538,6 +1587,49 @@ export default async function RecordDetailPage({
             </section>
 
             {/* MARKET ACTIONS */}
+            {warehouseRarity ? (
+              <section className="rounded-[32px] border border-cyan-400/25 bg-cyan-400/10 p-6 shadow-xl backdrop-blur-xl">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-200">
+                  Warehouse Rarity
+                </p>
+                <h2 className="mt-3 text-3xl font-black text-white">
+                  {warehouseRarity.warehouse_rarity_label}
+                </h2>
+                <p className="mt-3 text-sm leading-7 text-cyan-100/80">
+                  Based on matching this record's normalized artist and label against the 5M-release Collector Intelligence warehouse.
+                </p>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                      Similar Warehouse Releases
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-white">
+                      {Number(warehouseRarity.warehouse_similar_releases || 0).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                      Artist
+                    </p>
+                    <p className="mt-2 text-lg font-black text-white">
+                      {warehouseRarity.artist ?? "—"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                      Label
+                    </p>
+                    <p className="mt-2 text-lg font-black text-white">
+                      {warehouseRarity.label ?? "—"}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
             <section className="rounded-[32px] border border-fuchsia-400/20 bg-fuchsia-400/5 p-6">
               <div className="flex flex-wrap items-center justify-between gap-5">
                 <div>
