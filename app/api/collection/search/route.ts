@@ -15,7 +15,6 @@ export async function GET(request: NextRequest) {
       
       estimated_value,
       market_consensus_value,
-      cover_image_url
     `)
     .limit(50);
 
