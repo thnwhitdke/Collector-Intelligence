@@ -196,6 +196,7 @@ console.log("WAREHOUSE DEBUG", warehouseRes)
 
           <div className="mt-4 grid gap-4 md:grid-cols-4">
             <Card label="Warehouse Releases" value={num(warehouseReleases)} helper={`${num(warehouseVinyl)} vinyl references`} />
+          <Card label="Collection Coverage" value={pct(ownedRecords, warehouseReleases)} helper={`${num(ownedRecords)} owned of ${num(warehouseReleases)} warehouse releases`} />
             <Card label="Warehouse Artists" value={num(warehouseArtists)} helper="Known artist universe" />
             <Card label="Warehouse Labels" value={num(warehouseLabels)} helper="Known label universe" />
             <Card label="Warehouse Countries" value={num(warehouseCountries)} helper="Known country coverage" />
