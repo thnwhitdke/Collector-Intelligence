@@ -1,6 +1,7 @@
 import CINavigation from "@/app/components/CINavigation"
 import Link from "next/link"
 import { createClient } from "@/src/lib/supabase/server"
+import { createAdminClient } from "@/src/lib/supabase/admin"
 
 function pct(part: number, whole: number) {
   if (!whole) return "0%"
@@ -17,6 +18,7 @@ function num(value: unknown) {
 
 export default async function IntelligencePage() {
   const supabase = await createClient()
+  const admin = createAdminClient()
 
   const {
     data: { user },
@@ -61,7 +63,7 @@ export default async function IntelligencePage() {
       .order("momentum_score_v2", { ascending: false })
       .limit(10),
 
-    supabase
+    admin
       .from("release_warehouse_summary")
       .select("*")
       .single(),
