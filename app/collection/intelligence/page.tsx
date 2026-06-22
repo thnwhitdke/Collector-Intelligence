@@ -67,9 +67,9 @@ export default async function IntelligencePage() {
       .limit(10),
 
     admin
-      .from("release_reference")
-      .select("source_release_id, artist, label, country, format")
-      .limit(3000000),
+      .from("release_warehouse_summary")
+      .select("releases, artists, labels, countries, vinyl_releases, refreshed_at")
+      .single(),
 
     supabase
       .from("records_clean_safe")
@@ -82,7 +82,7 @@ export default async function IntelligencePage() {
   const demand = demandRes.data ?? []
   const rarity = rarityRes.data ?? []
   const momentum = momentumRes.data ?? []
-  const warehouseRows = warehouseRes.data ?? []
+  const warehouse = warehouseRes.data
   const collection = collectionRes.data ?? []
 
   const ownedRecords = collection.length
@@ -91,11 +91,11 @@ export default async function IntelligencePage() {
   const ownedCountries = new Set(collection.map((r) => String(r.country || "").trim()).filter(Boolean)).size
   const matchedDiscogs = collection.filter((r) => String(r.discogs_release_id || "").trim()).length
 
-  const warehouseReleases = warehouseRows.length
-  const warehouseVinyl = warehouseRows.filter((r) => String(r.format || "").toLowerCase().includes("vinyl")).length
-  const warehouseArtists = new Set(warehouseRows.map((r) => String(r.artist || "").trim()).filter(Boolean)).size
-  const warehouseLabels = new Set(warehouseRows.map((r) => String(r.label || "").trim()).filter(Boolean)).size
-  const warehouseCountries = new Set(warehouseRows.map((r) => String(r.country || "").trim()).filter(Boolean)).size
+  const warehouseReleases = Number(warehouse?.releases || 0)
+  const warehouseVinyl = Number(warehouse?.vinyl_releases || 0)
+  const warehouseArtists = Number(warehouse?.artists || 0)
+  const warehouseLabels = Number(warehouse?.labels || 0)
+  const warehouseCountries = Number(warehouse?.countries || 0)
 
   const Table = ({ title, rows, scoreKey }: any) => (
     <section className="rounded-2xl border border-white/10 bg-[#111111] p-5">
@@ -158,7 +158,7 @@ export default async function IntelligencePage() {
               </p>
             </div>
             <div className="text-sm text-[#8E8170]">
-              Warehouse source: live release_reference table
+              Warehouse refresh: {warehouse?.refreshed_at ? new Date(warehouse.refreshed_at).toLocaleString() : "Unknown"}
             </div>
           </div>
 
