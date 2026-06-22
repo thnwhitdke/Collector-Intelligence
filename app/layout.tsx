@@ -1,8 +1,17 @@
 // app/layout.tsx
 
+import MobileInstallHint from './components/MobileInstallHint'
 import type { Metadata } from "next";
 import "./globals.css";
 import AutoRefresh from "@/app/components/AutoRefresh";
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#020617',
+}
 
 export const metadata: Metadata = {
   title: "Collector Intelligence",
@@ -39,6 +48,7 @@ export default function RootLayout({
       <body>
         <AutoRefresh />
         {children}
+              <MobileInstallHint />
       </body>
     </html>
   );
