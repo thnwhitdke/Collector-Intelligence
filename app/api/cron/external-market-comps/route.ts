@@ -223,6 +223,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const requestedBatchSize = Number(searchParams.get("batchSize") ?? DEFAULT_BATCH_SIZE);
   const requestedRecordId = Number(searchParams.get("recordId") ?? 0);
+  const manualQuery = cleanSearchPart(searchParams.get("query"));
   const batchSize = Math.min(
     MAX_BATCH_SIZE,
     Math.max(1, Number.isFinite(requestedBatchSize) ? requestedBatchSize : DEFAULT_BATCH_SIZE)
@@ -312,7 +313,9 @@ export async function GET(request: Request) {
       continue;
     }
 
-    const searchQueries = uniqueSearchQueries(record);
+    const searchQueries = manualQuery
+      ? [manualQuery, ...uniqueSearchQueries(record)]
+      : uniqueSearchQueries(record);
     let bestRows: any[] = [];
     let bestSearchQuery = searchQueries[0] ?? "";
     const attemptedQueries: string[] = [];
