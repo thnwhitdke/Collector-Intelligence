@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       id,
       artist,
       title,
-      warehouse_rarity_label,
+      
       estimated_value,
       market_consensus_value,
       cover_image_url
