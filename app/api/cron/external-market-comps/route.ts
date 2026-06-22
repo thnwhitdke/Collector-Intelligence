@@ -74,16 +74,33 @@ function compactMatchText(value: unknown): string {
   return normalizeMatchText(value).replace(/\s+/g, "");
 }
 
+function invertedArtistName(value: unknown): string {
+  const raw = typeof value === "string" ? value.trim() : "";
+
+  if (!raw.includes(",")) return raw;
+
+  const [last, ...rest] = raw.split(",");
+  const first = rest.join(" ").trim();
+
+  if (!last.trim() || !first) return raw;
+
+  return `${first} ${last.trim()}`;
+}
+
 function scorePopsikeMatch(record: any, auctionTitle: string | null) {
   const title = normalizeMatchText(auctionTitle);
   const compactTitle = compactMatchText(auctionTitle);
 
   const artist = normalizeMatchText(record.artist);
+  const invertedArtist = normalizeMatchText(invertedArtistName(record.artist));
   const recordTitle = normalizeMatchText(record.title);
   const catalogue = normalizeMatchText(record.catalogue_number);
   const compactCatalogue = compactMatchText(record.catalogue_number);
 
-  const artistHit = artist.length > 0 && title.includes(artist);
+  const artistHit =
+    (artist.length > 0 && title.includes(artist)) ||
+    (invertedArtist.length > 0 && title.includes(invertedArtist));
+
   const titleHit = recordTitle.length > 0 && title.includes(recordTitle);
 
   const catalogueHit =
