@@ -28,12 +28,20 @@ export default async function RarityPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: rarityRows } = await admin
-    .from("record_warehouse_rarity_metrics")
-    .select("*")
-    .eq("user_id", user?.id)
-    .order("warehouse_similar_releases", { ascending: true })
-    .limit(200)
+  const [{ data: rarityRows }, { data: allRarityRows }] = await Promise.all([
+    admin
+      .from("record_warehouse_rarity_metrics")
+      .select("*")
+      .eq("user_id", user?.id)
+      .order("warehouse_similar_releases", { ascending: true })
+      .limit(300),
+
+    admin
+      .from("record_warehouse_rarity_metrics")
+      .select("warehouse_rarity_label")
+      .eq("user_id", user?.id)
+      .limit(10000),
+  ])
 
   const recordIds = (rarityRows ?? []).map((r: any) => r.record_id)
 
@@ -55,6 +63,14 @@ export default async function RarityPage() {
     ...row,
     value: valueByRecord.get(Number(row.record_id)) ?? 0,
   }))
+
+  const rarityCounts = {
+    Elite: (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Elite").length,
+    "Very Rare": (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Very Rare").length,
+    Rare: (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Rare").length,
+    Uncommon: (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Uncommon").length,
+    Common: (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Common").length,
+  }
 
   const elite = rows.filter((r: any) => r.warehouse_rarity_label === "Elite").slice(0, 25)
   const veryRare = rows.filter((r: any) => r.warehouse_rarity_label === "Very Rare").slice(0, 25)
@@ -115,19 +131,19 @@ export default async function RarityPage() {
         <section className="grid gap-4 md:grid-cols-4">
           <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
             <div className="text-sm text-[#B8AA96]">Elite Records</div>
-            <div className="mt-2 text-4xl font-black">{num(rows.filter((r: any) => r.warehouse_rarity_label === "Elite").length)}</div>
+            <div className="mt-2 text-4xl font-black">{num(rarityCounts.Elite)}</div>
           </div>
           <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
             <div className="text-sm text-[#B8AA96]">Very Rare</div>
-            <div className="mt-2 text-4xl font-black">{num(rows.filter((r: any) => r.warehouse_rarity_label === "Very Rare").length)}</div>
+            <div className="mt-2 text-4xl font-black">{num(rarityCounts["Very Rare"])}</div>
           </div>
           <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
             <div className="text-sm text-[#B8AA96]">Rare</div>
-            <div className="mt-2 text-4xl font-black">{num(rows.filter((r: any) => r.warehouse_rarity_label === "Rare").length)}</div>
+            <div className="mt-2 text-4xl font-black">{num(rarityCounts.Rare)}</div>
           </div>
           <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
             <div className="text-sm text-[#B8AA96]">Indexed Rarity Records</div>
-            <div className="mt-2 text-4xl font-black">{num(rows.length)}</div>
+            <div className="mt-2 text-4xl font-black">{num((allRarityRows ?? []).length)}</div>
           </div>
         </section>
 
