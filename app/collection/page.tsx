@@ -251,7 +251,7 @@ export default function CollectionPage() {
         )
         .eq("user_id", currentUserId || userId || "")
         .order("id", { ascending: false })
-        .limit(5000);
+        .limit(100);
 
       if (error) {
         console.error(error);
@@ -749,9 +749,13 @@ export default function CollectionPage() {
               onClick={handleSearch}
               className="h-16 rounded-3xl bg-[#C7A45D] px-10 font-black text-black transition hover:bg-[#D8B86A]"
             >
-              {loading ? "Searching..." : "Search"}
+              {loading ? "Searching Fast..." : "Search"}
             </button>
           </div>
+
+          <p className="mt-3 text-xs text-[#8E8170]">
+            Showing the fastest top 100 matches first. Use artist, title, label, catalog number, or year.
+          </p>
 
           {recentSearches.length > 0 ? (
             <div className="mt-5 flex flex-wrap gap-2">
