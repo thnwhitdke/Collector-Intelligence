@@ -155,14 +155,14 @@ export default function CollectionPage() {
           count: "exact",
           head: true,
         })
-        .eq("user_id", currentUserId || "dcd6f071-bddc-4f8a-acbc-5770f806c03f");
+        .eq("user_id", currentUserId);
 
       setCollectionCount(count || 0);
 
       const { data: values } = await supabase
         .from("records_clean_safe")
         .select("market_consensus_value, estimated_value, discogs_median_price")
-        .eq("user_id", currentUserId || "dcd6f071-bddc-4f8a-acbc-5770f806c03f");
+        .eq("user_id", currentUserId);
 
       const total =
         values?.reduce(
@@ -198,7 +198,7 @@ export default function CollectionPage() {
           volatility_score,
           collector_iq_score
         `)
-        .eq("user_id", currentUserId || "dcd6f071-bddc-4f8a-acbc-5770f806c03f")
+        .eq("user_id", currentUserId)
         .not("market_consensus_value", "is", null)
         .order("market_consensus_value", {
           ascending: false,
@@ -249,7 +249,7 @@ export default function CollectionPage() {
           `,
           { count: "exact" },
         )
-        .eq("user_id", currentUserId || userId || "dcd6f071-bddc-4f8a-acbc-5770f806c03f")
+        .eq("user_id", currentUserId || userId)
         .order("id", { ascending: false })
         .limit(5000);
 
