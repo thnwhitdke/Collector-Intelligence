@@ -31,6 +31,8 @@ const navGroups: NavGroup[] = [
       { href: '/collection/valuation-explorer', label: 'Valuation' },
       { href: '/collection/market-intelligence', label: 'Market' },
       { href: '/collection/market-leaders', label: 'Leaders' },
+      { href: '/collection/rarity', label: 'Rarity' },
+      { href: '/collection/artists', label: 'Artists' },
     ],
   },
   {
