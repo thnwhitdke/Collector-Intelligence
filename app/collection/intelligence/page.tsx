@@ -83,6 +83,9 @@ export default async function IntelligencePage() {
   const rarity = rarityRes.data ?? []
   const momentum = momentumRes.data ?? []
   const warehouse = warehouseRes.data
+
+console.log("WAREHOUSE DEBUG", warehouseRes)
+
   const collection = collectionRes.data ?? []
 
   const ownedRecords = collection.length
