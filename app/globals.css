@@ -90,3 +90,74 @@ textarea {
     overflow-x: hidden;
   }
 }
+
+
+/* --- Mobile iPhone fit fixes --- */
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  main,
+  section,
+  header,
+  nav,
+  footer,
+  div {
+    max-width: 100%;
+  }
+
+  h1,
+  h2,
+  h3,
+  p,
+  span,
+  a,
+  button {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  h1 {
+    font-size: clamp(3rem, 15vw, 5.25rem) !important;
+    line-height: 0.95 !important;
+    letter-spacing: -0.06em !important;
+  }
+
+  .container,
+  .mx-auto {
+    max-width: 100% !important;
+  }
+
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .flex {
+    min-width: 0;
+  }
+
+  .whitespace-nowrap {
+    white-space: normal !important;
+  }
+
+  [class*="min-w-"],
+  [class*="w-["] {
+    min-width: 0 !important;
+  }
+
+  [class*="overflow-x"] {
+    -webkit-overflow-scrolling: touch;
+  }
+}
