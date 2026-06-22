@@ -9,7 +9,8 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "hetzner:intelligence": "node scripts/hetzner-intelligence/run-all.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

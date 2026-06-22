@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "../../src/lib/supabase/server";
+import { createAdminClient } from "../../src/lib/supabase/admin";
 
 type DiscogsPriceSuggestion = {
   value?: number | string | null;
@@ -82,8 +83,15 @@ export async function pullSingleDiscogsValue(formData: FormData) {
   return result;
 }
 
-export async function pullSingleDiscogsCore(formData: FormData) {
-  const supabase = await createClient();
+export async function pullSingleDiscogsCore(
+  formData: FormData,
+  options?: {
+    admin?: boolean;
+  }
+) {
+  const supabase = options?.admin
+    ? createAdminClient()
+    : await createClient();
 
   const id = String(formData.get("id") || "").trim();
   const returnTo = getSafeReturnTo(formData.get("returnTo"));

@@ -85,7 +85,10 @@ export async function recomputeIntelligence(
 
       const result =
         await pullSingleDiscogsCore(
-          formData
+          formData,
+          {
+            admin: true,
+          }
         );
 
       if (
