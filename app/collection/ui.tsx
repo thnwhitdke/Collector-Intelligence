@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { displayArtistName } from "@/src/lib/display/artist";
 
 export type CollectionRecord = {
   id: number | string | null;
@@ -581,7 +582,7 @@ function ListRecords({
 
               <div className="min-w-0">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#C7A45D]">
-                  {record.artist || "Unknown Artist"}
+                  {displayArtistName(record.artist)}
                 </div>
 
                 <Link href={buildRecordHref(record.id)} onClick={saveScrollPosition}>
@@ -659,7 +660,7 @@ function GridRecords({
 
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C7A45D]">
-                  {record.artist || "Unknown Artist"}
+                  {displayArtistName(record.artist)}
                 </div>
 
                 <Link href={buildRecordHref(record.id)} onClick={saveScrollPosition}>
@@ -727,7 +728,7 @@ function TileRecords({
 
               <div className="mt-5">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
-                  {record.artist || "Unknown Artist"}
+                  {displayArtistName(record.artist)}
                 </div>
 
                 <Link href={buildRecordHref(record.id)} onClick={saveScrollPosition}>

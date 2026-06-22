@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import CINavigation from '@/app/components/CINavigation'
 import { createClient } from '@/src/lib/supabase/client'
+import { displayArtistName } from "@/src/lib/display/artist";
 
 export const dynamic = 'force-dynamic'
 
@@ -636,7 +637,7 @@ export default function ValueDashboardPage() {
                     <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-200">
                       {assetTier(record)}
                     </div>
-                    <p className="mt-5 text-sm font-black uppercase tracking-[0.3em] text-[#D8B65A]">{record.artist}</p>
+                    <p className="mt-5 text-sm font-black uppercase tracking-[0.3em] text-[#D8B65A]">{displayArtistName(record.artist)}</p>
                     <h3 className="mt-2 text-4xl font-black text-white">{record.title}</h3>
                     <p className="mt-3 text-sm text-[#A89782]">
                       {[record.label, record.year_released || record.year].filter(Boolean).join(' • ') || 'Release details pending'}
@@ -790,7 +791,7 @@ function MoverPanel({ title, movers, empty }: { title: string; movers: Mover[]; 
             href={`/collection/${mover.recordId}`}
             className="block rounded-2xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-[#D8B65A]/40 hover:bg-white/[0.06]"
           >
-            <p className="font-black text-white">{mover.artist}</p>
+            <p className="font-black text-white">{displayArtistName(mover.artist)}</p>
             <p className="text-xs text-zinc-500">{mover.title}</p>
             <p className="mt-2 text-sm font-bold text-cyan-300">
               {mover.direction === 'up' ? '↗' : '↘'} {percent(mover.percentChange)} · {signedMoney(mover.delta)}

@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { displayArtistName } from "@/src/lib/display/artist";
 import {
   pullBatchDiscogsValues,
   pullBatchMissingCovers,
@@ -195,7 +196,7 @@ export default function EnrichmentQueueActions() {
                   className="rounded-2xl border border-[#3A3328] bg-[#0E0C0A]/75 p-4"
                 >
                   <div className="text-sm font-bold text-[#F4EFE6]">
-                    {record.artist} — {record.title}
+                    {displayArtistName(record.artist)} — {record.title}
                   </div>
 
                   <div className="mt-2 grid gap-2 text-xs text-[#B8AA96] sm:grid-cols-4">
@@ -250,7 +251,7 @@ export default function EnrichmentQueueActions() {
                   </div>
 
                   <div className="mt-3 text-xs font-bold text-[#F4EFE6]">
-                    {record.artist || "Unknown Artist"}
+                    {displayArtistName(record.artist)}
                   </div>
 
                   <div className="mt-1 line-clamp-2 text-xs text-[#B8AA96]">

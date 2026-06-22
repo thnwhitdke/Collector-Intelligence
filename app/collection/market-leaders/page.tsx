@@ -1,5 +1,6 @@
 import { createClient } from "@/src/lib/supabase/server";
 import CINavigation from "@/app/components/CINavigation";
+import { displayArtistName } from "@/src/lib/display/artist";
 
 export default async function MarketLeadersPage() {
   const supabase = await createClient();
@@ -319,7 +320,7 @@ function LeaderboardCard({
                     text-white
                   "
                 >
-                  {row.artist}
+                  {displayArtistName(row.artist)}
                 </div>
 
                 <div

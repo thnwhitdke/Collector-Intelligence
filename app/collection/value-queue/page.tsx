@@ -7,6 +7,7 @@ import {
 } from "../../actions/value-queue";
 import EnrichmentQueueActions from "./EnrichmentQueueActions";
 import CINavigation from '@/app/components/CINavigation'
+import { displayArtistName } from "@/src/lib/display/artist";
 
 function formatMoney(value: string | number | null | undefined) {
   if (value === null || value === undefined || String(value).trim() === "") {
@@ -374,7 +375,7 @@ export default async function ValueQueuePage() {
                       </div>
 
                       <div className="mt-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C7A45D]">
-                        {record.artist || "Unknown Artist"}
+                        {displayArtistName(record.artist)}
                       </div>
 
                       <h2 className="mt-2 text-2xl font-bold leading-tight tracking-tight">

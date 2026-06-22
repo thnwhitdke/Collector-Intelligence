@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ValueRankingRecord } from "../actions/value-rankings";
+import { displayArtistName } from "@/src/lib/display/artist";
 
 type Props = {
   topEstimated: ValueRankingRecord[];
@@ -170,7 +171,7 @@ function RankingRow({
           {record.title || "Untitled"}
         </p>
         <p className="truncate text-xs text-[#B8AA96]">
-          {record.artist || "Unknown Artist"}
+          {displayArtistName(record.artist)}
         </p>
       </div>
 

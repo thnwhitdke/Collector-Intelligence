@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { pullBatchDiscogsValues } from "@/app/actions/value-queue";
+import { displayArtistName } from "@/src/lib/display/artist";
 
 type PulledRecord = {
   id: string;
@@ -91,7 +92,7 @@ export default function DiscogsValuePullButton() {
                     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                       <div>
                         <p className="font-semibold text-slate-100">
-                          {index + 1}. {record.artist}
+                          {index + 1}. {displayArtistName(record.artist)}
                         </p>
                         <p className="text-slate-400">{record.title}</p>
                         <p className="mt-1 text-xs text-slate-500">

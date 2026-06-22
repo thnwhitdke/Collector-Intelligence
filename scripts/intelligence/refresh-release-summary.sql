@@ -1,0 +1,1 @@
+refresh materialized view release_intelligence_summary;
