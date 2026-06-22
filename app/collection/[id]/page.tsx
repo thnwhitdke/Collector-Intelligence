@@ -340,7 +340,7 @@ export default async function RecordDetailPage({
     .eq("record_id", id)
     .maybeSingle();
 
-  const { data: valuationConflict } = await supabase
+  const { data: valuationConflict } = await createAdminClient()
     .from("valuation_conflict_metrics")
     .select("*")
     .eq("record_id", Number(id))
