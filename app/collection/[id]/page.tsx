@@ -340,6 +340,13 @@ export default async function RecordDetailPage({
     .eq("record_id", id)
     .maybeSingle();
 
+  const { data: valuationConflict } = await supabase
+    .from("valuation_conflict_metrics")
+    .select("*")
+    .eq("record_id", Number(id))
+    .neq("conflict_type", "aligned")
+    .maybeSingle();
+
   const { data: auctionSummary } = await supabase
     .from("external_market_comp_summary_safe")
     .select(`
@@ -399,6 +406,14 @@ export default async function RecordDetailPage({
 
   const auctionPremiumPercent =
     consensusV2?.auction_premium_percent;
+
+  const hasValuationConflict = Boolean(valuationConflict);
+  const valuationConflictDirection =
+    valuationConflict?.conflict_type === "auction_far_above_estimate"
+      ? "Auction evidence is far above the stored estimate."
+      : valuationConflict?.conflict_type === "auction_far_below_estimate"
+        ? "Auction median is far below the stored estimate, but high-end comps may still support rare variants."
+        : "Auction evidence differs materially from the stored estimate.";
   const estimatedValue = money(getValue(record, "estimated_value"));
   const discogsBenchmark = money(getValue(record, "discogs_median_price"));
   const demandScore = displayValue(getValue(record, "demand_score"));
@@ -874,6 +889,58 @@ export default async function RecordDetailPage({
                 </p>
               </div>
             </section>
+
+            {hasValuationConflict ? (
+              <section className="rounded-[32px] border border-amber-400/30 bg-amber-400/10 p-6 shadow-xl backdrop-blur-xl">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-200">
+                  Valuation Conflict Detected
+                </p>
+                <h2 className="mt-3 text-3xl font-black text-white">
+                  Auction Evidence Differs From Stored Estimate
+                </h2>
+                <p className="mt-3 text-sm leading-7 text-amber-100/80">
+                  {valuationConflictDirection}
+                </p>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-4">
+                  <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                      Stored Estimate
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-white">
+                      {money(valuationConflict?.estimated_value)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                      Auction Median
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-white">
+                      {money(valuationConflict?.auction_median)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                      Auction High
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-white">
+                      {money(valuationConflict?.auction_high)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                      Difference
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-white">
+                      {Number(valuationConflict?.difference_percent ?? 0).toFixed(2)}%
+                    </p>
+                  </div>
+                </div>
+              </section>
+            ) : null}
 
             <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-xl backdrop-blur-xl">
               <div className="grid gap-4 md:grid-cols-3">
