@@ -310,7 +310,7 @@ export default function CollectionPage() {
       const cleaned = searchTerm.trim().toLowerCase();
 
       if (!cleaned) {
-        setCollectionRecords(rows.slice(0, 1000));
+        setCollectionRecords(rows);
       } else {
         const terms = cleaned.split(/\s+/).filter(Boolean);
 
