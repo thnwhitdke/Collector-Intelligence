@@ -19,10 +19,27 @@ function cleanSearchPart(value: unknown): string {
     .trim();
 }
 
+function displayArtistName(value: unknown): string {
+  const raw = cleanSearchPart(value);
+
+  if (!raw.includes(",")) return raw;
+
+  const [last, ...rest] = raw.split(",");
+  const first = rest.join(" ").trim();
+
+  if (!last.trim() || !first) return raw;
+
+  return `${first} ${last.trim()}`;
+}
+
 function uniqueSearchQueries(record: any): string[] {
   const artist = cleanSearchPart(record.artist);
+  const displayArtist = displayArtistName(record.artist);
   const title = cleanSearchPart(record.title);
   const catalogue = cleanSearchPart(record.catalogue_number);
+  const label = cleanSearchPart(record.label);
+  const country = cleanSearchPart(record.country);
+  const year = cleanSearchPart(String(record.year ?? ""));
 
   const titleNoParenthetical = title
     .replace(/\([^)]*\)/g, " ")
@@ -31,6 +48,11 @@ function uniqueSearchQueries(record: any): string[] {
     .trim();
 
   const queries = [
+    [displayArtist, title, label, catalogue].filter(Boolean).join(" "),
+    [displayArtist, title, label].filter(Boolean).join(" "),
+    [displayArtist, title, catalogue].filter(Boolean).join(" "),
+    [displayArtist, title, country, year].filter(Boolean).join(" "),
+    [displayArtist, title, "promo"].filter(Boolean).join(" "),
     [artist, title, catalogue].filter(Boolean).join(" "),
     [artist, title].filter(Boolean).join(" "),
     [artist, titleNoParenthetical].filter(Boolean).join(" "),
@@ -288,7 +310,7 @@ export async function GET(request: Request) {
   for (const job of jobs) {
     const { data: record, error: recordError } = await supabase
       .from("records_clean_safe")
-      .select("id, artist, title, catalogue_number, discogs_release_id")
+      .select("id, artist, title, label, catalogue_number, country, year, discogs_release_id")
       .eq("id", job.record_id)
       .single();
 
