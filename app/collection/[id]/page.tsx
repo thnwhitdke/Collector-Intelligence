@@ -24,6 +24,7 @@ import {
 import ValueIntelligenceCard from "../../components/ValueIntelligenceCard";
 import ManualValueCompForm from "../../components/ManualValueCompForm";
 import { createAdminClient } from "@/src/lib/supabase/admin";
+import { displayArtistName } from "@/src/lib/display/artist";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -387,7 +388,7 @@ export default async function RecordDetailPage({
 
 
   const title = getText(record, "title") || "Untitled";
-  const artist = getText(record, "artist") || "Unknown Artist";
+  const artist = displayArtistName(getText(record, "artist"));
 
   const coverUrl = getText(record, "cover_url");
 
@@ -870,7 +871,7 @@ export default async function RecordDetailPage({
                       Artist
                     </p>
                     <p className="mt-2 text-lg font-black text-white">
-                      {warehouseRarity.artist ?? "—"}
+                      {displayArtistName(warehouseRarity.artist)}
                     </p>
                   </div>
 
@@ -1614,7 +1615,7 @@ export default async function RecordDetailPage({
                       Artist
                     </p>
                     <p className="mt-2 text-lg font-black text-white">
-                      {warehouseRarity.artist ?? "—"}
+                      {displayArtistName(warehouseRarity.artist)}
                     </p>
                   </div>
 
