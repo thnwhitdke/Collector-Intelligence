@@ -100,11 +100,33 @@ console.log("WAREHOUSE DEBUG", warehouseRes)
   const warehouseLabels = Number(warehouse?.labels || 0)
   const warehouseCountries = Number(warehouse?.countries || 0)
 
-  const Table = ({ title, rows, scoreKey }: any) => (
+  const fallbackValueRows = [...collection]
+    .sort((a, b) => Number(b.estimated_value || 0) - Number(a.estimated_value || 0))
+    .slice(0, 10)
+    .map((r) => ({
+      record_id: r.id,
+      artist: r.artist,
+      title: r.title,
+      intelligence_reason_v2: `${r.label || "Unknown label"} • ${r.country || "Unknown country"} • ${r.format || "Unknown format"}`,
+      fallback_score: money(r.estimated_value),
+    }))
+
+  const fallbackMatchedRows = [...collection]
+    .filter((r) => String(r.discogs_release_id || "").trim())
+    .slice(0, 10)
+    .map((r) => ({
+      record_id: r.id,
+      artist: r.artist,
+      title: r.title,
+      intelligence_reason_v2: `Discogs ${r.discogs_release_id} • ${r.label || "Unknown label"} • ${r.country || "Unknown country"}`,
+      fallback_score: "Matched",
+    }))
+
+  const Table = ({ title, rows, scoreKey, fallbackRows }: any) => (
     <section className="rounded-2xl border border-white/10 bg-[#111111] p-5">
       <h2 className="mb-4 text-xl font-semibold">{title}</h2>
       <div className="space-y-3">
-        {(rows || []).map((r: any) => (
+        {((rows && rows.length > 0) ? rows : fallbackRows || []).map((r: any) => (
           <Link
             key={`${title}-${r.record_id}`}
             href={`/collection/${r.record_id}?returnTo=/collection/intelligence`}
@@ -117,7 +139,7 @@ console.log("WAREHOUSE DEBUG", warehouseRes)
                 <div className="mt-1 text-xs text-[#8E8170]">{r.intelligence_reason_v2}</div>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold">{r[scoreKey]}</div>
+                <div className="text-2xl font-bold">{r[scoreKey] ?? r.fallback_score ?? "—"}</div>
                 <div className="text-xs text-[#B8AA96]">Score</div>
               </div>
             </div>
@@ -199,9 +221,9 @@ console.log("WAREHOUSE DEBUG", warehouseRes)
         </section>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <Table title="Highest Demand" rows={demand} scoreKey="demand_score_v2" />
-          <Table title="Rarest Releases" rows={rarity} scoreKey="rarity_score_v2" />
-          <Table title="Highest Momentum" rows={momentum} scoreKey="momentum_score_v2" />
+          <Table title="Highest Demand" rows={demand} scoreKey="demand_score_v2" fallbackRows={fallbackMatchedRows} />
+          <Table title="Rarest Releases" rows={rarity} scoreKey="rarity_score_v2" fallbackRows={fallbackValueRows} />
+          <Table title="Highest Momentum" rows={momentum} scoreKey="momentum_score_v2" fallbackRows={fallbackValueRows} />
         </div>
       </div>
     </main>
