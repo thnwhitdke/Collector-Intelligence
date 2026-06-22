@@ -79,7 +79,7 @@ export default async function IntelligencePage() {
       .limit(10000),
 
     admin
-      .from("artist_collection_depth")
+      .from("artist_collection_depth_metrics")
       .select("*")
       .eq("user_id", userId)
       .order("owned_records", { ascending: false })
