@@ -1,5 +1,7 @@
 import CINavigation from "@/app/components/CINavigation";
 import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createClient } from "@/src/lib/supabase/server";
+import { redirect } from "next/navigation";
 import {
   addFavoriteArtist,
   deleteFavoriteArtist,
@@ -16,11 +18,22 @@ type FavoriteArtist = {
 };
 
 export default async function FavoriteArtistsPage() {
+  const userSupabase = await createClient();
+
+  const {
+    data: { user },
+  } = await userSupabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
+
   const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from("favorite_artists")
     .select("*")
+    .eq("user_id", user.id)
     .order("artist_name", { ascending: true });
 
   const artists = (data || []) as FavoriteArtist[];

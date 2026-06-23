@@ -1,5 +1,7 @@
 import CINavigation from "@/app/components/CINavigation";
 import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createClient } from "@/src/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -94,6 +96,16 @@ function acquisitionReasons(item: RadarItem) {
 }
 
 export default async function AcquisitionRadarPage() {
+  const userSupabase = await createClient();
+
+  const {
+    data: { user },
+  } = await userSupabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
+
   const supabase = createAdminClient();
 
   const { data, error } = await supabase
@@ -110,6 +122,7 @@ export default async function AcquisitionRadarPage() {
       signal_type,
       observed_at
     `)
+    .eq("user_id", user.id)
     .order("observed_at", { ascending: false })
     .limit(100);
 

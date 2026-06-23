@@ -1,6 +1,8 @@
 import Link from "next/link";
 import CINavigation from "@/app/components/CINavigation";
 import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createClient } from "@/src/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { curateTracks } from "@/app/actions/mood-curation";
 import { saveMoodSession } from "@/app/actions/saved-mood-sessions";
 
@@ -330,6 +332,16 @@ function nextTwoHourCronEta() {
   return `~${hours}h ${minutes}m`;
 }
 async function getData(query: string) {
+  const userSupabase = await createClient();
+
+  const {
+    data: { user },
+  } = await userSupabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
+
   const supabase = createAdminClient();
 
   const normalizedQuery = query.trim();
