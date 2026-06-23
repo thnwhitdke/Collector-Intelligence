@@ -26,8 +26,8 @@ export default function LoginPage() {
           </h2>
 
           <p className="mt-8 max-w-xl text-lg leading-8 text-[#B7AA96]">
-            Access portfolio analytics, market behavior, enrichment systems,
-            track intelligence, and collector-grade signals.
+            Access collection search, value dashboards, rarity intelligence,
+            market signals, scanner tools, and daily collector briefings.
           </p>
         </div>
 
@@ -60,7 +60,7 @@ export default function LoginPage() {
             </div>
 
             <p className="mt-5 leading-7 text-[#B7AA96]">
-              Launch your private Collector Intelligence workspace.
+              Launch your private Collector Intelligence workspace. Free accounts include every feature for up to 15 records.
             </p>
 
             <form action={login} className="mt-8 space-y-5">
@@ -91,10 +91,10 @@ export default function LoginPage() {
             <div className="mt-7 border-t border-white/10 pt-6 text-center">
               <p className="text-sm text-[#B7AA96]">New to Collector Intelligence?</p>
               <Link
-                href="/auth/signup"
+                href="/signup"
                 className="mt-3 inline-flex rounded-2xl border border-white/10 px-5 py-3 text-sm font-semibold transition hover:border-[#C7A45D]/40 hover:bg-white/[0.03]"
               >
-                Create Account
+                Create Free Account
               </Link>
             </div>
           </div>
