@@ -83,13 +83,18 @@ export default async function RarityPage({
       ? rows
       : rows.filter((r: any) => r.warehouse_rarity_label === activeRarity)
 
-  const elite = filteredRows.filter((r: any) => r.warehouse_rarity_label === "Elite").slice(0, 25)
-  const veryRare = filteredRows.filter((r: any) => r.warehouse_rarity_label === "Very Rare").slice(0, 25)
-  const rare = filteredRows.filter((r: any) => r.warehouse_rarity_label === "Rare").slice(0, 25)
-  const valuableRare = [...filteredRows]
-    .filter((r: any) => ["Elite", "Very Rare", "Rare", "Uncommon", "Common"].includes(r.warehouse_rarity_label))
+  const sortedFilteredRows = [...filteredRows]
     .sort((a: any, b: any) => Number(b.value || 0) - Number(a.value || 0))
-    .slice(0, 25)
+    .slice(0, 50)
+
+  const segmentHelpers: Record<string, string> = {
+    all: "Highest-value records across all warehouse match profile segments.",
+    Elite: "Ultra-thin artist-label reference presence. This means the artist and label pairing is rarely represented in the warehouse, not necessarily that market supply is low.",
+    "Very Rare": "Very limited artist-label reference presence in the warehouse.",
+    Rare: "Limited artist-label reference presence in the warehouse.",
+    Uncommon: "Moderate artist-label reference presence in the warehouse.",
+    Common: "Broad artist-label reference presence in the warehouse.",
+  }
 
   const CardList = ({ title, helper, data }: any) => (
     <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
@@ -166,11 +171,12 @@ export default async function RarityPage({
           </Link>
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <CardList title={activeRarity === "all" ? "Most Valuable Rare Records" : `${activeRarity} Records`} helper="Records sorted by highest current value inside the selected rarity segment." data={valuableRare} />
-          <CardList title="Elite Records" helper="No exact artist-label warehouse match found or only ultra-thin reference presence." data={elite} />
-          <CardList title="Very Rare Records" helper="Five or fewer similar artist-label releases in the warehouse." data={veryRare} />
-          <CardList title="Rare Records" helper="Twenty-five or fewer similar artist-label releases in the warehouse." data={rare} />
+        <div className="grid gap-6">
+          <CardList
+            title={activeRarity === "all" ? "Highest Value Indexed Records" : `${activeRarity} Match Profile Records`}
+            helper={segmentHelpers[activeRarity] ?? "Records sorted by highest current value inside the selected segment."}
+            data={sortedFilteredRows}
+          />
         </div>
       </div>
     </main>
