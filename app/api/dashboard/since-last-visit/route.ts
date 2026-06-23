@@ -104,6 +104,7 @@ export async function GET() {
       .from("records_clean_safe")
       .select("id,artist,title,estimated_value")
       .eq("id", topTrend.data[0].record_id)
+      .eq("user_id", user.id)
       .maybeSingle();
 
     topTrendRecord = record ?? null;
