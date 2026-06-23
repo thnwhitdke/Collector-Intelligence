@@ -847,7 +847,7 @@ export default async function RecordDetailPage({
             {warehouseRarity ? (
               <section className="rounded-[32px] border border-cyan-400/25 bg-cyan-400/10 p-6 shadow-xl backdrop-blur-xl">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-200">
-                  Warehouse Rarity
+                  Warehouse Match Profile
                 </p>
                 <h2 className="mt-3 text-3xl font-black text-white">
                   {warehouseRarity.warehouse_rarity_label}
@@ -859,7 +859,7 @@ export default async function RecordDetailPage({
                 <div className="mt-5 grid gap-4 md:grid-cols-3">
                   <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
-                      Similar Warehouse Releases
+                      Similar Artist/Label Matches
                     </p>
                     <p className="mt-2 text-3xl font-black text-white">
                       {Number(warehouseRarity.warehouse_similar_releases || 0).toLocaleString()}
@@ -1591,7 +1591,7 @@ export default async function RecordDetailPage({
             {warehouseRarity ? (
               <section className="rounded-[32px] border border-cyan-400/25 bg-cyan-400/10 p-6 shadow-xl backdrop-blur-xl">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-200">
-                  Warehouse Rarity
+                  Warehouse Match Profile
                 </p>
                 <h2 className="mt-3 text-3xl font-black text-white">
                   {warehouseRarity.warehouse_rarity_label}
@@ -1603,7 +1603,7 @@ export default async function RecordDetailPage({
                 <div className="mt-5 grid gap-4 md:grid-cols-3">
                   <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
-                      Similar Warehouse Releases
+                      Similar Artist/Label Matches
                     </p>
                     <p className="mt-2 text-3xl font-black text-white">
                       {Number(warehouseRarity.warehouse_similar_releases || 0).toLocaleString()}

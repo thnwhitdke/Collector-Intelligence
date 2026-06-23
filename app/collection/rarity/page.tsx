@@ -131,7 +131,7 @@ export default async function RarityPage({
       <div className="mx-auto max-w-7xl space-y-8 px-6 py-10">
         <div>
           <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">
-            Warehouse Rarity
+            Warehouse Match Profile
           </div>
           <h1 className="mt-3 text-4xl font-black">Portfolio Rarity Intelligence</h1>
           <p className="mt-2 max-w-4xl text-[#B8AA96]">
