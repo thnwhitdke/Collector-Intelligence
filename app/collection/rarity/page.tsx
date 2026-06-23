@@ -40,7 +40,7 @@ export default async function RarityPage({
       .select("*")
       .eq("user_id", user?.id)
       .order("warehouse_similar_releases", { ascending: true })
-      .limit(300),
+      .limit(5000),
 
     admin
       .from("record_warehouse_rarity_metrics")
@@ -54,34 +54,46 @@ export default async function RarityPage({
   const { data: records } = recordIds.length
     ? await admin
         .from("records_clean_safe")
-        .select("id, estimated_value, market_consensus_value, discogs_median_price")
+        .select("id, estimated_value, market_consensus_value, discogs_median_price, market_num_for_sale, discogs_for_sale")
         .in("id", recordIds)
     : { data: [] }
 
-  const valueByRecord = new Map(
-    (records ?? []).map((r: any) => [
-      Number(r.id),
-      Number(r.market_consensus_value || r.estimated_value || r.discogs_median_price || 0),
-    ])
-  )
+  const recordById = new Map((records ?? []).map((r: any) => [Number(r.id), r]))
 
-  const rows = (rarityRows ?? []).map((row: any) => ({
-    ...row,
-    value: valueByRecord.get(Number(row.record_id)) ?? 0,
-  }))
+  function pressingAvailability(forSale: number | null) {
+    if (forSale === null || forSale === undefined) return "Unknown"
+    if (forSale === 0) return "Elite"
+    if (forSale <= 3) return "Very Rare"
+    if (forSale <= 10) return "Rare"
+    if (forSale <= 25) return "Uncommon"
+    return "Common"
+  }
+
+  const rows = (rarityRows ?? []).map((row: any) => {
+    const record = recordById.get(Number(row.record_id))
+    const forSaleRaw = record?.market_num_for_sale ?? record?.discogs_for_sale
+    const forSale = forSaleRaw === null || forSaleRaw === undefined ? null : Number(forSaleRaw)
+
+    return {
+      ...row,
+      value: Number(record?.market_consensus_value || record?.estimated_value || record?.discogs_median_price || 0),
+      copies_for_sale: forSale,
+      collector_rarity_label: pressingAvailability(forSale),
+    }
+  })
 
   const rarityCounts = {
-    Elite: (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Elite").length,
-    "Very Rare": (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Very Rare").length,
-    Rare: (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Rare").length,
-    Uncommon: (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Uncommon").length,
-    Common: (allRarityRows ?? []).filter((r: any) => r.warehouse_rarity_label === "Common").length,
+    Elite: rows.filter((r: any) => r.collector_rarity_label === "Elite").length,
+    "Very Rare": rows.filter((r: any) => r.collector_rarity_label === "Very Rare").length,
+    Rare: rows.filter((r: any) => r.collector_rarity_label === "Rare").length,
+    Uncommon: rows.filter((r: any) => r.collector_rarity_label === "Uncommon").length,
+    Common: rows.filter((r: any) => r.collector_rarity_label === "Common").length,
   }
 
   const filteredRows =
     activeRarity === "all"
       ? rows
-      : rows.filter((r: any) => r.warehouse_rarity_label === activeRarity)
+      : rows.filter((r: any) => r.collector_rarity_label === activeRarity)
 
   const sortedFilteredRows = [...filteredRows]
     .sort((a: any, b: any) => Number(b.value || 0) - Number(a.value || 0))
@@ -89,11 +101,11 @@ export default async function RarityPage({
 
   const segmentHelpers: Record<string, string> = {
     all: "Highest-value records across all warehouse match profile segments.",
-    Elite: "Ultra-thin artist-label reference presence. This means the artist and label pairing is rarely represented in the warehouse, not necessarily that market supply is low.",
-    "Very Rare": "Very limited artist-label reference presence in the warehouse.",
-    Rare: "Limited artist-label reference presence in the warehouse.",
-    Uncommon: "Moderate artist-label reference presence in the warehouse.",
-    Common: "Broad artist-label reference presence in the warehouse.",
+    Elite: "No current marketplace copies found for this specific pressing.",
+    "Very Rare": "Three or fewer current marketplace copies found for this specific pressing.",
+    Rare: "Ten or fewer current marketplace copies found for this specific pressing.",
+    Uncommon: "Twenty-five or fewer current marketplace copies found for this specific pressing.",
+    Common: "More than twenty-five current marketplace copies found for this specific pressing.",
   }
 
   const CardList = ({ title, helper, data }: any) => (
@@ -113,12 +125,12 @@ export default async function RarityPage({
                 <div className="font-black text-white">{displayArtistName(row.artist)}</div>
                 <div className="mt-1 text-sm text-[#B8AA96]">{row.title}</div>
                 <div className="mt-1 text-xs text-[#8E8170]">
-                  {row.label || "Unknown label"} • {num(row.warehouse_similar_releases)} similar
+                  {row.label || "Unknown label"} • {row.copies_for_sale ?? "—"} copies for sale
                 </div>
               </div>
               <div className="text-right">
                 <div className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-xs font-black text-cyan-200">
-                  {row.warehouse_rarity_label}
+                  {row.collector_rarity_label}
                 </div>
                 <div className="mt-2 text-sm font-black text-[#F4CD68]">{money(row.value)}</div>
               </div>
@@ -136,11 +148,11 @@ export default async function RarityPage({
       <div className="mx-auto max-w-7xl space-y-8 px-6 py-10">
         <div>
           <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">
-            Warehouse Match Profile
+            Pressing Rarity
           </div>
           <h1 className="mt-3 text-4xl font-black">Portfolio Rarity Intelligence</h1>
           <p className="mt-2 max-w-4xl text-[#B8AA96]">
-            Your rarest, most unusual, and most valuable warehouse-matched records across the 5M-release Collector Intelligence reference layer.
+            Items are classified by how available this specific pressing is in the current marketplace.
           </p>
         </div>
 
@@ -173,7 +185,7 @@ export default async function RarityPage({
 
         <div className="grid gap-6">
           <CardList
-            title={activeRarity === "all" ? "Highest Value Indexed Records" : `${activeRarity} Match Profile Records`}
+            title={activeRarity === "all" ? "Highest Value Indexed Records" : `${activeRarity} Pressing Records`}
             helper={segmentHelpers[activeRarity] ?? "Records sorted by highest current value inside the selected segment."}
             data={sortedFilteredRows}
           />
