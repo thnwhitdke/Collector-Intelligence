@@ -1,6 +1,8 @@
 import CINavigation from "@/app/components/CINavigation";
 import Link from "next/link";
 import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createClient } from "@/src/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +138,16 @@ export default async function IntegrityCenterPage({
   const params = await searchParams;
   const selectedIssue = params.issue || "";
 
+  const userSupabase = await createClient();
+
+  const {
+    data: { user },
+  } = await userSupabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
+
   const supabase = createAdminClient();
 
   const { data } = await supabase
@@ -156,6 +168,7 @@ export default async function IntegrityCenterPage({
       discogs_median_price,
       market_median_price
     `)
+    .eq("user_id", user.id)
     .limit(10000);
 
   const records = (data || []) as RecordRow[];
