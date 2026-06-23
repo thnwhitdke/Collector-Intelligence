@@ -31,6 +31,7 @@ function SiteFooter() {
         <p>© {new Date().getFullYear()} Collector Intelligence. All rights reserved.</p>
         <nav className="flex flex-wrap gap-4">
           <Link href="/about" className="hover:text-amber-300">About</Link>
+          <Link href="/how-it-works" className="hover:text-amber-300">How It Works</Link>
           <Link href="/pricing" className="hover:text-amber-300">Pricing</Link>
           <Link href="/account" className="hover:text-amber-300">Account</Link>
           <Link href="/privacy" className="hover:text-amber-300">Privacy</Link>
