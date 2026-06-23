@@ -1,5 +1,6 @@
 import CINavigation from "@/app/components/CINavigation";
-import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createClient } from "@/src/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,15 @@ export default async function ValuationExplorerPage({
 
   const selected = dimensions.find((dimension) => dimension.key === by) || dimensions[0];
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
 
   const { data, error } = await supabase
     .from("records_clean_safe")
@@ -131,6 +140,7 @@ export default async function ValuationExplorerPage({
       market_consensus_value,
       discogs_median_price
     `)
+    .eq("user_id", user.id)
     .limit(10000);
 
   const records = (data || []) as RawRecord[];
