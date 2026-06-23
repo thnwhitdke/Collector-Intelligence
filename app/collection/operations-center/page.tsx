@@ -424,7 +424,7 @@ export default async function OperationsCenterPage({
 
         {topObservation ? (
           <section className={`rounded-[38px] border p-7 shadow-2xl ${priorityTone(topObservation.priority)}`}>
-            <div className="grid gap-6 lg:grid-cols-[1fr_260px] lg:items-center">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-6">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.32em]">
                   Today's Most Important Signal
