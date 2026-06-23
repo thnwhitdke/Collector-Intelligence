@@ -23,13 +23,13 @@ export default async function ArtistIntelligencePage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data: artists }, { data: iq }, { data: rarity }, { data: dominance }, { data: signals }] = await Promise.all([
+  const [{ data: artists, count: totalArtists }, { data: iq }, { data: rarity }, { data: dominance }, { data: signals }] = await Promise.all([
     admin
       .from("artist_collection_depth_metrics")
-      .select("*")
+      .select("*", { count: "exact" })
       .eq("user_id", user?.id)
       .order("coverage_percent", { ascending: false })
-      .limit(100),
+      .limit(5000),
     admin.from("artist_iq_leaderboard").select("*").limit(10),
     admin.from("artist_rarity_view").select("*").limit(10),
     admin.from("artist_dominance_view").select("*").limit(10),
@@ -130,7 +130,7 @@ export default async function ArtistIntelligencePage() {
         <section className="grid gap-4 md:grid-cols-3">
           <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
             <div className="text-sm text-[#B8AA96]">Tracked Artists</div>
-            <div className="mt-2 text-4xl font-black">{num(rows.length)}</div>
+            <div className="mt-2 text-4xl font-black">{num(totalArtists ?? rows.length)}</div>
           </div>
           <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
             <div className="text-sm text-[#B8AA96]">Top Coverage</div>
