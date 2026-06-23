@@ -176,7 +176,7 @@ console.log("WAREHOUSE DEBUG", warehouseRes)
         </div>
 
         {portfolio && (
-          <section className="grid gap-4 md:grid-cols-4">
+          <section className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
             <Card label="Portfolio Value" value={money(portfolio.portfolio_value)} helper="Current intelligence valuation" />
             <Card label="Avg Demand" value={portfolio.avg_demand_score} helper="Demand signal across owned records" />
             <Card label="Avg Scarcity" value={portfolio.avg_rarity_score} helper="Scarcity score across collection" />
