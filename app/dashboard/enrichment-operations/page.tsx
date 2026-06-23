@@ -216,7 +216,7 @@ export default function EnrichmentOperationsDashboard() {
       <div className="min-h-screen bg-black p-10 text-white">
         <div className="animate-pulse space-y-6">
           <div className="h-12 w-96 rounded bg-zinc-900" />
-          <div className="grid gap-6 md:grid-cols-4">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-5">
             {Array.from({ length: 8 }).map((_, index) => (
               <div key={index} className="h-36 rounded-3xl bg-zinc-900" />
             ))}
