@@ -32,6 +32,7 @@ function SiteFooter() {
         <nav className="flex flex-wrap gap-4">
           <Link href="/about" className="hover:text-amber-300">About</Link>
           <Link href="/pricing" className="hover:text-amber-300">Pricing</Link>
+          <Link href="/account" className="hover:text-amber-300">Account</Link>
           <Link href="/privacy" className="hover:text-amber-300">Privacy</Link>
           <Link href="/terms" className="hover:text-amber-300">Terms</Link>
           <Link href="/contact" className="hover:text-amber-300">Contact</Link>
