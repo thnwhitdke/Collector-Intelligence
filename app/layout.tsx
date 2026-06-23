@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import AutoRefresh from "@/app/components/AutoRefresh";
+import ClarityAnalytics from "@/app/components/ClarityAnalytics";
 
 export const viewport = {
   width: 'device-width',
@@ -51,6 +52,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <ClarityAnalytics />
         <AutoRefresh />
         {children}
         <SiteFooter />

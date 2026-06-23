@@ -1,0 +1,7 @@
+◇ injected env (9) from .env.local // tip: ⌘ enable debugging { debug: true }
+{
+  code: '57014',
+  details: null,
+  hint: null,
+  message: 'canceling statement due to statement timeout'
+}
