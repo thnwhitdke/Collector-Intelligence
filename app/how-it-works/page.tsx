@@ -5,7 +5,7 @@ export const dynamic = "force-static";
 export default function HowItWorksPage() {
 return ( <main className="min-h-screen bg-[#090909] text-[#F4EFE6]"> <div className="mx-auto max-w-6xl px-6 py-16">
 
-```
+
     <div className="text-center">
       <div className="text-sm uppercase tracking-[0.4em] text-cyan-300 font-black">
         Collector Intelligence
@@ -154,7 +154,7 @@ return ( <main className="min-h-screen bg-[#090909] text-[#F4EFE6]"> <div classN
 
   </div>
 </main>
-```
+
 
 );
 }
