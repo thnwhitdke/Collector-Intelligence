@@ -199,9 +199,49 @@ export default async function ArtistIntelligencePage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <IntelligenceList title="Artist IQ Leaders" helper="Composite artist intelligence score from depth, rarity, and demand." data={iqRows} metric="artist_iq_score" label="IQ Score" />
-          <IntelligenceList title="Rarity Leaders" helper="Artists with the strongest average rarity signal." data={rarityRows} metric="rarity_score" label="Rarity" />
-          <IntelligenceList title="Dominance Leaders" helper="Artists with the largest share of your collection." data={dominanceRows} metric="portfolio_percent" label="Portfolio %" />
+          <ArtistList
+            title="Artist IQ Leaders"
+            helper="Artists with the strongest combined depth, warehouse coverage, and collection signal."
+            data={[...rows]
+              .map((row: any) => ({
+                ...row,
+                coverage_percent:
+                  Math.round(
+                    (Number(row.coverage_percent || 0) + Number(row.owned_records || 0) * 2) * 100
+                  ) / 100,
+              }))
+              .sort((a: any, b: any) => Number(b.coverage_percent || 0) - Number(a.coverage_percent || 0))
+              .slice(0, 10)}
+          />
+
+          <ArtistList
+            title="Rarity Leaders"
+            helper="Artists where your ownership is meaningful but warehouse availability is comparatively limited."
+            data={[...rows]
+              .filter((row: any) => Number(row.warehouse_releases || 0) > 0)
+              .map((row: any) => ({
+                ...row,
+                coverage_percent:
+                  Math.round(
+                    Math.min(
+                      100,
+                      Number(row.owned_records || 0) /
+                        Math.max(Number(row.warehouse_releases || 1), 1) *
+                        100
+                    ) * 100
+                  ) / 100,
+              }))
+              .sort((a: any, b: any) => Number(b.coverage_percent || 0) - Number(a.coverage_percent || 0))
+              .slice(0, 10)}
+          />
+
+          <ArtistList
+            title="Dominance Leaders"
+            helper="Artists with the largest number of records in your current collection."
+            data={[...rows]
+              .sort((a: any, b: any) => Number(b.owned_records || 0) - Number(a.owned_records || 0))
+              .slice(0, 10)}
+          />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
