@@ -371,7 +371,7 @@ export default async function OperationsCenterPage({
                 Top Signal
               </p>
 
-              <p className="mt-4 text-4xl font-black text-white">
+              <p className="mt-4 break-words text-3xl font-black sm:text-4xl text-white">
                 {topSignal?.artist || "Building"}
               </p>
 
@@ -430,7 +430,7 @@ export default async function OperationsCenterPage({
                   Today's Most Important Signal
                 </p>
 
-                <h2 className="mt-3 text-4xl font-black text-white">
+                <h2 className="mt-3 break-words text-3xl font-black sm:text-4xl text-white">
                   {topObservation.artist_name}
                 </h2>
 
