@@ -23,14 +23,24 @@ export default async function ArtistIntelligencePage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: artists } = await admin
-    .from("artist_collection_depth_metrics")
-    .select("*")
-    .eq("user_id", user?.id)
-    .order("coverage_percent", { ascending: false })
-    .limit(100)
+  const [{ data: artists }, { data: iq }, { data: rarity }, { data: dominance }, { data: signals }] = await Promise.all([
+    admin
+      .from("artist_collection_depth_metrics")
+      .select("*")
+      .eq("user_id", user?.id)
+      .order("coverage_percent", { ascending: false })
+      .limit(100),
+    admin.from("artist_iq_leaderboard").select("*").limit(10),
+    admin.from("artist_rarity_view").select("*").limit(10),
+    admin.from("artist_dominance_view").select("*").limit(10),
+    admin.from("artist_signal_overview").select("*").order("avg_demand_score", { ascending: false }).limit(10),
+  ])
 
   const rows = artists ?? []
+  const iqRows = iq ?? []
+  const rarityRows = rarity ?? []
+  const dominanceRows = dominance ?? []
+  const signalRows = signals ?? []
 
   const topCoverage = rows.filter((r: any) => Number(r.warehouse_releases || 0) >= 10).slice(0, 10)
   const deepest = [...rows].sort((a: any, b: any) => Number(b.owned_records || 0) - Number(a.owned_records || 0)).slice(0, 10)
@@ -38,6 +48,39 @@ export default async function ArtistIntelligencePage() {
     .filter((r: any) => Number(r.warehouse_releases || 0) >= 100 && Number(r.coverage_percent || 0) < 5)
     .sort((a: any, b: any) => Number(b.owned_records || 0) - Number(a.owned_records || 0))
     .slice(0, 10)
+
+  const IntelligenceList = ({ title, helper, data, metric, label }: any) => (
+    <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+      <h2 className="text-2xl font-black">{title}</h2>
+      <p className="mt-2 text-sm text-[#B8AA96]">{helper}</p>
+
+      <div className="mt-6 space-y-3">
+        {data.map((row: any) => {
+          const artistName = displayArtistName(row.artist_name ?? row.artist)
+          return (
+            <Link
+              key={`${title}-${artistName}`}
+              href={`/collection?q=${encodeURIComponent(artistName)}`}
+              className="block rounded-2xl border border-white/10 bg-[#1A1A1A] p-4 transition hover:bg-[#242424]"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-black text-white">{artistName}</div>
+                  <div className="mt-1 text-sm text-[#8E8170]">
+                    {num(row.total_records ?? row.release_count)} releases tracked
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-black text-cyan-300">{num(row[metric])}</div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-[#B8AA96]">{label}</div>
+                </div>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
 
   const ArtistList = ({ title, helper, data }: any) => (
     <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
@@ -102,9 +145,15 @@ export default async function ArtistIntelligencePage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-3">
+          <IntelligenceList title="Artist IQ Leaders" helper="Composite artist intelligence score from depth, rarity, and demand." data={iqRows} metric="artist_iq_score" label="IQ Score" />
+          <IntelligenceList title="Rarity Leaders" helper="Artists with the strongest average rarity signal." data={rarityRows} metric="rarity_score" label="Rarity" />
+          <IntelligenceList title="Dominance Leaders" helper="Artists with the largest share of your collection." data={dominanceRows} metric="portfolio_percent" label="Portfolio %" />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
           <ArtistList title="Most Complete Artists" helper="Highest warehouse coverage among artists with meaningful warehouse presence." data={topCoverage} />
           <ArtistList title="Deepest Holdings" helper="Artists with the largest number of owned records in your collection." data={deepest} />
-          <ArtistList title="Expansion Opportunities" helper="Artists where you already have depth but warehouse coverage remains low." data={opportunities} />
+          <IntelligenceList title="High Demand Signals" helper="Artists with the strongest demand signal across your collection." data={signalRows} metric="avg_demand_score" label="Demand" />
         </div>
       </div>
     </main>
