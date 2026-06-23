@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createClient } from "@/src/lib/supabase/server";
 
 function toNumber(value: unknown): number {
   const parsed = Number(value ?? 0);
@@ -23,6 +24,16 @@ function moneyText(value: number): string {
 }
 
 export async function GET() {
+  const userSupabase = await createClient();
+
+  const {
+    data: { user },
+  } = await userSupabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const supabase = createAdminClient();
 
   try {
