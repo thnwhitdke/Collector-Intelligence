@@ -611,6 +611,24 @@ export default async function RecordDetailPage({
 
   const marketSignal = getMarketSignal(forSale);
 
+  const pressingAvailability =
+    forSale === null || forSale === undefined
+      ? "Unknown"
+      : forSale === 0
+        ? "Elite"
+        : forSale <= 3
+          ? "Very Rare"
+          : forSale <= 10
+            ? "Rare"
+            : forSale <= 25
+              ? "Uncommon"
+              : "Common";
+
+  const availabilityDescription =
+    forSale === null || forSale === undefined
+      ? "Current marketplace availability is unknown."
+      : `${forSale} copy${forSale === 1 ? "" : "ies"} currently available across tracked marketplaces.`;
+
   const discogsReleaseId =
     String(
       getText(
@@ -844,6 +862,42 @@ export default async function RecordDetailPage({
               </p>
             </section>
 
+            <section className="rounded-[32px] border border-emerald-400/25 bg-emerald-400/10 p-6 shadow-xl backdrop-blur-xl">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
+                Pressing Availability
+              </p>
+
+              <h2 className="mt-3 text-3xl font-black text-white">
+                {pressingAvailability}
+              </h2>
+
+              <p className="mt-3 text-sm leading-7 text-emerald-100/80">
+                Measures the availability of this exact pressing in the current marketplace.
+              </p>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                    Copies For Sale
+                  </p>
+
+                  <p className="mt-2 text-3xl font-black text-white">
+                    {forSale ?? "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                    Availability Insight
+                  </p>
+
+                  <p className="mt-2 text-sm text-white">
+                    {availabilityDescription}
+                  </p>
+                </div>
+              </div>
+            </section>
+
             {warehouseRarity ? (
               <section className="rounded-[32px] border border-cyan-400/25 bg-cyan-400/10 p-6 shadow-xl backdrop-blur-xl">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-200">
@@ -853,7 +907,7 @@ export default async function RecordDetailPage({
                   {warehouseRarity.warehouse_rarity_label}
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-cyan-100/80">
-                  Based on matching this record's normalized artist and label against the 5M-release Collector Intelligence warehouse.
+                  Measures how unusual this artist and label combination is within the 5M-release Collector Intelligence warehouse. This does not represent overall album rarity.
                 </p>
 
                 <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -1588,6 +1642,42 @@ export default async function RecordDetailPage({
             </section>
 
             {/* MARKET ACTIONS */}
+            <section className="rounded-[32px] border border-emerald-400/25 bg-emerald-400/10 p-6 shadow-xl backdrop-blur-xl">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
+                Pressing Availability
+              </p>
+
+              <h2 className="mt-3 text-3xl font-black text-white">
+                {pressingAvailability}
+              </h2>
+
+              <p className="mt-3 text-sm leading-7 text-emerald-100/80">
+                Measures the availability of this exact pressing in the current marketplace.
+              </p>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                    Copies For Sale
+                  </p>
+
+                  <p className="mt-2 text-3xl font-black text-white">
+                    {forSale ?? "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                    Availability Insight
+                  </p>
+
+                  <p className="mt-2 text-sm text-white">
+                    {availabilityDescription}
+                  </p>
+                </div>
+              </div>
+            </section>
+
             {warehouseRarity ? (
               <section className="rounded-[32px] border border-cyan-400/25 bg-cyan-400/10 p-6 shadow-xl backdrop-blur-xl">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-200">
@@ -1597,7 +1687,7 @@ export default async function RecordDetailPage({
                   {warehouseRarity.warehouse_rarity_label}
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-cyan-100/80">
-                  Based on matching this record's normalized artist and label against the 5M-release Collector Intelligence warehouse.
+                  Measures how unusual this artist and label combination is within the 5M-release Collector Intelligence warehouse. This does not represent overall album rarity.
                 </p>
 
                 <div className="mt-5 grid gap-4 md:grid-cols-3">
