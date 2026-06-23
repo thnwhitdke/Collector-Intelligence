@@ -107,25 +107,26 @@ function MetricCard({
   title: string;
   value: string | number;
   subtitle: string;
-  icon: ReactNode;
+  icon: React.ReactNode;
 }) {
   return (
-    <div className="min-h-[170px] rounded-3xl border border-white/10 bg-white/[0.035] p-6 shadow-xl">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="min-h-[40px] text-sm leading-snug text-zinc-400">
-            {title}
-          </p>
-          <h2 className="mt-3 break-words text-3xl font-black leading-tight text-white xl:text-4xl">
-            {value}
-          </h2>
-          <p className="mt-2 text-sm leading-snug text-zinc-500">
-            {subtitle}
-          </p>
-        </div>
-        <div className="shrink-0 rounded-2xl bg-white/10 p-3 text-zinc-200">
-          {icon}
-        </div>
+    <div className="relative min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-[#0B0B0B] p-6">
+      <div className="absolute right-5 top-5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white/80">
+        {icon}
+      </div>
+
+      <div className="min-w-0 pr-16">
+        <p className="break-words text-sm font-bold leading-5 text-[#8E8170]">
+          {title}
+        </p>
+
+        <p className="mt-8 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[clamp(1.65rem,2.2vw,2.5rem)] font-black leading-none tracking-tight text-white">
+          {value}
+        </p>
+
+        <p className="mt-4 break-words text-sm leading-5 text-[#8E8170]">
+          {subtitle}
+        </p>
       </div>
     </div>
   );
@@ -273,7 +274,7 @@ export default function EnrichmentOperationsDashboard() {
           </div>
         </section>
 
-        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
+        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
           <MetricCard
             title="Market Sync"
             value={ops?.counts.marketHistory ?? 0}
@@ -306,7 +307,7 @@ export default function EnrichmentOperationsDashboard() {
           />
         </section>
 
-        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
+        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
           <MetricCard
             title="Portfolio Value"
             value={money(ops?.portfolioTrend?.latestValue)}
