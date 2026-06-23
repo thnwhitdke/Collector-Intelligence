@@ -42,10 +42,59 @@ export default async function ArtistIntelligencePage() {
   ])
 
   const rows = artists ?? []
-  const iqRows = iq ?? []
-  const rarityRows = rarity ?? []
-  const dominanceRows = dominance ?? []
-  const signalRows = signals ?? []
+
+  const fallbackIqRows = [...rows]
+    .map((row: any) => ({
+      ...row,
+      artist_name: row.artist,
+      artist_iq_score:
+        Math.round(
+          Number(row.coverage_percent || 0) * 0.5 +
+          Number(row.owned_records || 0) * 2
+        ),
+    }))
+    .sort((a: any, b: any) => Number(b.artist_iq_score || 0) - Number(a.artist_iq_score || 0))
+    .slice(0, 10)
+
+  const fallbackRarityRows = [...rows]
+    .map((row: any) => ({
+      ...row,
+      artist_name: row.artist,
+      rarity_score:
+        Math.round(
+          Math.max(0, 100 - Number(row.coverage_percent || 0)) +
+          Math.min(25, Number(row.owned_records || 0))
+        ),
+    }))
+    .sort((a: any, b: any) => Number(b.rarity_score || 0) - Number(a.rarity_score || 0))
+    .slice(0, 10)
+
+  const fallbackDominanceRows = [...rows]
+    .map((row: any) => ({
+      ...row,
+      artist_name: row.artist,
+      portfolio_percent: row.coverage_percent,
+    }))
+    .sort((a: any, b: any) => Number(b.owned_records || 0) - Number(a.owned_records || 0))
+    .slice(0, 10)
+
+  const fallbackSignalRows = [...rows]
+    .map((row: any) => ({
+      ...row,
+      artist_name: row.artist,
+      avg_demand_score:
+        Math.round(
+          Number(row.owned_records || 0) +
+          Number(row.coverage_percent || 0)
+        ),
+    }))
+    .sort((a: any, b: any) => Number(b.avg_demand_score || 0) - Number(a.avg_demand_score || 0))
+    .slice(0, 10)
+
+  const iqRows = (iq ?? []).length ? iq ?? [] : fallbackIqRows
+  const rarityRows = (rarity ?? []).length ? rarity ?? [] : fallbackRarityRows
+  const dominanceRows = (dominance ?? []).length ? dominance ?? [] : fallbackDominanceRows
+  const signalRows = (signals ?? []).length ? signals ?? [] : fallbackSignalRows
 
   const topCoverage = rows.filter((r: any) => Number(r.warehouse_releases || 0) >= 10).slice(0, 10)
   const deepest = [...rows].sort((a: any, b: any) => Number(b.owned_records || 0) - Number(a.owned_records || 0)).slice(0, 10)
