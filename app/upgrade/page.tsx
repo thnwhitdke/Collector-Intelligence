@@ -29,7 +29,10 @@ export default function UpgradePage() {
             <h2 className="text-2xl font-black text-amber-300">Collector</h2>
             <p className="mt-3 text-4xl font-black">$4.99/mo</p>
             <p className="mt-3 text-slate-300">Everything included. Unlimited records.</p>
-            <UpgradeButtons />
+            <UpgradeButtons
+              collectorPriceId={process.env.NEXT_PUBLIC_STRIPE_COLLECTOR_PRICE_ID ?? ""}
+              founderPriceId={process.env.NEXT_PUBLIC_STRIPE_FOUNDER_PRICE_ID ?? ""}
+            />
           </div>
         </section>
 
