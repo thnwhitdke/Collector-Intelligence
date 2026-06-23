@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 
 function toNumber(value: unknown): number {
   const parsed = Number(value ?? 0);
@@ -56,10 +56,10 @@ export async function GET() {
       latestSalesSummaries,
       releaseWarehouseSummary,
     ] = await Promise.all([
-      supabase.from("records_clean_safe").select("id", { count: "exact", head: true }),
-      supabase.from("market_history").select("id", { count: "exact", head: true }),
-      supabase.from("market_trend_signals").select("id", { count: "exact", head: true }),
-      supabase.from("sales_intelligence_summary").select("id", { count: "exact", head: true }),
+      supabase.from("records_clean_safe").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+      supabase.from("market_history").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+      supabase.from("market_trend_signals").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+      supabase.from("sales_intelligence_summary").select("id", { count: "exact", head: true }).eq("user_id", user.id),
       supabase.from("normalized_sales_comps").select("id", { count: "exact", head: true }),
       supabase.from("release_tracks").select("id", { count: "exact", head: true }),
       supabase.from("artists").select("id", { count: "exact", head: true }),
@@ -69,28 +69,33 @@ export async function GET() {
       supabase
         .from("records_clean_safe")
         .select("collector_iq_score")
+        .eq("user_id", user.id)
         .not("collector_iq_score", "is", null)
         .limit(5000),
 
       supabase
         .from("records_clean_safe")
         .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
         .gt("collector_iq_score", 100),
 
       supabase
         .from("records_clean_safe")
         .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
         .is("collector_iq_score", null),
 
       supabase
         .from("market_trend_signals")
         .select("record_id, market_momentum, signal_label, signal_strength, price_delta_percent, supply_delta_percent, calculated_at")
+        .eq("user_id", user.id)
         .order("market_momentum", { ascending: false })
         .limit(10),
 
       supabase
         .from("records_clean_safe")
         .select("id, artist, title, estimated_value, collector_iq_score, rarity_score, market_momentum")
+        .eq("user_id", user.id)
         .not("collector_iq_score", "is", null)
         .order("collector_iq_score", { ascending: false })
         .limit(10),
@@ -113,12 +118,14 @@ export async function GET() {
           intelligence_confidence_score,
           intelligence_confidence_label
         `)
+        .eq("user_id", user.id)
         .gte("total_records", 100)
         .order("created_at", { ascending: true }),
 
       supabase
         .from("sales_intelligence_summary")
         .select("record_id, median_sale_price, average_sale_price, matched_sales_count, confidence_score, confidence_label, updated_at")
+        .eq("user_id", user.id)
         .order("updated_at", { ascending: false })
         .limit(5),
 
@@ -128,26 +135,20 @@ export async function GET() {
         .single(),
     ]);
 
-    const moverRecordIds = (rawTopMovers.data ?? [])
-      .map((m) => m.record_id)
-      .filter(Boolean);
+    const moverRecordIds = (rawTopMovers.data ?? []).map((m) => m.record_id).filter(Boolean);
+    const salesRecordIds = (latestSalesSummaries.data ?? []).map((s) => s.record_id).filter(Boolean);
+    const relatedRecordIds = Array.from(new Set([...moverRecordIds, ...salesRecordIds]));
 
-    const salesRecordIds = (latestSalesSummaries.data ?? [])
-      .map((s) => s.record_id)
-      .filter(Boolean);
+    const { data: relatedRecords } =
+      relatedRecordIds.length > 0
+        ? await supabase
+            .from("records_clean_safe")
+            .select("id, artist, title, estimated_value, discogs_release_id, label, catalogue_number, country, year, format")
+            .eq("user_id", user.id)
+            .in("id", relatedRecordIds)
+        : { data: [] };
 
-    const relatedRecordIds = Array.from(
-      new Set([...moverRecordIds, ...salesRecordIds])
-    );
-
-    const { data: relatedRecords } = await supabase
-      .from("records_clean_safe")
-      .select("id, artist, title, estimated_value, discogs_release_id, label, catalogue_number, country, year, format")
-      .in("id", relatedRecordIds);
-
-    const recordMap = new Map(
-      (relatedRecords ?? []).map((record) => [Number(record.id), record])
-    );
+    const recordMap = new Map((relatedRecords ?? []).map((record) => [Number(record.id), record]));
 
     const topMovers = (rawTopMovers.data ?? []).map((mover) => ({
       ...mover,
@@ -167,15 +168,12 @@ export async function GET() {
 
     const snapshotRows = snapshots.data ?? [];
     const firstSnapshot = snapshotRows[0] ?? null;
-    const previousSnapshot =
-      snapshotRows.length >= 2 ? snapshotRows[snapshotRows.length - 2] : null;
-    const latestSnapshot =
-      snapshotRows.length >= 1 ? snapshotRows[snapshotRows.length - 1] : null;
+    const previousSnapshot = snapshotRows.length >= 2 ? snapshotRows[snapshotRows.length - 2] : null;
+    const latestSnapshot = snapshotRows.length >= 1 ? snapshotRows[snapshotRows.length - 1] : null;
 
     const previousValue = toNumber(previousSnapshot?.total_collection_value);
     const latestValue = toNumber(latestSnapshot?.total_collection_value);
     const firstValue = toNumber(firstSnapshot?.total_collection_value);
-
     const previousIq = toNumber(previousSnapshot?.average_collector_iq);
     const latestIq = toNumber(latestSnapshot?.average_collector_iq);
 
@@ -199,18 +197,8 @@ export async function GET() {
             previousIq,
             latestIq,
             iqDeltaFromPrevious,
-            direction:
-              deltaFromPrevious > 0
-                ? "up"
-                : deltaFromPrevious < 0
-                  ? "down"
-                  : "flat",
-            health:
-              percentFromPrevious > 1
-                ? "Bullish"
-                : percentFromPrevious < -1
-                  ? "Bearish"
-                  : "Stable",
+            direction: deltaFromPrevious > 0 ? "up" : deltaFromPrevious < 0 ? "down" : "flat",
+            health: percentFromPrevious > 1 ? "Bullish" : percentFromPrevious < -1 ? "Bearish" : "Stable",
             latestSnapshot,
           }
         : null;
@@ -273,6 +261,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       generatedAt: new Date().toISOString(),
+      userId: user.id,
       counts: {
         records: recordsCount.count ?? 0,
         marketHistory: marketHistoryCount.count ?? 0,
