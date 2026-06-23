@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
 import CINavigation from "../components/CINavigation";
 import AddRecordSlideOver from "./AddRecordSlideOver";
@@ -97,6 +98,7 @@ function releaseMeta(record: CollectionRecord) {
 }
 
 export default function CollectionPage() {
+  const router = useRouter();
   const supabase = createClient();
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
@@ -122,6 +124,23 @@ export default function CollectionPage() {
   const [signalFilter, setSignalFilter] = useState<
     "all" | "hot" | "supply" | "buy" | "risk" | "iq"
   >("all");
+
+  useEffect(() => {
+    async function requireUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.replace("/auth/login");
+        return;
+      }
+
+      setUserId(user.id);
+    }
+
+    requireUser();
+  }, [router, supabase]);
 
   useEffect(() => {
     async function loadMarketFeedSummary() {
