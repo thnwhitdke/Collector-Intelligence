@@ -103,6 +103,55 @@ function numberOrZero(value: number | string | null | undefined) {
   return 0;
 }
 
+
+const FREE_RECORD_LIMIT = 15;
+const UNLIMITED_SUBSCRIPTION_TIERS = new Set([
+  "collector",
+  "founder",
+  "lifetime",
+  "internal",
+]);
+
+async function enforceRecordLimit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  recordsToAdd = 1
+) {
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("subscription_tier, subscription_status")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError) {
+    throw new Error(`Unable to verify subscription: ${profileError.message}`);
+  }
+
+  const tier = profile?.subscription_tier ?? "free";
+  const status = profile?.subscription_status ?? "active";
+
+  if (UNLIMITED_SUBSCRIPTION_TIERS.has(tier) && status === "active") {
+    return;
+  }
+
+  const { count, error: countError } = await supabase
+    .from("records_clean_safe")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if (countError) {
+    throw new Error(`Unable to verify collection size: ${countError.message}`);
+  }
+
+  const currentCount = count ?? 0;
+
+  if (currentCount + recordsToAdd > FREE_RECORD_LIMIT) {
+    throw new Error(
+      `Free plan limit reached. The Free plan includes all features for up to ${FREE_RECORD_LIMIT} records. Upgrade to Collector for unlimited records.`
+    );
+  }
+}
+
 async function getAuthenticatedUserId(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ) {
@@ -179,6 +228,7 @@ export type ValueDashboardSummary = {
 export async function addRecord(formData: FormData) {
   const supabase = await createClient();
   const userId = await getAuthenticatedUserId(supabase);
+  await enforceRecordLimit(supabase, userId, 1);
 
   const artist = normalizeEmpty(formData.get("artist"));
   const title = normalizeEmpty(formData.get("title"));
