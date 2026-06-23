@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createClient } from "@/src/lib/supabase/server";
+
+function sanitizeSearch(value: string) {
+  return value.replace(/[%_,]/g, "").slice(0, 80);
+}
 
 export async function GET(request: NextRequest) {
-  const supabase = createAdminClient();
-  const search = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const search = sanitizeSearch(request.nextUrl.searchParams.get("q")?.trim() ?? "");
 
   let query = supabase
     .from("records_clean_safe")
@@ -27,6 +40,7 @@ export async function GET(request: NextRequest) {
       discogs_image_url,
       discogs_thumbnail_url
     `)
+    .eq("user_id", user.id)
     .order("market_consensus_value", { ascending: false, nullsFirst: false })
     .limit(75);
 

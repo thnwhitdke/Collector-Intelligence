@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createClient } from "@/src/lib/supabase/server";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { id } = await params;
 
@@ -13,24 +21,17 @@ export async function GET(
     .from("records_clean_safe")
     .select("*")
     .eq("id", id)
+    .eq("user_id", user.id)
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   if (!data) {
-    return NextResponse.json(
-      { error: "Record not found" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Record not found" }, { status: 404 });
   }
 
-  return NextResponse.json({
-    record: data,
-  });
+  return NextResponse.json({ record: data });
 }
