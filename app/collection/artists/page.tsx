@@ -136,7 +136,7 @@ export default async function ArtistIntelligencePage() {
     </section>
   )
 
-  const ArtistList = ({ title, helper, data }: any) => (
+  const ArtistList = ({ title, helper, data, metric = "coverage_percent", label = "Coverage", formatter = pct }: any) => (
     <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
       <h2 className="text-2xl font-black">{title}</h2>
       <p className="mt-2 text-sm text-[#B8AA96]">{helper}</p>
@@ -156,8 +156,8 @@ export default async function ArtistIntelligencePage() {
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-black text-[#F4CD68]">{pct(row.coverage_percent)}</div>
-                <div className="text-xs uppercase tracking-[0.18em] text-[#B8AA96]">Coverage</div>
+                <div className="text-2xl font-black text-[#F4CD68]">{formatter(row[metric])}</div>
+                <div className="text-xs uppercase tracking-[0.18em] text-[#B8AA96]">{label}</div>
               </div>
             </div>
           </Link>
@@ -202,42 +202,53 @@ export default async function ArtistIntelligencePage() {
           <ArtistList
             title="Artist IQ Leaders"
             helper="Artists with the strongest combined depth, warehouse coverage, and collection signal."
+            metric="artist_iq_score"
+            label="IQ Score"
+            formatter={num}
             data={[...rows]
               .map((row: any) => ({
                 ...row,
-                coverage_percent:
-                  Math.round(
-                    (Number(row.coverage_percent || 0) + Number(row.owned_records || 0) * 2) * 100
-                  ) / 100,
+                artist_iq_score: Math.min(
+                  100,
+                  Math.round(Number(row.coverage_percent || 0) * 0.6 + Math.min(40, Number(row.owned_records || 0) * 0.2))
+                ),
               }))
-              .sort((a: any, b: any) => Number(b.coverage_percent || 0) - Number(a.coverage_percent || 0))
+              .sort((a: any, b: any) => Number(b.artist_iq_score || 0) - Number(a.artist_iq_score || 0))
               .slice(0, 10)}
           />
 
           <ArtistList
             title="Rarity Leaders"
             helper="Artists where your ownership is meaningful but warehouse availability is comparatively limited."
+            metric="rarity_signal"
+            label="Rarity"
+            formatter={num}
             data={[...rows]
               .filter((row: any) => Number(row.warehouse_releases || 0) > 0)
               .map((row: any) => ({
                 ...row,
-                coverage_percent:
+                rarity_signal: Math.min(
+                  100,
                   Math.round(
-                    Math.min(
-                      100,
-                      Number(row.owned_records || 0) /
-                        Math.max(Number(row.warehouse_releases || 1), 1) *
-                        100
-                    ) * 100
-                  ) / 100,
+                    100 -
+                      Math.min(
+                        100,
+                        (Number(row.owned_records || 0) / Math.max(Number(row.warehouse_releases || 1), 1)) * 100
+                      ) +
+                      Math.min(20, Number(row.owned_records || 0))
+                  )
+                ),
               }))
-              .sort((a: any, b: any) => Number(b.coverage_percent || 0) - Number(a.coverage_percent || 0))
+              .sort((a: any, b: any) => Number(b.rarity_signal || 0) - Number(a.rarity_signal || 0))
               .slice(0, 10)}
           />
 
           <ArtistList
             title="Dominance Leaders"
             helper="Artists with the largest number of records in your current collection."
+            metric="owned_records"
+            label="Records"
+            formatter={num}
             data={[...rows]
               .sort((a: any, b: any) => Number(b.owned_records || 0) - Number(a.owned_records || 0))
               .slice(0, 10)}
