@@ -3,6 +3,7 @@ export const revalidate = 0
 
 import CINavigation from "@/app/components/CINavigation"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { createClient } from "@/src/lib/supabase/server"
 import { createAdminClient } from "@/src/lib/supabase/admin"
 import { displayArtistName } from "@/src/lib/display/artist"
@@ -23,17 +24,21 @@ export default async function ArtistIntelligencePage() {
     data: { user },
   } = await supabase.auth.getUser()
 
+  if (!user) {
+    redirect("/auth/login")
+  }
+
   const [{ data: artists, count: totalArtists }, { data: iq }, { data: rarity }, { data: dominance }, { data: signals }] = await Promise.all([
     admin
       .from("artist_collection_depth_metrics")
       .select("*", { count: "exact" })
-      .eq("user_id", user?.id)
+      .eq("user_id", user.id)
       .order("coverage_percent", { ascending: false })
       .limit(5000),
-    admin.from("artist_iq_leaderboard").select("*").limit(10),
-    admin.from("artist_rarity_view").select("*").limit(10),
-    admin.from("artist_dominance_view").select("*").limit(10),
-    admin.from("artist_signal_overview").select("*").order("avg_demand_score", { ascending: false }).limit(10),
+    admin.from("artist_iq_leaderboard").select("*").eq("user_id", user.id).limit(10),
+    admin.from("artist_rarity_view").select("*").eq("user_id", user.id).limit(10),
+    admin.from("artist_dominance_view").select("*").eq("user_id", user.id).limit(10),
+    admin.from("artist_signal_overview").select("*").eq("user_id", user.id).order("avg_demand_score", { ascending: false }).limit(10),
   ])
 
   const rows = artists ?? []

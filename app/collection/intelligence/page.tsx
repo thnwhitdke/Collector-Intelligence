@@ -3,6 +3,7 @@ export const revalidate = 0
 
 import CINavigation from "@/app/components/CINavigation"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { createClient } from "@/src/lib/supabase/server"
 import { createAdminClient } from "@/src/lib/supabase/admin"
 import { displayArtistName } from "@/src/lib/display/artist"
@@ -28,7 +29,11 @@ export default async function IntelligencePage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const userId = user?.id
+  if (!user) {
+    redirect("/auth/login")
+  }
+
+  const userId = user.id
 
   const [
     portfolioRes,
@@ -92,8 +97,6 @@ export default async function IntelligencePage() {
   const rarity = rarityRes.data ?? []
   const momentum = momentumRes.data ?? []
   const warehouse = warehouseRes.data
-
-console.log("WAREHOUSE DEBUG", warehouseRes)
 
   const collection = collectionRes.data ?? []
   const artistDepth = artistDepthRes.data ?? []

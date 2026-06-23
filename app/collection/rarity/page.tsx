@@ -3,6 +3,7 @@ export const revalidate = 0
 
 import CINavigation from "@/app/components/CINavigation"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { createClient } from "@/src/lib/supabase/server"
 import { createAdminClient } from "@/src/lib/supabase/admin"
 import { displayArtistName } from "@/src/lib/display/artist"
@@ -34,18 +35,22 @@ export default async function RarityPage({
     data: { user },
   } = await supabase.auth.getUser()
 
+  if (!user) {
+    redirect("/auth/login")
+  }
+
   const [{ data: rarityRows }, { data: allRarityRows }] = await Promise.all([
     admin
       .from("record_warehouse_rarity_metrics")
       .select("*")
-      .eq("user_id", user?.id)
+      .eq("user_id", user.id)
       .order("warehouse_similar_releases", { ascending: true })
       .limit(5000),
 
     admin
       .from("record_warehouse_rarity_metrics")
       .select("warehouse_rarity_label")
-      .eq("user_id", user?.id)
+      .eq("user_id", user.id)
       .limit(10000),
   ])
 
