@@ -10,7 +10,7 @@ import RecordPressingIdentifier from "@/app/components/RecordPressingIdentifier"
 import RecordCommandTabs from "@/app/components/RecordCommandTabs";
 import DeleteRecordButton from "@/app/components/DeleteRecordButton";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "../../../src/lib/supabase/server";
 
 import {
@@ -327,10 +327,19 @@ export default async function RecordDetailPage({
 
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
+
   const { data, error } = await supabase
     .from("records_clean_safe")
     .select("*")
     .eq("id", id)
+    .eq("user_id", user.id)
     .single();
 
   if (error || !data) notFound();
