@@ -1,3 +1,4 @@
+import UpgradeButtons from "./UpgradeButtons";
 import Link from "next/link";
 
 export default function UpgradePage() {
@@ -28,12 +29,7 @@ export default function UpgradePage() {
             <h2 className="text-2xl font-black text-amber-300">Collector</h2>
             <p className="mt-3 text-4xl font-black">$4.99/mo</p>
             <p className="mt-3 text-slate-300">Everything included. Unlimited records.</p>
-            <Link
-              href="/pricing"
-              className="mt-6 inline-flex rounded-xl bg-amber-300 px-5 py-3 font-black text-slate-950"
-            >
-              View Plans
-            </Link>
+            <UpgradeButtons />
           </div>
         </section>
 
