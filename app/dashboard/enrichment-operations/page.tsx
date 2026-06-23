@@ -407,9 +407,9 @@ export default function EnrichmentOperationsDashboard() {
 
         <section className="mt-8 grid gap-8 xl:grid-cols-2">
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="text-2xl font-black">Top Market Signals</h2>
+            <h2 className="text-2xl font-black">Market Movers</h2>
             <p className="mt-2 text-sm text-zinc-500">
-              Highest current momentum from market_trend_signals.
+              Pressings showing the strongest recent movement in supply, price, and marketplace behavior.
             </p>
 
             <div className="mt-6 space-y-3">
@@ -444,7 +444,7 @@ export default function EnrichmentOperationsDashboard() {
                       <p className="text-lg font-black">
                         {item.market_momentum ?? 0}
                       </p>
-                      <p className="text-xs text-zinc-500">momentum</p>
+                      <p className="text-xs text-zinc-500">market movement</p>
                     </div>
                   </div>
                 </a>
@@ -453,9 +453,9 @@ export default function EnrichmentOperationsDashboard() {
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="text-2xl font-black">Top Collector IQ</h2>
+            <h2 className="text-2xl font-black">Highest Intelligence Scores</h2>
             <p className="mt-2 text-sm text-zinc-500">
-              Highest CI-native record scores after normalization.
+              Records with the strongest overall Collector Intelligence profile across demand, rarity, value, and market signals.
             </p>
 
             <div className="mt-6 space-y-3">
