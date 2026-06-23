@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
 export async function GET() {
+  const userSupabase = await createClient();
+
+  const {
+    data: { user },
+  } = await userSupabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const supabase = createAdminClient();
 
   const { data: summary, error: summaryError } = await supabase
@@ -12,15 +23,7 @@ export async function GET() {
     .single();
 
   if (summaryError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: summaryError.message,
-      },
-      {
-        status: 500,
-      }
-    );
+    return NextResponse.json({ ok: false, error: summaryError.message }, { status: 500 });
   }
 
   const { data: topMasters, error: topMastersError } = await supabase
@@ -38,19 +41,12 @@ export async function GET() {
     .limit(10);
 
   if (topMastersError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: topMastersError.message,
-      },
-      {
-        status: 500,
-      }
-    );
+    return NextResponse.json({ ok: false, error: topMastersError.message }, { status: 500 });
   }
 
   return NextResponse.json({
     ok: true,
+    userId: user.id,
     summary,
     topMasters: topMasters ?? [],
   });
