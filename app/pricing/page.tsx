@@ -14,16 +14,16 @@ const plans = [
     price: "$4.99/mo",
     detail: "Unlimited collection intelligence for individual collectors.",
     features: ["Unlimited records", "Portfolio analytics", "Market intelligence", "Rarity engine", "Daily briefings", "Mobile companion app"],
-    cta: "Upgrade Coming Soon",
-    href: "/signup",
+    cta: "Upgrade to Collector",
+    href: "/upgrade",
   },
   {
     name: "Founder",
     price: "$49/yr",
     detail: "Early supporter annual plan.",
     features: ["Everything in Collector", "Founder pricing", "Early access features", "Priority feedback"],
-    cta: "Founder Plan Coming Soon",
-    href: "/contact",
+    cta: "Become a Founder",
+    href: "/upgrade",
   },
 ];
 
@@ -57,7 +57,7 @@ export default function PricingPage() {
         </section>
 
         <p className="mt-8 text-sm text-slate-500">
-          Payment processing will be handled by Stripe. Subscriptions can be canceled at any time once billing is enabled.
+          Payment processing is handled securely by Stripe. Subscriptions can be canceled at any time.
         </p>
       </div>
     </main>
