@@ -147,7 +147,7 @@ async function enforceRecordLimit(
 
   if (currentCount + recordsToAdd > FREE_RECORD_LIMIT) {
     throw new Error(
-      `Free plan limit reached. The Free plan includes all features for up to ${FREE_RECORD_LIMIT} records. Upgrade to Collector for unlimited records.`
+      `Free plan limit reached. The Free plan includes all features for up to ${FREE_RECORD_LIMIT} records. Visit /upgrade to unlock unlimited records with Collector.`
     );
   }
 }
