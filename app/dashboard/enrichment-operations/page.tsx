@@ -120,7 +120,7 @@ function MetricCard({
           {title}
         </p>
 
-        <p className="mt-8 break-words text-[clamp(1.45rem,1.9vw,2.25rem)] font-black leading-tight tracking-tight text-white">
+        <p className="mt-8 break-words text-[clamp(1.7rem,2.1vw,2.75rem)] font-black leading-tight tracking-tight text-white">
           {value}
         </p>
 
@@ -274,7 +274,7 @@ export default function EnrichmentOperationsDashboard() {
           </div>
         </section>
 
-        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-4 2xl:grid-cols-5">
+        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             title="Market Sync"
             value={ops?.counts.marketHistory ?? 0}
@@ -307,7 +307,7 @@ export default function EnrichmentOperationsDashboard() {
           />
         </section>
 
-        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-4 2xl:grid-cols-5">
+        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             title="Portfolio Value"
             value={money(ops?.portfolioTrend?.latestValue)}
@@ -342,7 +342,7 @@ export default function EnrichmentOperationsDashboard() {
           />
         </section>
 
-        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             title="Release Warehouse"
             value={(ops?.releaseWarehouse?.vinyl_releases ?? 0).toLocaleString()}
