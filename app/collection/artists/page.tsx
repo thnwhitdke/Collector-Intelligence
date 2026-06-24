@@ -121,7 +121,12 @@ export default async function ArtistIntelligencePage() {
                 <div>
                   <div className="font-black text-white">{artistName}</div>
                   <div className="mt-1 text-sm text-[#8E8170]">
-                    {num(row.total_records ?? row.release_count)} releases tracked
+                    {num(
+                      row.owned_records ??
+                      row.total_records ??
+                      row.release_count ??
+                      row.record_count
+                    )} owned records
                   </div>
                 </div>
                 <div className="text-right">
