@@ -37,7 +37,7 @@ function grade(score) {
 console.log("WAREHOUSE INTELLIGENCE PHASE 1", { BATCH_SIZE, START_OFFSET });
 
 const { data: rows, error } = await supabase
-  .from("discogs_release_reference_vinyl")
+  .from("release_reference_vinyl")
   .select("id, release_id, artist, title, label, country, released_year")
   .range(START_OFFSET, START_OFFSET + BATCH_SIZE - 1);
 
@@ -61,7 +61,7 @@ const countryCounts = new Map();
 
 for (const artist of artists) {
   const { count } = await supabase
-    .from("discogs_release_reference_vinyl")
+    .from("release_reference_vinyl")
     .select("*", { count: "exact", head: true })
     .eq("artist", artist);
   artistCounts.set(artist, count || 0);
@@ -69,7 +69,7 @@ for (const artist of artists) {
 
 for (const label of labels) {
   const { count } = await supabase
-    .from("discogs_release_reference_vinyl")
+    .from("release_reference_vinyl")
     .select("*", { count: "exact", head: true })
     .eq("label", label);
   labelCounts.set(label, count || 0);
@@ -77,7 +77,7 @@ for (const label of labels) {
 
 for (const country of countries) {
   const { count } = await supabase
-    .from("discogs_release_reference_vinyl")
+    .from("release_reference_vinyl")
     .select("*", { count: "exact", head: true })
     .eq("country", country);
   countryCounts.set(country, count || 0);
