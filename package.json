@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "hetzner:intelligence": "node scripts/hetzner-intelligence/run-all.mjs"
+    "hetzner:intelligence": "node scripts/hetzner-intelligence/run-all.mjs",
+    "warehouse:intelligence": "node scripts/warehouse-intelligence-phase1.mjs"
   },
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",
