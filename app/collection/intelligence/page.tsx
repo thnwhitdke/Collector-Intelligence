@@ -121,7 +121,7 @@ export default async function IntelligencePage() {
       artist: r.artist,
       title: r.title,
       intelligence_reason_v2: `${r.label || "Unknown label"} • ${r.country || "Unknown country"} • ${r.format || "Unknown format"}`,
-      fallback_score: money(r.estimated_value),
+      fallback_score: Number(r.estimated_value || 0) > 0 ? Math.min(99, Math.max(1, Math.round(Number(r.estimated_value || 0) / 25))) : "—",
     }))
 
   const fallbackMatchedRows = [...collection]
@@ -132,10 +132,10 @@ export default async function IntelligencePage() {
       artist: r.artist,
       title: r.title,
       intelligence_reason_v2: `Discogs ${r.discogs_release_id} • ${r.label || "Unknown label"} • ${r.country || "Unknown country"}`,
-      fallback_score: "Matched",
+      fallback_score: "Ready",
     }))
 
-  const Table = ({ title, rows, scoreKey, fallbackRows }: any) => (
+  const Table = ({ title, rows, scoreKey, fallbackRows, scoreLabel }: any) => (
     <section className="rounded-2xl border border-white/10 bg-[#111111] p-5">
       <h2 className="mb-4 text-xl font-semibold">{title}</h2>
       <div className="space-y-3">
@@ -152,8 +152,8 @@ export default async function IntelligencePage() {
                 <div className="mt-1 text-xs text-[#8E8170]">{r.intelligence_reason_v2}</div>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold">{r[scoreKey] ?? r.fallback_score ?? "—"}</div>
-                <div className="text-xs text-[#B8AA96]">Score</div>
+                <div className="text-2xl font-bold">{Math.round(Number(r[scoreKey] ?? r.fallback_score ?? 0)) || r.fallback_score || "—"}</div>
+                <div className="text-xs text-[#B8AA96]">{scoreLabel}</div>
               </div>
             </div>
           </Link>
@@ -262,9 +262,9 @@ export default async function IntelligencePage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <Table title="Highest Demand" rows={demand} scoreKey="demand_score_v2" fallbackRows={fallbackMatchedRows} />
-          <Table title="Rarest Releases" rows={rarity} scoreKey="rarity_score_v2" fallbackRows={fallbackValueRows} />
-          <Table title="Highest Momentum" rows={momentum} scoreKey="momentum_score_v2" fallbackRows={fallbackValueRows} />
+          <Table title="Highest Demand" rows={demand} scoreKey="demand_score_v2" scoreLabel="Demand" fallbackRows={fallbackMatchedRows} />
+          <Table title="Rarest Releases" rows={rarity} scoreKey="rarity_score_v2" scoreLabel="Scarcity" fallbackRows={fallbackValueRows} />
+          <Table title="Highest Momentum" rows={momentum} scoreKey="momentum_score_v2" scoreLabel="Momentum" fallbackRows={fallbackValueRows} />
         </div>
       </div>
     </main>
