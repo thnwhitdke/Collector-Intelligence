@@ -123,21 +123,66 @@ function Gauge({ label, value }: { label: string; value: number }) {
 }
 
 function FeedCard({ item }: { item: any }) {
-  const artist = displayArtistName(item.artist || item.master_artist || "Market Signal")
-  const title = item.title || item.release_title || item.observation_title || item.signal || "Market observation"
-  const type = item.signal_type || item.observation_type || item.signal || "Market Intelligence"
-  const detail =
-    item.summary ||
-    item.reason ||
-    item.description ||
-    `${num(item.for_sale || 0)} for sale · ${num(item.want_count || item.wants || 0)} want · score ${num(item.score || item.signal_score || 0)}`
+  const artist = displayArtistName(item.artist || item.master_artist || item.record_artist || "Market Signal")
+  const title = item.title || item.release_title || item.record_title || item.observation_title || "Market observation"
+
+  const signal =
+    item.signal_type ||
+    item.observation_type ||
+    item.signal ||
+    item.market_signal ||
+    "Market Watch"
+
+  const forSale = Number(item.for_sale ?? item.num_for_sale ?? item.market_num_for_sale ?? 0)
+  const wants = Number(item.want_count ?? item.wants ?? item.community_want ?? 0)
+  const score = Number(item.score ?? item.signal_score ?? item.demand_score ?? item.acquisition_pressure ?? 0)
+
+  let explanation = item.summary || item.reason || item.description || ""
+
+  if (!explanation) {
+    if (forSale === 0 && wants > 0) {
+      explanation = "No active supply was found while collector demand exists."
+    } else if (forSale <= 2 && wants > 50) {
+      explanation = "Very limited supply relative to visible demand."
+    } else if (wants > 250) {
+      explanation = "High collector interest detected."
+    } else {
+      explanation = "This release is being monitored for market movement."
+    }
+  }
+
+  const action =
+    forSale === 0 && wants > 0
+      ? "Watch closely"
+      : score >= 80
+        ? "High-priority signal"
+        : score >= 50
+          ? "Review opportunity"
+          : "Monitor"
 
   return (
     <Link href="/collection/market-intelligence" className="block rounded-3xl border border-white/10 bg-[#080808] p-5 transition hover:bg-[#151515]">
-      <div className="text-xs font-black uppercase tracking-[0.35em] text-yellow-300">{type}</div>
+      <div className="text-xs font-black uppercase tracking-[0.35em] text-yellow-300">{signal}</div>
+
       <div className="mt-4 text-2xl font-black text-white">{artist}</div>
       <div className="mt-2 text-lg font-bold text-[#F4EFE6]">{title}</div>
-      <div className="mt-4 text-sm text-[#B8AA96]">{detail}</div>
+
+      <p className="mt-4 text-sm leading-6 text-[#B8AA96]">{explanation}</p>
+
+      <div className="mt-5 grid gap-2 text-sm md:grid-cols-3">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="text-xs text-[#8E8170]">For Sale</div>
+          <div className="text-lg font-black text-white">{num(forSale)}</div>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="text-xs text-[#8E8170]">Want</div>
+          <div className="text-lg font-black text-white">{num(wants)}</div>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="text-xs text-[#8E8170]">Action</div>
+          <div className="text-sm font-black text-cyan-200">{action}</div>
+        </div>
+      </div>
     </Link>
   )
 }
