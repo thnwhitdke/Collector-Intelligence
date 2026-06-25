@@ -344,7 +344,7 @@ export default async function IntelligencePage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Table title="Highest Demand" rows={demandRows} scoreKey="demand_score_v2" scoreLabel="Demand" fallbackRows={[]} />
+          <Table title="Best Auction Evidence" rows={rarityRows} scoreKey="high_price" scoreLabel="Popsike High" fallbackRows={fallbackValueRows} />
           <Table title="Highest Market Value" rows={fallbackValueRows} scoreKey="fallback_score" scoreLabel="Market Value" fallbackRows={fallbackValueRows} />
           <Table title="Highest Momentum" rows={momentumRows} scoreKey="momentum_score_v2" scoreLabel="Momentum" fallbackRows={fallbackValueRows} />
           <Table title="Collector Opportunity" rows={opportunityRows} scoreKey="opportunity_score_v2" scoreLabel="Opportunity" fallbackRows={fallbackValueRows} />
