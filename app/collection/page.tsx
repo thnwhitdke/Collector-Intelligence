@@ -584,6 +584,7 @@ export default function CollectionPage() {
       </div>
 
       <CINavigation />
+      <LiveCollectorTicker />
 
       <section className="mx-auto max-w-7xl px-6 py-8">
         <section className="relative overflow-hidden rounded-[42px] border border-[#3A2A14] bg-[radial-gradient(circle_at_top_left,rgba(255,210,30,0.16),transparent_34%),linear-gradient(135deg,#170F08,#080604_52%,#120A05)] p-8 shadow-[0_24px_100px_rgba(0,0,0,.68)]">
