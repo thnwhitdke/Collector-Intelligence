@@ -130,9 +130,18 @@ export default async function CollectionIntelligencePage() {
     leaderboardRes,
     auctionRes,
   ] = await Promise.all([
-    supabase.from("portfolio_intelligence_v2").select("*").limit(1).maybeSingle(),
+    supabase
+      .from("portfolio_intelligence_v2")
+      .select("*")
+      .order("total_records", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     supabase.from("release_warehouse_metrics").select("*").limit(1).maybeSingle(),
-    supabase.from("intelligence_leaderboard_v2").select("*").limit(250),
+    supabase
+      .from("intelligence_leaderboard_v2")
+      .select("*")
+      .order("estimated_value", { ascending: false })
+      .limit(500),
     supabase.from("external_market_comp_summary_safe").select("record_id, auction_count, median_price, high_price").eq("source", "popsike").limit(2500),
   ]);
 
