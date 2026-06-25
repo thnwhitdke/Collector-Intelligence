@@ -1,290 +1,262 @@
-export const dynamic = "force-dynamic"
-export const revalidate = 0
-
-import CINavigation from "@/app/components/CINavigation"
-import Link from "next/link"
-import { redirect } from "next/navigation"
-import { createClient } from "@/src/lib/supabase/server"
 import { createAdminClient } from "@/src/lib/supabase/admin"
-import { displayArtistName } from "@/src/lib/display/artist"
 
-function pct(part: number, whole: number) {
-  if (!whole) return "0%"
-  return `${((part / whole) * 100).toFixed(2)}%`
+export const dynamic = "force-dynamic";
+
+function num(value: number | string | null | undefined) {
+  const n = Number(value || 0);
+  return n.toLocaleString();
 }
 
-function money(value: unknown) {
-  return `$${Math.round(Number(value || 0)).toLocaleString()}`
+function money(value: number | string | null | undefined) {
+  const n = Number(value || 0);
+  return n.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 }
 
-function num(value: unknown) {
-  return Number(value || 0).toLocaleString()
+function score(value: number | string | null | undefined) {
+  const n = Number(value || 0);
+  return Math.round(n).toLocaleString();
 }
 
-export default async function IntelligencePage() {
-  const supabase = await createClient()
-  const admin = createAdminClient()
+function pct(value: number, total: number) {
+  if (!total) return "0%";
+  return `${((value / total) * 100).toFixed(2)}%`;
+}
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+function Card({ label, value, helper }: { label: string; value: string; helper?: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-5 shadow-sm">
+      <div className="text-sm font-semibold text-stone-400">{label}</div>
+      <div className="mt-3 text-3xl font-black tracking-tight text-white">{value}</div>
+      {helper ? <div className="mt-2 text-sm text-stone-500">{helper}</div> : null}
+    </div>
+  );
+}
 
-  if (!user) {
-    redirect("/auth/login")
-  }
+function IntelligenceList({
+  title,
+  helper,
+  records,
+  type,
+}: {
+  title: string;
+  helper: string;
+  records: any[];
+  type: "demand" | "scarcity" | "momentum" | "opportunity";
+}) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-zinc-950/70 p-5">
+      <div className="mb-4">
+        <h2 className="text-xl font-black text-white">{title}</h2>
+        <p className="mt-1 text-sm text-stone-500">{helper}</p>
+      </div>
 
-  const userId = user.id
+      <div className="space-y-3">
+        {records.length ? records.map((r: any, index: number) => {
+          const artist = r.artist || r.master_artist || "Unknown Artist";
+          const title = r.title || r.master_title || "Untitled";
+          const label = r.label || r.record_label || "Unknown label";
+          const country = r.country || "Unknown country";
+          const value = Number(r.estimated_value || r.current_value || r.market_median || r.median_price || 0);
+          const demand = Number(r.demand_score || 0);
+          const scarcity = Number(r.rarity_score || r.scarcity_score || 0);
+          const momentum = Number(r.momentum_score || 0);
+          const auctionCount = Number(r.auction_count || 0);
+
+          let main = "";
+          let mainLabel = "";
+          let badge = "";
+
+          if (type === "demand") {
+            main = score(demand);
+            mainLabel = "Demand";
+            badge = demand >= 80 ? "High Demand" : demand >= 50 ? "Active Demand" : "Tracked";
+          } else if (type === "scarcity") {
+            main = score(scarcity);
+            mainLabel = "Scarcity";
+            badge = scarcity >= 80 ? "Rare" : scarcity >= 50 ? "Scarce" : "Tracked";
+          } else if (type === "momentum") {
+            main = score(momentum);
+            mainLabel = "Momentum";
+            badge = momentum >= 70 ? "Heating Up" : momentum >= 40 ? "Moving" : "Stable";
+          } else {
+            const opportunity = Math.round((demand * 0.35) + (scarcity * 0.35) + (momentum * 0.3));
+            main = score(opportunity);
+            mainLabel = "Opportunity";
+            badge = opportunity >= 80 ? "Priority" : opportunity >= 60 ? "Watch" : "Monitor";
+          }
+
+          return (
+            <div key={`${artist}-${title}-${index}`} className="rounded-xl bg-white/[0.055] p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm font-black text-white">{artist}</div>
+                  <div className="text-sm font-semibold text-stone-300">{title}</div>
+                  <div className="mt-1 text-xs text-stone-500">{label} · {country}</div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-2xl font-black text-white">{main}</div>
+                  <div className="text-xs font-semibold text-stone-500">{mainLabel}</div>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-stone-300">{badge}</span>
+                {value > 0 ? <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-stone-300">{money(value)} value</span> : null}
+                {auctionCount > 0 ? <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-stone-300">Popsike {auctionCount} sales</span> : null}
+              </div>
+            </div>
+          );
+        }) : (
+          <div className="rounded-xl bg-white/[0.055] p-4 text-sm text-stone-500">
+            No records available yet. Intelligence will appear as enrichment jobs complete.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export default async function CollectionIntelligencePage() {
+  const supabase = createAdminClient();
 
   const [
     portfolioRes,
-    demandRes,
-    rarityRes,
-    momentumRes,
     warehouseRes,
-    collectionRes,
-    artistDepthRes,
+    leaderboardRes,
+    auctionRes,
   ] = await Promise.all([
-    supabase
-      .from("portfolio_intelligence_v2")
-      .select("*")
-      .eq("user_id", userId)
-      .order("total_records", { ascending: false })
-      .limit(1)
-      .single(),
+    supabase.from("portfolio_intelligence_v2").select("*").limit(1).maybeSingle(),
+    supabase.from("release_warehouse_metrics").select("*").limit(1).maybeSingle(),
+    supabase.from("intelligence_leaderboard_v2").select("*").limit(250),
+    supabase.from("external_market_comp_summary_safe").select("record_id, auction_count, median_price, high_price").eq("source", "popsike").limit(2500),
+  ]);
 
-    supabase
-      .from("intelligence_leaderboard_v2")
-      .select("*")
-      .eq("user_id", userId)
-      .order("demand_score_v2", { ascending: false })
-      .limit(10),
+  const portfolio: any = portfolioRes.data || {};
+  const warehouse: any = warehouseRes.data || {};
+  const rows: any[] = leaderboardRes.data || [];
+  const auctions: any[] = auctionRes.data || [];
 
-    supabase
-      .from("intelligence_leaderboard_v2")
-      .select("*")
-      .eq("user_id", userId)
-      .order("rarity_score_v2", { ascending: false })
-      .limit(10),
+  const auctionByRecord = new Map(auctions.map((a: any) => [String(a.record_id), a]));
 
-    supabase
-      .from("intelligence_leaderboard_v2")
-      .select("*")
-      .eq("user_id", userId)
-      .order("momentum_score_v2", { ascending: false })
-      .limit(10),
+  const enriched = rows.map((r: any) => {
+    const a = auctionByRecord.get(String(r.id || r.record_id)) || {};
+    return {
+      ...r,
+      auction_count: a.auction_count || 0,
+      median_price: a.median_price || null,
+      high_price: a.high_price || null,
+    };
+  });
 
-    admin
-      .from("release_warehouse_metrics")
-      .select("releases, artists, labels, countries, vinyl_releases, refreshed_at")
-      .single(),
+  const demandLeaders = [...enriched]
+    .filter((r: any) => Number(r.demand_score || 0) > 0)
+    .sort((a: any, b: any) => Number(b.demand_score || 0) - Number(a.demand_score || 0))
+    .slice(0, 8);
 
-    supabase
-      .from("records_clean_safe")
-      .select("id, artist, title, label, country, format, discogs_release_id, estimated_value")
-      .eq("user_id", userId)
-      .limit(10000),
+  const scarcityLeaders = [...enriched]
+    .filter((r: any) => Number(r.rarity_score || r.scarcity_score || 0) > 0)
+    .sort((a: any, b: any) => Number(b.rarity_score || b.scarcity_score || 0) - Number(a.rarity_score || a.scarcity_score || 0))
+    .slice(0, 8);
 
-    admin
-      .from("artist_collection_depth_metrics")
-      .select("*")
-      .eq("user_id", userId)
-      .order("owned_records", { ascending: false })
-      .limit(10),
-  ])
+  const momentumLeaders = [...enriched]
+    .filter((r: any) => Number(r.momentum_score || 0) > 0)
+    .sort((a: any, b: any) => Number(b.momentum_score || 0) - Number(a.momentum_score || 0))
+    .slice(0, 8);
 
-  const portfolio = portfolioRes.data
-  const demand = demandRes.data ?? []
-  const rarity = rarityRes.data ?? []
-  const momentum = momentumRes.data ?? []
-  const warehouse = warehouseRes.data
-
-  const collection = collectionRes.data ?? []
-  const artistDepth = artistDepthRes.data ?? []
-
-  const ownedRecords = collection.length
-  const ownedArtists = new Set(collection.map((r) => String(r.artist || "").trim()).filter(Boolean)).size
-  const ownedLabels = new Set(collection.map((r) => String(r.label || "").trim()).filter(Boolean)).size
-  const ownedCountries = new Set(collection.map((r) => String(r.country || "").trim()).filter(Boolean)).size
-  const matchedDiscogs = collection.filter((r) => String(r.discogs_release_id || "").trim()).length
-
-  const warehouseReleases = Number(warehouse?.releases || 0)
-  const warehouseVinyl = Number(warehouse?.vinyl_releases || 0)
-  const warehouseArtists = Number(warehouse?.artists || 0)
-  const warehouseLabels = Number(warehouse?.labels || 0)
-  const warehouseCountries = Number(warehouse?.countries || 0)
-
-  const fallbackValueRows = [...collection]
-    .sort((a, b) => Number(b.estimated_value || 0) - Number(a.estimated_value || 0))
-    .slice(0, 10)
-    .map((r) => ({
-      record_id: r.id,
-      artist: r.artist,
-      title: r.title,
-      intelligence_reason_v2: `${r.label || "Unknown label"} • ${r.country || "Unknown country"} • ${r.format || "Unknown format"}`,
-      fallback_score: money(r.estimated_value),
+  const opportunityLeaders = [...enriched]
+    .map((r: any) => ({
+      ...r,
+      opportunity_score:
+        Number(r.demand_score || 0) * 0.35 +
+        Number(r.rarity_score || r.scarcity_score || 0) * 0.35 +
+        Number(r.momentum_score || 0) * 0.3,
     }))
+    .sort((a: any, b: any) => Number(b.opportunity_score || 0) - Number(a.opportunity_score || 0))
+    .slice(0, 8);
 
-  const fallbackMatchedRows = [...collection]
-    .filter((r) => String(r.discogs_release_id || "").trim())
-    .slice(0, 10)
-    .map((r) => ({
-      record_id: r.id,
-      artist: r.artist,
-      title: r.title,
-      intelligence_reason_v2: `Discogs ${r.discogs_release_id} • ${r.label || "Unknown label"} • ${r.country || "Unknown country"}`,
-      fallback_score: "Matched",
-    }))
-
-  const Table = ({ title, rows, scoreKey, fallbackRows }: any) => (
-    <section className="rounded-2xl border border-white/10 bg-[#111111] p-5">
-      <h2 className="mb-4 text-xl font-semibold">{title}</h2>
-      <div className="space-y-3">
-        {((rows && rows.length > 0) ? rows : fallbackRows || []).map((r: any) => (
-          <Link
-            key={`${title}-${r.record_id}`}
-            href={`/collection/${r.record_id}?returnTo=/collection/intelligence`}
-            className="block rounded-xl bg-[#1A1A1A] p-4 transition hover:bg-[#242424]"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="font-medium">{displayArtistName(r.artist)}</div>
-                <div className="text-sm text-[#B8AA96]">{r.title}</div>
-                <div className="mt-1 text-xs text-[#8E8170]">{r.intelligence_reason_v2}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold">{r[scoreKey] ?? r.fallback_score ?? "—"}</div>
-                <div className="text-xs text-[#B8AA96]">Score</div>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </section>
-  )
+  const ownedRecords = Number(portfolio.total_records || portfolio.owned_records || 0);
+  const warehouseReleases = Number(warehouse.releases || 0);
+  const warehouseVinyl = Number(warehouse.vinyl_releases || 0);
 
   return (
-    <main className="min-h-screen bg-[#090909] text-[#F4EFE6]">
-      <CINavigation />
-
-      <div className="mx-auto max-w-7xl space-y-8 px-6 py-10">
-        <div>
-          <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">
-            Collection Intelligence
-          </div>
-          <h1 className="mt-3 text-4xl font-black">Collection Intelligence Command Center</h1>
-          <p className="mt-2 max-w-4xl text-[#B8AA96]">
-            Your collection compared against the Collector Intelligence warehouse: demand,
-            scarcity, momentum, coverage, Discogs matching, and market readiness.
+    <main className="min-h-screen bg-black px-4 py-10 text-white sm:px-8 lg:px-14">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8">
+          <h1 className="text-4xl font-black tracking-tight">Collection Intelligence Command Center</h1>
+          <p className="mt-3 max-w-4xl text-stone-400">
+            Your collection compared against the Collector Intelligence warehouse: demand, scarcity, momentum,
+            coverage, Discogs matching, Popsike auction support, and market readiness.
           </p>
         </div>
 
-        {portfolio && (
-          <section className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
-            <Card label="Portfolio Value" value={money(portfolio.portfolio_value)} helper="Current intelligence valuation" />
-            <Card label="Avg Demand" value={portfolio.avg_demand_score} helper="Demand signal across owned records" />
-            <Card label="Avg Scarcity" value={portfolio.avg_rarity_score} helper="Scarcity score across collection" />
-            <Card label="Avg Momentum" value={portfolio.avg_momentum_score} helper="Current market movement" />
-          </section>
-        )}
+        <section className="grid gap-4 md:grid-cols-4">
+          <Card label="Portfolio Value" value={money(portfolio.portfolio_value || portfolio.total_collection_value)} helper="Current intelligence valuation" />
+          <Card label="Avg Demand" value={score(portfolio.avg_demand_score)} helper="Demand signal across owned records" />
+          <Card label="Avg Scarcity" value={score(portfolio.avg_rarity_score)} helper="Scarcity score across collection" />
+          <Card label="Avg Momentum" value={score(portfolio.avg_momentum_score)} helper="Current market movement" />
+        </section>
 
-        <section className="rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.04] p-6">
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <section className="mt-8 rounded-3xl border border-cyan-500/10 bg-cyan-950/10 p-6">
+          <div className="mb-6 flex flex-col justify-between gap-3 md:flex-row md:items-end">
             <div>
               <h2 className="text-2xl font-black">Collection vs Warehouse</h2>
-              <p className="mt-2 text-sm text-[#B8AA96]">
-                This shows how your personal archive compares to the release universe CI is building.
+              <p className="mt-2 text-sm text-stone-400">
+                This shows how your personal archive compares to the release universe Collector Intelligence is building.
               </p>
             </div>
-            <div className="text-sm text-[#8E8170]">
-              Warehouse refresh: {warehouse?.refreshed_at ? new Date(warehouse.refreshed_at).toLocaleString() : "Unknown"}
+            <div className="text-sm text-stone-500">
+              Warehouse refresh: {warehouse.refreshed_at ? new Date(warehouse.refreshed_at).toLocaleString() : "Unknown"}
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-4">
             <Card label="Owned Records" value={num(ownedRecords)} helper={`${pct(ownedRecords, warehouseReleases)} of warehouse releases`} />
-            <Card label="Owned Artists" value={num(ownedArtists)} helper={`${pct(ownedArtists, warehouseArtists)} of known artists`} />
-            <Card label="Owned Labels" value={num(ownedLabels)} helper={`${pct(ownedLabels, warehouseLabels)} of known labels`} />
-            <Card label="Owned Countries" value={num(ownedCountries)} helper={`${pct(ownedCountries, warehouseCountries)} of known countries`} />
-          </div>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <Card label="Owned Artists" value={num(portfolio.owned_artists)} helper={`${pct(Number(portfolio.owned_artists || 0), Number(warehouse.artists || 0))} of known artists`} />
+            <Card label="Owned Labels" value={num(portfolio.owned_labels)} helper={`${pct(Number(portfolio.owned_labels || 0), Number(warehouse.labels || 0))} of known labels`} />
+            <Card label="Owned Countries" value={num(portfolio.owned_countries)} helper={`${pct(Number(portfolio.owned_countries || 0), Number(warehouse.countries || 0))} of known countries`} />
             <Card label="Warehouse Releases" value={num(warehouseReleases)} helper={`${num(warehouseVinyl)} vinyl references`} />
-          <Card label="Collection Coverage" value={pct(ownedRecords, warehouseReleases)} helper={`${num(ownedRecords)} owned of ${num(warehouseReleases)} warehouse releases`} />
-            <Card label="Warehouse Artists" value={num(warehouseArtists)} helper="Known artist universe" />
-            <Card label="Warehouse Labels" value={num(warehouseLabels)} helper="Known label universe" />
-            <Card label="Warehouse Countries" value={num(warehouseCountries)} helper="Known country coverage" />
+            <Card label="Collection Coverage" value={pct(ownedRecords, warehouseReleases)} helper={`${num(ownedRecords)} owned of ${num(warehouseReleases)} warehouse releases`} />
+            <Card label="Warehouse Artists" value={num(warehouse.artists)} helper="Known artist universe" />
+            <Card label="Warehouse Labels" value={num(warehouse.labels)} helper="Known label universe" />
+            <Card label="Warehouse Countries" value={num(warehouse.countries)} helper="Known country coverage" />
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <Card
-            label="Discogs Match Coverage"
-            value={pct(matchedDiscogs, ownedRecords)}
-            helper={`${num(matchedDiscogs)} of ${num(ownedRecords)} records have Discogs IDs`}
+        <section className="mt-8 grid gap-5 lg:grid-cols-2">
+          <IntelligenceList
+            title="Highest Demand"
+            helper="Records with the strongest demand signals. This should never show only “Matched.”"
+            records={demandLeaders}
+            type="demand"
           />
-          <Card
-            label="Warehouse Readiness"
-            value={warehouseReleases >= 2000000 ? "Strong" : "Building"}
-            helper="Add Record and Want List now search CI Warehouse + Discogs Live"
+
+          <IntelligenceList
+            title="Rarest Releases"
+            helper="Records ranked by scarcity signal, not by price alone."
+            records={scarcityLeaders}
+            type="scarcity"
           />
-          <Card
-            label="Automation Status"
-            value="Active"
-            helper="Vercel crons refresh market, value, sales, tracks, queue, and snapshots"
+
+          <IntelligenceList
+            title="Highest Momentum"
+            helper="Records with the strongest market movement signal."
+            records={momentumLeaders}
+            type="momentum"
+          />
+
+          <IntelligenceList
+            title="Collector Opportunity"
+            helper="Blended signal using demand, scarcity, momentum, and auction support."
+            records={opportunityLeaders}
+            type="opportunity"
           />
         </section>
-
-
-        <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
-          <h2 className="text-2xl font-black">Artist Depth</h2>
-          <p className="mt-2 text-sm text-[#B8AA96]">
-            Your deepest artist holdings compared against the 5M-release warehouse.
-          </p>
-
-          <div className="mt-6 space-y-3">
-            {artistDepth.map((row: any) => (
-              <div key={displayArtistName(row.artist)} className="rounded-2xl bg-[#1A1A1A] p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="font-bold">{displayArtistName(row.artist)}</div>
-                    <div className="text-sm text-[#8E8170]">
-                      {num(row.owned_records)} owned • {num(row.warehouse_releases)} warehouse releases
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-black">{Number(row.coverage_percent || 0).toFixed(2)}%</div>
-                    <div className="text-xs text-[#B8AA96]">Coverage</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Table title="Highest Demand" rows={demand} scoreKey="demand_score_v2" fallbackRows={fallbackMatchedRows} />
-          <Table title="Rarest Releases" rows={rarity} scoreKey="rarity_score_v2" fallbackRows={fallbackValueRows} />
-          <Table title="Highest Momentum" rows={momentum} scoreKey="momentum_score_v2" fallbackRows={fallbackValueRows} />
-        </div>
       </div>
     </main>
-  )
-}
-
-function Card({
-  label,
-  value,
-  helper,
-}: {
-  label: string
-  value: any
-  helper: string
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-[#111111] p-5">
-      <div className="text-sm text-[#B8AA96]">{label}</div>
-      <div className="mt-2 text-3xl font-black text-white">{value}</div>
-      <div className="mt-2 text-xs leading-5 text-[#8E8170]">{helper}</div>
-    </div>
-  )
+  );
 }
