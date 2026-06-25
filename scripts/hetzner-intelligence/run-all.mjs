@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 
 const jobs = [
+  'warehouse-refresh-metrics.mjs',
   'nightly-valuation.mjs',
   'market-memory.mjs',
   'artist-snapshots.mjs',

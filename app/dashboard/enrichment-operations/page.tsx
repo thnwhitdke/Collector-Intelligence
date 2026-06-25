@@ -1,538 +1,196 @@
-"use client";
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
-import CINavigation from "@/app/components/CINavigation";
-import { useEffect, useState, type ReactNode } from "react";
-import {
-  Activity,
-  AlertTriangle,
-  BarChart3,
-  Database,
-  Gauge,
-  Layers3,
-  RefreshCcw,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-} from "lucide-react";
+import Link from "next/link"
+import CINavigation from "@/app/components/CINavigation"
+import { createAdminClient } from "@/src/lib/supabase/admin"
 
-type OpsData = {
-  ok: boolean;
-  generatedAt: string;
-  counts: {
-    records: number;
-    marketHistory: number;
-    marketTrends: number;
-    salesSummaries: number;
-    normalizedSales: number;
-    releaseTracks: number;
-    artists: number;
-    styles: number;
-    genres: number;
-  };
-  releaseWarehouse: {
-    releases: number;
-    artists: number;
-    labels: number;
-    countries: number;
-    vinyl_releases: number;
-    refreshed_at: string;
-  } | null;
-  iqHealth: {
-    maxIq: number;
-    averageIq: number;
-    over100Count: number;
-    missingIqCount: number;
-  };
-  portfolioTrend: {
-    snapshotCount: number;
-    firstValue: number;
-    previousValue: number;
-    latestValue: number;
-    deltaFromPrevious: number;
-    percentFromPrevious: number;
-    deltaFromFirst: number;
-    percentFromFirst: number;
-    previousIq: number;
-    latestIq: number;
-    iqDeltaFromPrevious: number;
-    direction: "up" | "down" | "flat";
-    health: "Bullish" | "Stable" | "Bearish";
-  } | null;
-  intelligenceFeed: Array<{
-    id: string;
-    type: string;
-    title: string;
-    summary: string;
-    detail: string;
-    timestamp: string | null;
-  }>;
-  topMovers: Array<{
-    record_id: number;
-    market_momentum: number | null;
-    signal_label: string | null;
-    signal_strength: string | null;
-    price_delta_percent: number | null;
-    supply_delta_percent: number | null;
-    calculated_at: string | null;
-    record?: {
-      id: number;
-      artist: string | null;
-      title: string | null;
-      estimated_value: number | string | null;
-      discogs_release_id?: string | null;
-      label?: string | null;
-      catalogue_number?: string | null;
-      country?: string | null;
-      year?: number | null;
-      format?: string | null;
-    } | null;
-  }>;
-  topIq: Array<{
-    id: number;
-    artist: string | null;
-    title: string | null;
-    estimated_value: number | string | null;
-    collector_iq_score: number | null;
-    rarity_score: number | null;
-    market_momentum: string | null;
-  }>;
-};
+function num(value: unknown) {
+  return Number(value || 0).toLocaleString()
+}
 
-function MetricCard({
-  title,
+function pct(part: number, whole: number) {
+  if (!whole) return "0%"
+  return `${((part / whole) * 100).toFixed(2)}%`
+}
+
+function Card({
+  label,
   value,
-  subtitle,
-  icon,
+  helper,
+  tone = "default",
 }: {
-  title: string;
-  value: string | number;
-  subtitle: string;
-  icon: React.ReactNode;
+  label: string
+  value: string
+  helper: string
+  tone?: "default" | "good" | "warn" | "cyan"
 }) {
+  const toneClass =
+    tone === "good"
+      ? "border-emerald-400/20 bg-emerald-400/[0.06]"
+      : tone === "warn"
+        ? "border-yellow-400/20 bg-yellow-400/[0.06]"
+        : tone === "cyan"
+          ? "border-cyan-400/20 bg-cyan-400/[0.06]"
+          : "border-white/10 bg-[#111111]"
+
   return (
-    <div className="relative min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-[#0B0B0B] p-6">
-      <div className="absolute right-5 top-5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white/80">
-        {icon}
+    <div className={`rounded-3xl border p-6 ${toneClass}`}>
+      <div className="text-xs font-black uppercase tracking-[0.35em] text-[#8E8170]">{label}</div>
+      <div className="mt-4 text-4xl font-black text-white">{value}</div>
+      <div className="mt-2 text-sm leading-6 text-[#B8AA96]">{helper}</div>
+    </div>
+  )
+}
+
+function ProgressBar({ label, value, max }: { label: string; value: number; max: number }) {
+  const width = Math.max(3, Math.min(100, (value / Math.max(1, max)) * 100))
+
+  return (
+    <div>
+      <div className="mb-2 flex justify-between gap-4 text-sm">
+        <span className="font-bold text-white">{label}</span>
+        <span className="text-[#B8AA96]">{num(value)}</span>
       </div>
-
-      <div className="min-w-0 pr-16">
-        <p className="break-words text-sm font-bold leading-5 text-[#8E8170]">
-          {title}
-        </p>
-
-        <p className="mt-8 break-words text-[clamp(1.7rem,2.1vw,2.75rem)] font-black leading-tight tracking-tight text-white">
-          {value}
-        </p>
-
-        <p className="mt-4 break-words text-sm leading-5 text-[#8E8170]">
-          {subtitle}
-        </p>
+      <div className="h-3 overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-teal-300 to-yellow-300"
+          style={{ width: `${width}%` }}
+        />
       </div>
     </div>
-  );
+  )
 }
 
-function money(value: number | string | null | undefined) {
-  const n = Number(value ?? 0);
-  if (!Number.isFinite(n) || n === 0) return "—";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(n);
-}
+export default async function EnrichmentOperationsPage() {
+  const admin = createAdminClient()
 
-function signedMoney(value: number | null | undefined) {
-  const n = Number(value ?? 0);
-  if (!Number.isFinite(n) || n === 0) return "$0.00";
-  const formatted = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(Math.abs(n));
-  return n > 0 ? `+${formatted}` : `-${formatted}`;
-}
+  const [
+    warehouseCount,
+    warehouseMetrics,
+    recordsCount,
+    valueHistoryCount,
+    externalCompsCount,
+    trendSignalsCount,
+    marketObservationsCount,
+    popsikeQueuePending,
+    popsikeQueueFailed,
+    latestValueSnapshots,
+  ] = await Promise.all([
+    admin.from("release_reference").select("*", { count: "exact", head: true }),
+    admin.from("release_warehouse_metrics").select("*").limit(1).maybeSingle(),
+    admin.from("records_clean_safe").select("*", { count: "exact", head: true }),
+    admin.from("value_history").select("*", { count: "exact", head: true }),
+    admin.from("external_market_comps").select("*", { count: "exact", head: true }),
+    admin.from("market_trend_signals").select("*", { count: "exact", head: true }),
+    admin.from("market_observations").select("*", { count: "exact", head: true }),
+    admin.from("external_market_comp_queue").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    admin.from("external_market_comp_queue").select("*", { count: "exact", head: true }).eq("status", "failed"),
+    admin.from("value_history").select("snapshot_date, created_at").order("created_at", { ascending: false }).limit(5),
+  ])
 
-function signedPercent(value: number | null | undefined) {
-  const n = Number(value ?? 0);
-  if (!Number.isFinite(n) || n === 0) return "0%";
-  return n > 0 ? `+${n}%` : `${n}%`;
-}
+  const actualWarehouse = warehouseCount.count || 0
+  const metricWarehouse = Number(warehouseMetrics.data?.releases || 0)
+  const warehouseTarget = 10_000_000
+  const records = recordsCount.count || 0
+  const valueHistory = valueHistoryCount.count || 0
+  const comps = externalCompsCount.count || 0
+  const trends = trendSignalsCount.count || 0
+  const observations = marketObservationsCount.count || 0
+  const pending = popsikeQueuePending.count || 0
+  const failed = popsikeQueueFailed.count || 0
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "Unknown";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown";
-  return date.toLocaleString();
-}
-
-function feedTone(type: string) {
-  const lower = type.toLowerCase();
-
-  if (lower.includes("portfolio")) {
-    return "border-cyan-500/10 bg-cyan-500/5 text-cyan-300";
-  }
-
-  if (lower.includes("market")) {
-    return "border-emerald-500/10 bg-emerald-500/5 text-emerald-300";
-  }
-
-  if (lower.includes("sales")) {
-    return "border-amber-500/10 bg-amber-500/5 text-amber-300";
-  }
-
-  if (lower.includes("iq")) {
-    return "border-purple-500/10 bg-purple-500/5 text-purple-300";
-  }
-
-  return "border-white/10 bg-white/[0.03] text-white";
-}
-
-export default function EnrichmentOperationsDashboard() {
-  const [loading, setLoading] = useState(true);
-  const [ops, setOps] = useState<OpsData | null>(null);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const response = await fetch("/api/dashboard/intelligence-ops");
-
-        if (response.ok) {
-          setOps(await response.json());
-        }
-
-        await fetch("/api/activity/ops-seen", {
-          method: "POST",
-        });
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black p-10 text-white">
-        <div className="animate-pulse space-y-6">
-          <div className="h-12 w-96 rounded bg-zinc-900" />
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-5">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="h-36 rounded-3xl bg-zinc-900" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const systemHealthy = (ops?.iqHealth.over100Count ?? 0) === 0;
+  const metricIsStale = actualWarehouse > metricWarehouse
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <CINavigation />
+    <main className="min-h-screen bg-[#090909] text-[#F4EFE6]">
+      <CINavigation />
 
-        <section className="mt-8 rounded-[2rem] border border-cyan-500/10 bg-gradient-to-br from-[#071b2b] to-[#090b12] p-8 shadow-2xl">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">
-                Collector Intelligence OS
-              </p>
-              <h1 className="mt-3 text-5xl font-black tracking-tight">
-                Intelligence Operations Center
-              </h1>
-              <p className="mt-4 max-w-3xl text-zinc-400">
-                Live telemetry for the Collector Intelligence moat: market
-                memory, trend signals, sales intelligence, portfolio health,
-                track coverage, and Collector IQ integrity.
-              </p>
-            </div>
-
-            <div
-              className={`rounded-3xl border px-6 py-4 ${
-                systemHealthy
-                  ? "border-emerald-500/20 bg-emerald-500/10"
-                  : "border-amber-500/20 bg-amber-500/10"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <ShieldCheck
-                  className={`h-6 w-6 ${
-                    systemHealthy ? "text-emerald-400" : "text-amber-400"
-                  }`}
-                />
-                <div>
-                  <p className="text-sm text-zinc-400">System Health</p>
-                  <p className="text-xl font-bold">
-                    {systemHealthy ? "Operational" : "Needs Review"}
-                  </p>
-                </div>
-              </div>
-            </div>
+      <div className="mx-auto max-w-7xl space-y-8 px-6 py-10">
+        <section className="rounded-[2rem] border border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.12] via-[#111111] to-black p-8 md:p-10">
+          <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">
+            Collector Intelligence Operations
           </div>
-        </section>
-
-        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          <MetricCard
-            title="Market Sync"
-            value={ops?.counts.marketHistory ?? 0}
-            subtitle="Snapshots captured every 3 hours"
-            icon={<Database className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Market Trends"
-            value={ops?.counts.marketTrends ?? 0}
-            subtitle="Calculated 15 minutes after sync"
-            icon={<TrendingUp className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Sales Pipeline"
-            value={ops?.counts.normalizedSales ?? 0}
-            subtitle="Normalized comp observations"
-            icon={<RefreshCcw className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Sales Summary"
-            value={ops?.counts.salesSummaries ?? 0}
-            subtitle="Record-level sold-market intelligence"
-            icon={<Sparkles className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="CI Recompute"
-            value={systemHealthy ? "Healthy" : "Review"}
-            subtitle="Runs after sales summary heartbeat"
-            icon={<ShieldCheck className="h-6 w-6" />}
-          />
-        </section>
-
-        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          <MetricCard
-            title="Portfolio Value"
-            value={money(ops?.portfolioTrend?.latestValue)}
-            subtitle="Latest portfolio snapshot"
-            icon={<Database className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Value Change"
-            value={signedMoney(ops?.portfolioTrend?.deltaFromPrevious)}
-            subtitle={`${signedPercent(
-              ops?.portfolioTrend?.percentFromPrevious
-            )} since previous snapshot`}
-            icon={<TrendingUp className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Portfolio Health"
-            value={ops?.portfolioTrend?.health ?? "Unknown"}
-            subtitle={`Direction: ${ops?.portfolioTrend?.direction ?? "unknown"}`}
-            icon={<ShieldCheck className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Average IQ"
-            value={ops?.portfolioTrend?.latestIq?.toFixed(2) ?? "—"}
-            subtitle={`${ops?.portfolioTrend?.iqDeltaFromPrevious ?? 0} IQ since previous snapshot`}
-            icon={<Gauge className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Snapshots"
-            value={ops?.portfolioTrend?.snapshotCount ?? 0}
-            subtitle="Portfolio memory depth"
-            icon={<Layers3 className="h-6 w-6" />}
-          />
-        </section>
-
-        <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          <MetricCard
-            title="Release Warehouse"
-            value={(ops?.releaseWarehouse?.vinyl_releases ?? 0).toLocaleString()}
-            subtitle={`${(ops?.releaseWarehouse?.artists ?? 0).toLocaleString()} artists • ${(ops?.releaseWarehouse?.labels ?? 0).toLocaleString()} labels`}
-            icon={<Database className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Warehouse Countries"
-            value={(ops?.releaseWarehouse?.countries ?? 0).toLocaleString()}
-            subtitle={`${(ops?.releaseWarehouse?.releases ?? 0).toLocaleString()} total release references`}
-            icon={<Layers3 className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Records"
-            value={ops?.counts.records ?? 0}
-            subtitle="Collection rows tracked"
-            icon={<Database className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Market Memory"
-            value={ops?.counts.marketHistory ?? 0}
-            subtitle="Historical market snapshots"
-            icon={<Layers3 className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Trend Signals"
-            value={ops?.counts.marketTrends ?? 0}
-            subtitle="Derived market movements"
-            icon={<BarChart3 className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Sales Summaries"
-            value={ops?.counts.salesSummaries ?? 0}
-            subtitle="Record-level sold comps"
-            icon={<Sparkles className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Normalized Sales"
-            value={ops?.counts.normalizedSales ?? 0}
-            subtitle="Cleaned comp observations"
-            icon={<Activity className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Release Tracks"
-            value={ops?.counts.releaseTracks ?? 0}
-            subtitle="Track intelligence rows"
-            icon={<Gauge className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="Max IQ"
-            value={ops?.iqHealth.maxIq ?? 0}
-            subtitle="Collector IQ ceiling check"
-            icon={<ShieldCheck className="h-6 w-6" />}
-          />
-          <MetricCard
-            title="IQ Over 100"
-            value={ops?.iqHealth.over100Count ?? 0}
-            subtitle="Should always remain zero"
-            icon={<AlertTriangle className="h-6 w-6" />}
-          />
-        </section>
-
-        <section className="mt-8 grid gap-8 xl:grid-cols-2">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="text-2xl font-black">Market Movers</h2>
-            <p className="mt-2 text-sm text-zinc-500">
-              Pressings showing the strongest recent movement in supply, price, and marketplace behavior.
-            </p>
-
-            <div className="mt-6 space-y-3">
-              {(ops?.topMovers ?? []).map((item) => (
-                <a
-                  key={`${item.record_id}-${item.calculated_at}`}
-                  href={`/collection/${item.record?.id ?? item.record_id}`}
-                  className="block rounded-2xl border border-white/10 bg-black/30 p-4 transition hover:border-cyan-400/40 hover:bg-cyan-400/5"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="font-bold">
-                        {item.record?.artist ?? "Unknown Artist"} —{" "}
-                        {item.record?.title ?? `Record #${item.record_id}`}
-                      </p>
-                      <p className="mt-1 text-sm text-zinc-500">
-                        {item.record?.country ?? "Unknown Country"} •{" "}
-                        {item.record?.year ?? "Unknown Year"} •{" "}
-                        {item.record?.format ?? "Unknown Format"} • Discogs{" "}
-                        {item.record?.discogs_release_id ?? "—"}
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-600">
-                        {item.record?.label ?? "Unknown Label"}
-                        {item.record?.catalogue_number
-                          ? ` • ${item.record.catalogue_number}`
-                          : ""}{" "}
-                        • Supply: {item.supply_delta_percent ?? 0}% • Price:{" "}
-                        {item.price_delta_percent ?? 0}%
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-black">
-                        {item.market_momentum ?? 0}
-                      </p>
-                      <p className="text-xs text-zinc-500">market movement</p>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="text-2xl font-black">Highest Intelligence Scores</h2>
-            <p className="mt-2 text-sm text-zinc-500">
-              Records with the strongest overall Collector Intelligence profile across demand, rarity, value, and market signals.
-            </p>
-
-            <div className="mt-6 space-y-3">
-              {(ops?.topIq ?? []).map((record) => (
-                <div
-                  key={record.id}
-                  className="rounded-2xl border border-white/10 bg-black/30 p-4"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="font-bold">
-                        {record.title ?? "Untitled"}
-                      </p>
-                      <p className="mt-1 text-sm text-zinc-500">
-                        {record.artist ?? "Unknown Artist"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-black">
-                        {record.collector_iq_score ?? "—"}
-                      </p>
-                      <p className="text-xs text-zinc-500">
-                        {money(record.estimated_value)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-          <div className="mb-6 flex items-center gap-3">
-            <Sparkles className="h-5 w-5 text-cyan-300" />
-            <h2 className="text-2xl font-bold">Live Intelligence Feed</h2>
-          </div>
-
-          <p className="mb-6 text-sm text-zinc-500">
-            Real-time market, portfolio, sales, and Collector IQ events
-            generated by the Collector Intelligence intelligence layer.
+          <h1 className="mt-5 text-5xl font-black tracking-tight md:text-7xl">
+            Live Operations <span className="text-cyan-300">Dashboard</span>
+          </h1>
+          <p className="mt-5 max-w-4xl text-base leading-7 text-[#B8AA96]">
+            Worker health, warehouse growth, enrichment coverage, Popsike queue status, market intelligence volume,
+            and whether visible UI metrics are current.
           </p>
+        </section>
 
-          <div className="space-y-4">
-            {(ops?.intelligenceFeed ?? []).length === 0 && (
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-zinc-500">
-                No intelligence events available yet.
-              </div>
-            )}
+        {metricIsStale ? (
+          <section className="rounded-3xl border border-yellow-400/25 bg-yellow-400/[0.08] p-6">
+            <div className="text-xs font-black uppercase tracking-[0.35em] text-yellow-300">Warehouse Metric Warning</div>
+            <h2 className="mt-3 text-3xl font-black text-white">Dashboard warehouse metric is stale</h2>
+            <p className="mt-3 text-sm leading-6 text-[#B8AA96]">
+              Raw warehouse rows show {num(actualWarehouse)}, but release_warehouse_metrics shows {num(metricWarehouse)}.
+              Refresh the warehouse metrics after imports so the UI no longer displays the older 5M value.
+            </p>
+          </section>
+        ) : null}
 
-            {(ops?.intelligenceFeed ?? []).map((event) => (
-              <div
-                key={event.id}
-                className={`rounded-2xl border p-4 ${feedTone(event.type)}`}
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.25em] opacity-80">
-                      {event.type}
-                    </p>
-                    <p className="mt-2 font-bold text-white">{event.title}</p>
-                    <p className="mt-1 text-sm text-zinc-300">
-                      {event.summary}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {event.detail}
-                    </p>
-                  </div>
-                  <div className="max-w-[180px] text-right text-xs text-zinc-500">
-                    {formatDate(event.timestamp)}
-                  </div>
-                </div>
-              </div>
-            ))}
+        <section className="grid gap-4 md:grid-cols-4">
+          <Card label="Warehouse Rows" value={num(actualWarehouse)} helper={`${pct(actualWarehouse, warehouseTarget)} of 10M target`} tone="cyan" />
+          <Card label="UI Warehouse Metric" value={num(metricWarehouse)} helper={metricIsStale ? "Currently stale versus raw table" : "Matches or exceeds raw count"} tone={metricIsStale ? "warn" : "good"} />
+          <Card label="Collection Records" value={num(records)} helper="Tracked user collection rows" />
+          <Card label="Value History" value={num(valueHistory)} helper="Historical valuation snapshots" />
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-4">
+          <Card label="External Comps" value={num(comps)} helper="Imported auction/market comps" tone="cyan" />
+          <Card label="Trend Signals" value={num(trends)} helper="Computed market trend signals" />
+          <Card label="Market Observations" value={num(observations)} helper="Favorite artist market observations" />
+          <Card label="Popsike Pending" value={num(pending)} helper={`${num(failed)} failed queue rows`} tone={pending > 0 ? "warn" : "good"} />
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+          <div className="text-xs font-black uppercase tracking-[0.35em] text-yellow-300">Throughput</div>
+          <h2 className="mt-3 text-3xl font-black">Warehouse Progress</h2>
+          <div className="mt-6 space-y-6">
+            <ProgressBar label="Current warehouse rows" value={actualWarehouse} max={warehouseTarget} />
+            <ProgressBar label="UI metric rows" value={metricWarehouse} max={warehouseTarget} />
+            <ProgressBar label="External market comps" value={comps} max={Math.max(comps, 100000)} />
+            <ProgressBar label="Market observations" value={observations} max={Math.max(observations, 1000)} />
           </div>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+            <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">Recommended Action</div>
+            <h2 className="mt-3 text-2xl font-black">Refresh warehouse UI metrics</h2>
+            <p className="mt-3 text-sm leading-6 text-[#B8AA96]">
+              If the website still says 5M after a successful import, it means the summary layer needs refresh/recompute.
+            </p>
+            <div className="mt-5 rounded-2xl bg-black/40 p-4 font-mono text-xs text-cyan-100">
+              npm run warehouse:refresh-metrics
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+            <div className="text-xs font-black uppercase tracking-[0.35em] text-yellow-300">Latest Snapshots</div>
+            <h2 className="mt-3 text-2xl font-black">Value History Activity</h2>
+            <div className="mt-5 space-y-3">
+              {(latestValueSnapshots.data || []).map((row: any, index: number) => (
+                <div key={index} className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm">
+                  <div className="font-bold text-white">{row.snapshot_date || "Snapshot"}</div>
+                  <div className="text-[#8E8170]">{row.created_at ? new Date(row.created_at).toLocaleString() : "Unknown time"}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </section>
+
+        <section className="flex flex-wrap gap-3">
+          <Link href="/collection/operations-center" className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-3 text-sm font-black text-cyan-100">
+            Open Operations Center
+          </Link>
+          <Link href="/collection/intelligence" className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-5 py-3 text-sm font-black text-yellow-100">
+            Open Intelligence
+          </Link>
         </section>
       </div>
     </main>
-  );
+  )
 }
