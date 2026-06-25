@@ -40,6 +40,7 @@ export default async function IntelligencePage() {
     demandRes,
     rarityRes,
     momentumRes,
+    auctionRes,
     warehouseRes,
     collectionRes,
     artistDepthRes,
@@ -74,6 +75,12 @@ export default async function IntelligencePage() {
       .limit(10),
 
     admin
+      .from("external_market_comp_summary_safe")
+      .select("record_id, auction_count, median_price, high_price")
+      .eq("source", "popsike")
+      .limit(5000),
+
+    admin
       .from("release_warehouse_metrics")
       .select("releases, artists, labels, countries, vinyl_releases, refreshed_at")
       .single(),
@@ -96,6 +103,7 @@ export default async function IntelligencePage() {
   const demand = demandRes.data ?? []
   const rarity = rarityRes.data ?? []
   const momentum = momentumRes.data ?? []
+  const auctions = auctionRes.data ?? []
   const warehouse = warehouseRes.data
 
   const collection = collectionRes.data ?? []
@@ -106,6 +114,44 @@ export default async function IntelligencePage() {
   const ownedLabels = new Set(collection.map((r) => String(r.label || "").trim()).filter(Boolean)).size
   const ownedCountries = new Set(collection.map((r) => String(r.country || "").trim()).filter(Boolean)).size
   const matchedDiscogs = collection.filter((r) => String(r.discogs_release_id || "").trim()).length
+
+  const auctionByRecord = new Map(
+    auctions.map((a: any) => [
+      String(a.record_id),
+      {
+        auction_count: Number(a.auction_count || 0),
+        median_price: Number(a.median_price || 0),
+        high_price: Number(a.high_price || 0),
+      },
+    ])
+  )
+
+  function enrichRows(rows: any[]) {
+    return rows.map((r: any) => ({
+      ...r,
+      ...(auctionByRecord.get(String(r.record_id)) || auctionByRecord.get(String(r.id)) || {}),
+    }))
+  }
+
+  const demandRows = enrichRows(demand)
+  const rarityRows = enrichRows(rarity)
+  const momentumRows = enrichRows(momentum)
+
+  const opportunityRows = enrichRows([
+    ...new Map(
+      [...demand, ...rarity, ...momentum].map((r: any) => [String(r.record_id || r.id), r])
+    ).values(),
+  ])
+    .map((r: any) => ({
+      ...r,
+      opportunity_score_v2:
+        Number(r.demand_score_v2 || 0) * 0.35 +
+        Number(r.rarity_score_v2 || 0) * 0.35 +
+        Number(r.momentum_score_v2 || 0) * 0.30 +
+        Math.min(Number(r.auction_count || 0), 10),
+    }))
+    .sort((a: any, b: any) => Number(b.opportunity_score_v2 || 0) - Number(a.opportunity_score_v2 || 0))
+    .slice(0, 10)
 
   const warehouseReleases = Number(warehouse?.releases || 0)
   const warehouseVinyl = Number(warehouse?.vinyl_releases || 0)
@@ -155,6 +201,24 @@ export default async function IntelligencePage() {
                 <div className="text-2xl font-bold">{Math.round(Number(r[scoreKey] ?? r.fallback_score ?? 0)) || r.fallback_score || "—"}</div>
                 <div className="text-xs text-[#B8AA96]">{scoreLabel}</div>
               </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#B8AA96]">
+              {Number(r.auction_count || 0) > 0 && (
+                <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-cyan-200">
+                  Popsike {num(r.auction_count)} sales
+                </span>
+              )}
+              {Number(r.median_price || 0) > 0 && (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                  Auction median {money(r.median_price)}
+                </span>
+              )}
+              {Number(r.high_price || 0) > 0 && (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                  High {money(r.high_price)}
+                </span>
+              )}
             </div>
           </Link>
         ))}
@@ -261,10 +325,11 @@ export default async function IntelligencePage() {
           </div>
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Table title="Highest Demand" rows={demand} scoreKey="demand_score_v2" scoreLabel="Demand" fallbackRows={fallbackMatchedRows} />
-          <Table title="Rarest Releases" rows={rarity} scoreKey="rarity_score_v2" scoreLabel="Scarcity" fallbackRows={fallbackValueRows} />
-          <Table title="Highest Momentum" rows={momentum} scoreKey="momentum_score_v2" scoreLabel="Momentum" fallbackRows={fallbackValueRows} />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Table title="Highest Demand" rows={demandRows} scoreKey="demand_score_v2" scoreLabel="Demand" fallbackRows={fallbackMatchedRows} />
+          <Table title="Rarest Releases" rows={rarityRows} scoreKey="rarity_score_v2" scoreLabel="Scarcity" fallbackRows={fallbackValueRows} />
+          <Table title="Highest Momentum" rows={momentumRows} scoreKey="momentum_score_v2" scoreLabel="Momentum" fallbackRows={fallbackValueRows} />
+          <Table title="Collector Opportunity" rows={opportunityRows} scoreKey="opportunity_score_v2" scoreLabel="Opportunity" fallbackRows={fallbackValueRows} />
         </div>
       </div>
     </main>
