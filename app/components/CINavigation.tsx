@@ -17,6 +17,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Daily Use',
     items: [
+      { href: '/research/coding', label: 'Research Coding' },
       { href: '/collection/daily-briefing', label: 'Briefing' },
       { href: '/collection', label: 'Collection' },
       { href: '/collection/intelligence', label: 'Intelligence' },
