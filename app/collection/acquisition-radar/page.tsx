@@ -1,324 +1,209 @@
-import CINavigation from "@/app/components/CINavigation";
-import { createAdminClient } from "@/src/lib/supabase/admin";
-import { createClient } from "@/src/lib/supabase/server";
-import { redirect } from "next/navigation";
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
-export const dynamic = "force-dynamic";
+import Link from "next/link"
+import { redirect } from "next/navigation"
+import CINavigation from "@/app/components/CINavigation"
+import { createClient } from "@/src/lib/supabase/server"
+import { createAdminClient } from "@/src/lib/supabase/admin"
+import { displayArtistName } from "@/src/lib/display/artist"
 
-type Observation = {
-  id: number;
-  artist_name: string;
-  release_title: string | null;
-  discogs_release_id: number | null;
-  marketplace_for_sale: number | null;
-  lowest_price: number | null;
-  have_count: number | null;
-  want_count: number | null;
-  signal_type: string | null;
-  observed_at: string;
-};
-
-type RadarItem = Observation & {
-  radar_score: number;
-  recommendation: string;
-};
-
-function money(value: number | null | undefined) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(Number(value));
+function num(value: unknown) {
+  return Number(value || 0).toLocaleString()
 }
 
-function radarScore(item: Observation) {
-  const want = item.want_count || 0;
-  const have = item.have_count || 0;
-  const forSale = item.marketplace_for_sale;
-  const price = item.lowest_price || 0;
-  const signal = String(item.signal_type || "");
-
-  let score = 0;
-
-  score += Math.min(35, want * 0.05);
-
-  if (forSale === 0) score += 10;
-  else if (forSale !== null && forSale <= 2) score += 40;
-  else if (forSale !== null && forSale <= 5) score += 25;
-  else if (forSale !== null && forSale <= 10) score += 10;
-
-  if (have > 0 && want > have) score += 15;
-  if (signal.includes("Rare")) score += 20;
-  if (signal.includes("Demand")) score += 15;
-  if (signal.includes("Supply")) score += 12;
-  if (price >= 250) score += 8;
-
-  return Math.min(100, Math.round(score));
+function money(value: unknown) {
+  return `$${Math.round(Number(value || 0)).toLocaleString()}`
 }
 
-function recommendation(score: number, item?: Observation) {
-  if ((item?.marketplace_for_sale ?? null) === 0) return "Scarcity watch — not currently actionable";
-  if (score >= 90) return "Buy now candidate";
-  if (score >= 70) return "Buy soon target";
-  if (score >= 50) return "Monitor closely";
-  return "Low urgency watch";
+function score(value: unknown) {
+  return Math.max(0, Math.min(100, Math.round(Number(value || 0))))
 }
 
-function tone(score: number) {
-  if (score >= 90) return "border-red-500/30 bg-red-500/[0.09] text-red-100";
-  if (score >= 70) return "border-orange-500/30 bg-orange-500/[0.09] text-orange-100";
-  if (score >= 50) return "border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-100";
-  return "border-cyan-500/25 bg-cyan-500/[0.08] text-cyan-100";
+function Card({
+  label,
+  value,
+  helper,
+}: {
+  label: string
+  value: string
+  helper: string
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+      <div className="text-xs font-black uppercase tracking-[0.35em] text-[#8E8170]">{label}</div>
+      <div className="mt-4 text-4xl font-black text-white">{value}</div>
+      <div className="mt-2 text-sm leading-6 text-[#B8AA96]">{helper}</div>
+    </div>
+  )
 }
 
+function HuntCard({ item }: { item: any }) {
+  const artist = displayArtistName(item.artist || item.master_artist || item.record_artist || "Unknown Artist")
+  const title = item.title || item.release_title || item.record_title || item.name || "Unknown Release"
+  const signal = item.signal || item.signal_type || item.observation_type || item.market_signal || "Market Watch"
+  const forSale = Number(item.for_sale ?? item.num_for_sale ?? item.market_num_for_sale ?? 0)
+  const wants = Number(item.want_count ?? item.wants ?? item.community_want ?? item.demand_score ?? 0)
+  const pressure = score(
+    item.acquisition_pressure ??
+      item.signal_score ??
+      item.score ??
+      (forSale === 0 && wants > 0 ? 95 : wants > 0 ? Math.min(95, wants / Math.max(1, forSale + 1)) : 0)
+  )
 
-function acquisitionReasons(item: RadarItem) {
-  const reasons: string[] = [];
+  const status =
+    pressure >= 90 ? "Critical Hunt" : pressure >= 70 ? "Active Hunt" : pressure >= 40 ? "Monitor" : "Low Signal"
 
-  if ((item.marketplace_for_sale ?? 999) <= 2)
-    reasons.push("Only a few copies currently available");
+  return (
+    <div className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+      <div className="text-xs font-black uppercase tracking-[0.35em] text-yellow-300">{status}</div>
+      <div className="mt-5 text-2xl font-black text-white">{artist}</div>
+      <div className="mt-2 text-lg font-bold text-[#F4EFE6]">{title}</div>
+      <div className="mt-3 text-sm text-[#8E8170]">{signal}</div>
 
-  if ((item.want_count ?? 0) > (item.have_count ?? 0))
-    reasons.push("Demand exceeds ownership");
+      <div className="mt-6 grid grid-cols-3 gap-3 text-sm">
+        <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
+          <div className="text-xs text-[#8E8170]">For Sale</div>
+          <div className="text-xl font-black text-white">{num(forSale)}</div>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
+          <div className="text-xs text-[#8E8170]">Want</div>
+          <div className="text-xl font-black text-white">{num(wants)}</div>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
+          <div className="text-xs text-[#8E8170]">Pressure</div>
+          <div className="text-xl font-black text-cyan-200">{pressure}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-  if ((item.want_count ?? 0) > 250)
-    reasons.push("Strong collector demand");
+function ValueTargetCard({ record }: { record: any }) {
+  const value = Number(record.estimated_value || 0)
 
-  if (String(item.signal_type || "").includes("Rare"))
-    reasons.push("Rare supply signal detected");
-
-  if (String(item.signal_type || "").includes("Demand"))
-    reasons.push("Demand acceleration detected");
-
-  return reasons.slice(0, 4);
+  return (
+    <Link
+      href={`/collection/${record.id}?returnTo=/collection/acquisition-radar`}
+      className="block rounded-3xl border border-white/10 bg-[#111111] p-6 transition hover:bg-[#181818]"
+    >
+      <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">Collection Gap</div>
+      <div className="mt-5 text-2xl font-black text-white">{displayArtistName(record.artist)}</div>
+      <div className="mt-2 text-lg font-bold text-[#F4EFE6]">{record.title}</div>
+      <div className="mt-3 text-sm text-[#8E8170]">
+        {record.label || "Unknown label"} · {record.country || "Unknown country"} · {record.format || "Unknown format"}
+      </div>
+      <div className="mt-5 text-3xl font-black text-white">{value > 0 ? money(value) : "Needs Value"}</div>
+      <div className="mt-1 text-xs text-[#B8AA96]">Current estimated value</div>
+    </Link>
+  )
 }
 
 export default async function AcquisitionRadarPage() {
-  const userSupabase = await createClient();
+  const supabase = await createClient()
+  const admin = createAdminClient()
 
   const {
     data: { user },
-  } = await userSupabase.auth.getUser();
+  } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect("/auth/login");
-  }
+  if (!user) redirect("/auth/login")
 
-  const supabase = createAdminClient();
+  const userId = user.id
 
-  const { data, error } = await supabase
-    .from("market_observations")
-    .select(`
-      id,
-      artist_name,
-      release_title,
-      discogs_release_id,
-      marketplace_for_sale,
-      lowest_price,
-      have_count,
-      want_count,
-      signal_type,
-      observed_at
-    `)
-    .eq("user_id", user.id)
-    .order("observed_at", { ascending: false })
-    .limit(100);
+  const [collectionRes, observationsRes, wantRes] = await Promise.all([
+    supabase
+      .from("records_clean_safe")
+      .select("id, artist, title, label, country, format, discogs_release_id, estimated_value")
+      .eq("user_id", userId)
+      .limit(10000),
 
-  const items = ((data || []) as Observation[])
-    .map((item) => {
-      const score = radarScore(item);
-      return {
-        ...item,
-        radar_score: score,
-        recommendation: recommendation(score, item),
-      };
-    })
-    .sort((a, b) => b.radar_score - a.radar_score);
+    admin
+      .from("market_observations")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(24),
 
-  const critical = items.filter((item) => (item.marketplace_for_sale ?? 0) > 0 && item.radar_score >= 90).slice(0, 6);
-  const active = items.filter((item) => (item.marketplace_for_sale ?? 0) > 0 && item.radar_score >= 70 && item.radar_score < 90).slice(0, 6);
-  const monitor = items.filter((item) => item.radar_score < 70).slice(0, 6);
-  const unavailable = items.filter((item) => (item.marketplace_for_sale ?? 0) === 0).slice(0, 6);
+    supabase
+      .from("want_list")
+      .select("*")
+      .eq("user_id", userId)
+      .limit(50),
+  ])
 
-  const top = items[0];
+  const collection = collectionRes.data || []
+  const observations = observationsRes.data || []
+  const wantList = wantRes.data || []
+
+  const valuableRecords = [...collection]
+    .filter((r: any) => Number(r.estimated_value || 0) > 0)
+    .sort((a: any, b: any) => Number(b.estimated_value || 0) - Number(a.estimated_value || 0))
+    .slice(0, 6)
+
+  const huntItems = observations.slice(0, 8)
+
+  const critical = huntItems.filter((x: any) => Number(x.acquisition_pressure || x.score || x.signal_score || 0) >= 90).length
+  const active = huntItems.filter((x: any) => Number(x.acquisition_pressure || x.score || x.signal_score || 0) >= 70).length
 
   return (
-    <main className="min-h-screen bg-[#050403] px-6 py-8 text-[#F4EFE6] lg:px-10">
+    <main className="min-h-screen bg-[#090909] text-[#F4EFE6]">
       <CINavigation />
 
-      <div className="mx-auto flex max-w-[1800px] flex-col gap-8">
-        <section className="rounded-[44px] border border-[#3A2A14] bg-[radial-gradient(circle_at_top_left,rgba(255,210,30,0.18),transparent_34%),linear-gradient(135deg,#170F08,#060403_54%,#130B05)] p-9 shadow-[0_24px_100px_rgba(0,0,0,.72)]">
-          <p className="text-xs font-black uppercase tracking-[0.35em] text-[#F4CD68]">
+      <div className="mx-auto max-w-7xl space-y-8 px-6 py-10">
+        <section className="rounded-[2rem] border border-yellow-400/15 bg-gradient-to-br from-yellow-400/[0.16] via-[#111111] to-black p-8 md:p-10">
+          <div className="text-xs font-black uppercase tracking-[0.45em] text-yellow-300">
             Collector Intelligence Acquisition Radar
-          </p>
-
-          <h1 className="mt-5 text-5xl font-black tracking-tight md:text-7xl">
-            What Should I <span className="text-[#FFD21E]">Hunt?</span>
-          </h1>
-
-          <p className="mt-5 max-w-3xl text-sm leading-7 text-[#B8AA96]">
-            Ranked acquisition opportunities from favorite-artist market observations,
-            scarcity, collector demand, supply pressure, and marketplace activity.
-          </p>
-
-          {top ? (
-            <div className={`mt-8 rounded-[34px] border p-6 ${tone(top.radar_score)}`}>
-              <p className="text-xs font-black uppercase tracking-[0.28em]">
-                Top Opportunity
-              </p>
-
-              <h2 className="mt-3 text-4xl font-black text-white">
-                {top.artist_name}
-              </h2>
-
-              <p className="mt-2 text-2xl font-black text-[#FFD21E]">
-                {top.release_title || "Untitled Release"}
-              </p>
-
-              <p className="mt-4 text-sm leading-7 text-[#F4EFE6]/80">
-                {top.recommendation}. {top.marketplace_for_sale ?? "—"} copies for sale · {top.want_count ?? "—"} want · lowest ask {money(top.lowest_price)}.
-              </p>
-
-              <div className="mt-5 inline-flex rounded-2xl border border-white/10 bg-black/30 px-5 py-4">
-                <span className="text-xs uppercase tracking-[0.2em] text-[#B8AA96]">
-                  Radar Score&nbsp;
-                </span>
-                <span className="text-2xl font-black text-white">
-                  {top.radar_score}
-                </span>
-              </div>
-            </div>
-          ) : null}
-        </section>
-
-        {error ? (
-          <div className="rounded-[28px] border border-red-500/25 bg-red-500/[0.08] p-6 text-red-100">
-            {error.message}
           </div>
-        ) : null}
-
-        <section className="grid gap-4 md:grid-cols-3">
-          <Kpi label="Critical" value={String(critical.length)} />
-          <Kpi label="Active Hunt" value={String(active.length)} />
-          <Kpi label="Monitor" value={String(monitor.length)} />
+          <h1 className="mt-5 text-5xl font-black tracking-tight md:text-7xl">
+            What Should I <span className="text-yellow-300">Hunt?</span>
+          </h1>
+          <p className="mt-5 max-w-4xl text-base leading-7 text-[#B8AA96]">
+            Ranked acquisition opportunities based on favorite-artist market observations, visible demand,
+            supply pressure, want-list activity, and your current collection profile.
+          </p>
         </section>
 
-        <RadarSection title="🔥 Buy Now" subtitle="Available now · Score 90+" items={critical} />
-        <RadarSection title="⚡ Buy Soon" subtitle="Available now · Score 70–89" items={active} />
-        <RadarSection title="🔒 Scarcity Watch" subtitle="High demand but currently unavailable" items={unavailable} />
-        <RadarSection title="👁 Watch List" subtitle="Below 70" items={monitor} />
+        <section className="grid gap-4 md:grid-cols-4">
+          <Card label="Critical" value={num(critical)} helper="High-pressure market observations" />
+          <Card label="Active Hunt" value={num(active)} helper="Signals worth reviewing now" />
+          <Card label="Want List" value={num(wantList.length)} helper="User-tracked acquisition targets" />
+          <Card label="Market Signals" value={num(huntItems.length)} helper="Latest market observations reviewed" />
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+          <div className="text-xs font-black uppercase tracking-[0.35em] text-yellow-300">Available Now</div>
+          <h2 className="mt-3 text-3xl font-black">Market Hunt Signals</h2>
+          <p className="mt-2 text-sm text-[#B8AA96]">
+            These are dynamic observations from the market intelligence engine. They are not user-filtered by a missing
+            market_observations.user_id column.
+          </p>
+
+          <div className="mt-6 grid gap-5 lg:grid-cols-2">
+            {huntItems.length ? (
+              huntItems.map((item: any, index: number) => <HuntCard key={item.id || index} item={item} />)
+            ) : (
+              <div className="rounded-3xl border border-white/10 bg-black/25 p-6 text-[#B8AA96]">
+                No current market observations found. Run the market observations cron to populate this section.
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
+          <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">Collection Context</div>
+          <h2 className="mt-3 text-3xl font-black">High-Value Reference Points</h2>
+          <p className="mt-2 text-sm text-[#B8AA96]">
+            These are not recommendations to buy. They provide context for the kinds of records already driving
+            value inside your collection.
+          </p>
+
+          <div className="mt-6 grid gap-5 lg:grid-cols-2">
+            {valuableRecords.map((record: any) => (
+              <ValueTargetCard key={record.id} record={record} />
+            ))}
+          </div>
+        </section>
       </div>
     </main>
-  );
-}
-
-function RadarSection({
-  title,
-  subtitle,
-  items,
-}: {
-  title: string;
-  subtitle: string;
-  items: RadarItem[];
-}) {
-  return (
-    <section className="rounded-[34px] border border-white/10 bg-white/[0.035] p-6">
-      <p className="text-xs font-black uppercase tracking-[0.3em] text-[#D8B65A]">
-        {subtitle}
-      </p>
-
-      <h2 className="mt-3 text-3xl font-black text-white">
-        {title}
-      </h2>
-
-      <div className="mt-6 grid gap-3 xl:grid-cols-3">
-        {items.map((item) => (
-          <article key={item.id} className={`rounded-[24px] border p-4 ${tone(item.radar_score)}`}>
-            <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em]">
-                  {item.signal_type || "Market Observation"}
-                </p>
-
-                <h3 className="mt-2 text-xl font-black text-white">
-                  {item.artist_name}
-                </h3>
-
-                <p className="mt-2 text-base font-black text-[#F4EFE6]">
-                  {item.release_title || "Untitled Release"}
-                </p>
-
-                <p className="mt-3 text-sm leading-7 text-[#D8CDBE]">
-                  {item.recommendation}
-                </p>
-
-                <div className="mt-4 space-y-2">
-                  {acquisitionReasons(item).map((reason) => (
-                    <div
-                      key={reason}
-                      className="text-sm font-medium text-[#F4EFE6]/85"
-                    >
-                      ✓ {reason}
-                    </div>
-                  ))}
-                </div>
-
-                <p className="mt-3 text-sm leading-7 text-[#D8CDBE]">
-                  {item.marketplace_for_sale ?? "—"} for sale · {item.want_count ?? "—"} want · {item.have_count ?? "—"} have · lowest ask {money(item.lowest_price)}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-2 md:items-end">
-                <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-right">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-[#B8AA96]">
-                    Score
-                  </p>
-                  <p className="mt-1 text-3xl font-black text-white">
-                    {item.radar_score}
-                  </p>
-                </div>
-
-                {item.discogs_release_id ? (
-                  <a
-                    href={`https://www.discogs.com/release/${item.discogs_release_id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-black text-white"
-                  >
-                    Discogs
-                  </a>
-                ) : null}
-
-                <a
-                  href={`/collection?q=${encodeURIComponent(item.artist_name)}`}
-                  className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm font-black text-cyan-100"
-                >
-                  Search Collection
-                </a>
-              </div>
-            </div>
-          </article>
-        ))}
-
-        {items.length === 0 ? (
-          <div className="rounded-[28px] border border-dashed border-white/10 p-10 text-center text-[#B8AA96]">
-            No records in this lane yet.
-          </div>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function Kpi({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[28px] border border-white/10 bg-white/[0.035] p-6">
-      <p className="text-xs uppercase tracking-[0.25em] text-[#8E8170]">
-        {label}
-      </p>
-      <p className="mt-3 text-3xl font-black text-white">{value}</p>
-    </div>
-  );
+  )
 }
