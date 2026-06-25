@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 import CINavigation from "@/app/components/CINavigation"
-import CollectionWorldMap from "@/app/components/CollectionWorldMap"
+import CollectionIntelligenceRadar from "@/app/components/CollectionIntelligenceRadar"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { createClient } from "@/src/lib/supabase/server"
@@ -117,41 +117,6 @@ export default async function IntelligencePage() {
   const ownedLabels = new Set(collection.map((r) => String(r.label || "").trim()).filter(Boolean)).size
   const ownedCountries = new Set(collection.map((r) => String(r.country || "").trim()).filter(Boolean)).size
   const matchedDiscogs = collection.filter((r) => String(r.discogs_release_id || "").trim()).length
-
-  const countryBuckets = new Map<string, { country: string; count: number; formats: Map<string, number>; labels: Map<string, number> }>()
-
-  for (const record of collection) {
-    const country = String(record.country || "Unknown").trim() || "Unknown"
-    const format = String(record.format || "").trim()
-    const label = String(record.label || "").trim()
-
-    const bucket = countryBuckets.get(country) || {
-      country,
-      count: 0,
-      formats: new Map<string, number>(),
-      labels: new Map<string, number>(),
-    }
-
-    bucket.count += 1
-    if (format) bucket.formats.set(format, (bucket.formats.get(format) || 0) + 1)
-    if (label) bucket.labels.set(label, (bucket.labels.get(label) || 0) + 1)
-    countryBuckets.set(country, bucket)
-  }
-
-  const countryMapData = [...countryBuckets.values()]
-    .map((bucket) => {
-      const topFormat = [...bucket.formats.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null
-      const topLabel = [...bucket.labels.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null
-
-      return {
-        country: bucket.country,
-        count: bucket.count,
-        percentage: ownedRecords ? (bucket.count / ownedRecords) * 100 : 0,
-        topFormat,
-        topLabel,
-      }
-    })
-    .sort((a, b) => b.count - a.count)
 
   const auctionByRecord = new Map(
     auctions.map((a: any) => [
@@ -336,7 +301,15 @@ export default async function IntelligencePage() {
           />
         </section>
 
-        <CollectionWorldMap data={countryMapData} />
+        <CollectionIntelligenceRadar
+          demand={Number(portfolio?.avg_demand_score || 0)}
+          rarity={Number(portfolio?.avg_rarity_score || 0)}
+          momentum={Number(portfolio?.avg_momentum_score || 0)}
+          depth={Math.min(100, Math.round((ownedArtists / Math.max(1, ownedRecords)) * 1000))}
+          coverage={Number(pct(matchedDiscogs, ownedRecords).replace("%", ""))}
+          valueStrength={Math.min(100, Math.round(Number(portfolio?.portfolio_value || 0) / 2000))}
+        />
+
 
 
         <section className="rounded-3xl border border-white/10 bg-[#111111] p-6">
