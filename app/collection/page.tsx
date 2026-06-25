@@ -9,6 +9,7 @@ import CINavigation from "../components/CINavigation";
 import AddRecordSlideOver from "./AddRecordSlideOver";
 import LiveMarketFeed from "../components/LiveMarketFeed";
 import { displayArtistName } from "@/src/lib/display/artist";
+import LiveCollectorTicker from "@/app/components/LiveCollectorTicker"
 
 type CollectionRecord = {
   id: number;
