@@ -170,7 +170,7 @@ export default async function IntelligencePage() {
       artist: r.artist,
       title: r.title,
       intelligence_reason_v2: `${r.label || "Unknown label"} • ${r.country || "Unknown country"} • ${r.format || "Unknown format"}`,
-      fallback_score: Number(r.estimated_value || 0) > 0 ? Math.min(99, Math.max(1, Math.round(Number(r.estimated_value || 0) / 25))) : "—",
+      fallback_score: Number(r.estimated_value || 0) > 0 ? money(r.estimated_value) : "—",
     }))
 
   const fallbackMatchedRows = [...collection]
@@ -201,7 +201,7 @@ export default async function IntelligencePage() {
                 <div className="mt-1 text-xs text-[#8E8170]">{r.intelligence_reason_v2}</div>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold">{Math.round(Number(r[scoreKey] ?? r.fallback_score ?? 0)) || r.fallback_score || "—"}</div>
+                <div className="text-2xl font-bold">{typeof r[scoreKey] === "string" ? r[scoreKey] : Math.round(Number(r[scoreKey] ?? r.fallback_score ?? 0)) || r.fallback_score || "—"}</div>
                 <div className="text-xs text-[#B8AA96]">{scoreLabel}</div>
               </div>
             </div>
@@ -340,7 +340,7 @@ export default async function IntelligencePage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Table title="Highest Demand" rows={demandRows} scoreKey="demand_score_v2" scoreLabel="Demand" fallbackRows={fallbackValueRows} />
-          <Table title="Rarest Releases" rows={rarityRows} scoreKey="rarity_score_v2" scoreLabel="Scarcity" fallbackRows={fallbackValueRows} />
+          <Table title="Highest Market Value" rows={fallbackValueRows} scoreKey="fallback_score" scoreLabel="Value Strength" fallbackRows={fallbackValueRows} />
           <Table title="Highest Momentum" rows={momentumRows} scoreKey="momentum_score_v2" scoreLabel="Momentum" fallbackRows={fallbackValueRows} />
           <Table title="Collector Opportunity" rows={opportunityRows} scoreKey="opportunity_score_v2" scoreLabel="Opportunity" fallbackRows={fallbackValueRows} />
         </div>
