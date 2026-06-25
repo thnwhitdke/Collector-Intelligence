@@ -189,8 +189,8 @@ export default async function IntelligencePage() {
       <div className="space-y-3">
         {((rows && rows.length > 0) ? rows : fallbackRows || []).map((r: any) => (
           <Link
-            key={`${title}-${r.record_id}`}
-            href={`/collection/${r.record_id}?returnTo=/collection/intelligence`}
+            key={`${title}-${r.record_id || r.id}`}
+            href={`/collection/${r.record_id || r.id}?returnTo=/collection/intelligence`}
             className="block rounded-xl bg-[#1A1A1A] p-4 transition hover:bg-[#242424]"
           >
             <div className="flex items-start justify-between gap-4">
