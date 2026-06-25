@@ -95,8 +95,9 @@ export default async function IntelligencePage() {
       .from("artist_collection_depth_metrics")
       .select("*")
       .eq("user_id", userId)
+      .gte("owned_records", 5)
       .gt("warehouse_releases", 0)
-      .order("coverage_percent", { ascending: false })
+      .order("owned_records", { ascending: false })
       .limit(10),
   ])
 
@@ -179,7 +180,7 @@ export default async function IntelligencePage() {
       artist: r.artist,
       title: r.title,
       intelligence_reason_v2: `Discogs ${r.discogs_release_id} • ${r.label || "Unknown label"} • ${r.country || "Unknown country"}`,
-      fallback_score: "Ready",
+      fallback_score: "Matched",
     }))
 
   const Table = ({ title, rows, scoreKey, fallbackRows, scoreLabel }: any) => (
@@ -327,7 +328,7 @@ export default async function IntelligencePage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Table title="Highest Demand" rows={demandRows.filter((r: any) => Number(r.demand_score_v2 || 0) > 0)} scoreKey="demand_score_v2" scoreLabel="Demand" fallbackRows={[]} />
+          <Table title="Highest Demand" rows={demandRows.filter((r: any) => Number(r.demand_score_v2 || 0) > 0)} scoreKey="demand_score_v2" scoreLabel="Demand" fallbackRows={fallbackMatchedRows} />
           <Table title="Rarest Releases" rows={rarityRows} scoreKey="rarity_score_v2" scoreLabel="Scarcity" fallbackRows={fallbackValueRows} />
           <Table title="Highest Momentum" rows={momentumRows} scoreKey="momentum_score_v2" scoreLabel="Momentum" fallbackRows={fallbackValueRows} />
           <Table title="Collector Opportunity" rows={opportunityRows} scoreKey="opportunity_score_v2" scoreLabel="Opportunity" fallbackRows={fallbackValueRows} />
