@@ -28,7 +28,15 @@ type Interview = {
   segments: Segment[]
 }
 
-const STORAGE_KEY = "ci_dissertation_open_coding_workspace_v1"
+type Suggestion = {
+  name: string
+  type: string
+  definition: string
+  rationale: string
+  confidence: number
+}
+
+const STORAGE_KEY = "ci_dissertation_open_coding_workspace_v2"
 
 const COLORS = [
   "bg-cyan-400/15 border-cyan-300/30 text-cyan-100",
@@ -39,7 +47,7 @@ const COLORS = [
   "bg-blue-400/15 border-blue-300/30 text-blue-100",
 ]
 
-function id() {
+function makeId() {
   return crypto.randomUUID()
 }
 
@@ -47,20 +55,18 @@ function segmentTranscript(transcript: string): Segment[] {
   const cleaned = transcript.replace(/\r/g, "").trim()
   if (!cleaned) return []
 
-  const speakerBlocks = cleaned
+  const blocks = cleaned
     .split(/\n(?=(Interviewer|Participant|P\d+|I|R|Nurse|NP|Clinician|Supervisor|Researcher)\s*:)/gi)
     .map((x) => x.trim())
     .filter(Boolean)
 
-  const blocks =
-    speakerBlocks.length > 2
-      ? speakerBlocks
-      : cleaned.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean)
+  const finalBlocks =
+    blocks.length > 2 ? blocks : cleaned.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean)
 
-  return blocks.map((block, index) => {
+  return finalBlocks.map((block, index) => {
     const match = block.match(/^([^:\n]{1,40}):\s*([\s\S]*)$/)
     return {
-      id: id(),
+      id: makeId(),
       speaker: match ? match[1].trim() : `Segment ${index + 1}`,
       text: match ? match[2].trim() : block,
       memo: "",
@@ -89,6 +95,7 @@ export default function OpenCodingWorkspacePage() {
   const [selectedInterviewId, setSelectedInterviewId] = useState("")
   const [selectedSegmentId, setSelectedSegmentId] = useState("")
   const [search, setSearch] = useState("")
+  const [manualSelection, setManualSelection] = useState("")
 
   const [title, setTitle] = useState("")
   const [participant, setParticipant] = useState("")
@@ -99,6 +106,10 @@ export default function OpenCodingWorkspacePage() {
   const [codeType, setCodeType] = useState("Open Code")
   const [codeDefinition, setCodeDefinition] = useState("")
   const [existingCodeId, setExistingCodeId] = useState("")
+
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [suggesting, setSuggesting] = useState(false)
+  const [aiError, setAiError] = useState("")
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -125,6 +136,7 @@ export default function OpenCodingWorkspacePage() {
     const segments = selectedInterview?.segments || []
     if (!search.trim()) return segments
     const q = search.toLowerCase()
+
     return segments.filter(
       (s) =>
         s.text.toLowerCase().includes(q) ||
@@ -147,6 +159,7 @@ export default function OpenCodingWorkspacePage() {
     const segments = selectedInterview?.segments || []
     const coded = segments.filter((s) => s.codeIds.length > 0).length
     const memos = segments.filter((s) => s.memo.trim()).length
+
     return {
       total: segments.length,
       coded,
@@ -156,10 +169,11 @@ export default function OpenCodingWorkspacePage() {
     }
   }, [selectedInterview])
 
-  function createInterview() {
-    const segments = segmentTranscript(transcript)
+  function createInterview(autoSegment: boolean) {
+    const segments = autoSegment ? segmentTranscript(transcript) : []
+
     const newInterview: Interview = {
-      id: id(),
+      id: makeId(),
       title: title || `Interview ${interviews.length + 1}`,
       participant: participant || `P${interviews.length + 1}`,
       role,
@@ -175,6 +189,35 @@ export default function OpenCodingWorkspacePage() {
     setParticipant("")
     setRole("")
     setTranscript("")
+    setManualSelection("")
+  }
+
+  function addManualSegment() {
+    if (!selectedInterview || !manualSelection.trim()) return
+
+    const newSegment: Segment = {
+      id: makeId(),
+      speaker: `Manual Segment ${selectedInterview.segments.length + 1}`,
+      text: manualSelection.trim(),
+      memo: "",
+      codeIds: [],
+    }
+
+    setInterviews((prev) =>
+      prev.map((interview) =>
+        interview.id === selectedInterview.id
+          ? { ...interview, segments: [...interview.segments, newSegment] }
+          : interview
+      )
+    )
+
+    setSelectedSegmentId(newSegment.id)
+    setManualSelection("")
+  }
+
+  function useHighlightedText() {
+    const selected = window.getSelection()?.toString().trim() || ""
+    if (selected) setManualSelection(selected)
   }
 
   function updateSelectedSegment(patch: Partial<Segment>) {
@@ -194,22 +237,28 @@ export default function OpenCodingWorkspacePage() {
     )
   }
 
-  function createAndApplyCode() {
-    if (!codeName.trim() || !selectedSegment) return
+  function createCodeFromValues(name: string, type: string, definition: string, apply = true) {
+    if (!name.trim()) return
 
     const newCode: Code = {
-      id: id(),
-      name: codeName.trim(),
-      type: codeType,
-      definition: codeDefinition.trim(),
+      id: makeId(),
+      name: name.trim(),
+      type: type || "Open Code",
+      definition: definition || "",
       color: COLORS[codes.length % COLORS.length],
     }
 
     setCodes((prev) => [...prev, newCode])
-    updateSelectedSegment({
-      codeIds: [...new Set([...selectedSegment.codeIds, newCode.id])],
-    })
 
+    if (apply && selectedSegment) {
+      updateSelectedSegment({
+        codeIds: [...new Set([...selectedSegment.codeIds, newCode.id])],
+      })
+    }
+  }
+
+  function createAndApplyCode() {
+    createCodeFromValues(codeName, codeType, codeDefinition, true)
     setCodeName("")
     setCodeDefinition("")
   }
@@ -229,12 +278,37 @@ export default function OpenCodingWorkspacePage() {
     })
   }
 
+  async function suggestCodes() {
+    if (!selectedSegment) return
+
+    setSuggesting(true)
+    setAiError("")
+    setSuggestions([])
+
+    try {
+      const res = await fetch("/api/research/coding/suggest-codes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: selectedSegment.text, existingCodes: codes }),
+      })
+
+      const json = await res.json()
+
+      if (!json.ok) {
+        setAiError(typeof json.error === "string" ? json.error : "AI suggestion failed.")
+        return
+      }
+
+      setSuggestions(json.suggestions || [])
+    } catch {
+      setAiError("AI suggestion failed.")
+    } finally {
+      setSuggesting(false)
+    }
+  }
+
   function exportJSON() {
-    saveFile(
-      "open-coding-workspace.json",
-      JSON.stringify({ interviews, codes }, null, 2),
-      "application/json"
-    )
+    saveFile("open-coding-workspace.json", JSON.stringify({ interviews, codes }, null, 2), "application/json")
   }
 
   function exportCSV() {
@@ -270,12 +344,12 @@ export default function OpenCodingWorkspacePage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="rounded-[2rem] border border-yellow-400/20 bg-yellow-400/[0.06] p-7">
           <div className="text-xs font-black uppercase tracking-[0.4em] text-yellow-300">
-            Dissertation Coding MVP
+            Dissertation Coding Workspace
           </div>
-          <h1 className="mt-3 text-4xl font-black">Open Coding Workspace</h1>
-          <p className="mt-3 max-w-4xl text-sm leading-6 text-[#B8AA96]">
-            1. Create an interview. 2. Select a segment. 3. Apply or create open codes.
-            4. Write analytic memos. 5. Export your coded data and codebook.
+          <h1 className="mt-3 text-4xl font-black">Open Coding + Manual Segmentation</h1>
+          <p className="mt-3 max-w-5xl text-sm leading-6 text-[#B8AA96]">
+            Use this tonight by creating an interview, selecting your own meaningful transcript excerpts,
+            applying open codes, writing analytic memos, and exporting your codebook.
           </p>
         </section>
 
@@ -287,17 +361,18 @@ export default function OpenCodingWorkspacePage() {
           <Stat label="Coverage" value={`${stats.coverage}%`} />
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-[300px_1fr_340px]">
+        <section className="grid gap-5 lg:grid-cols-[320px_1fr_360px]">
           <aside className="space-y-4">
-            <Panel title="New Interview">
+            <Panel title="1. Create Interview">
               <input className="field" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
               <input className="field" placeholder="Participant label, e.g. P01" value={participant} onChange={(e) => setParticipant(e.target.value)} />
               <input className="field" placeholder="Role label" value={role} onChange={(e) => setRole(e.target.value)} />
-              <textarea className="field h-40" placeholder="Paste transcript here" value={transcript} onChange={(e) => setTranscript(e.target.value)} />
-              <button className="button w-full" onClick={createInterview}>Create + Segment</button>
+              <textarea className="field h-44" placeholder="Paste full transcript here" value={transcript} onChange={(e) => setTranscript(e.target.value)} />
+              <button className="button w-full" onClick={() => createInterview(false)}>Create Interview Only</button>
+              <button className="button-secondary w-full" onClick={() => createInterview(true)}>Auto-Segment Instead</button>
             </Panel>
 
-            <Panel title="Interviews">
+            <Panel title="2. Interview Library">
               <div className="space-y-2">
                 {interviews.map((interview) => (
                   <button
@@ -305,6 +380,7 @@ export default function OpenCodingWorkspacePage() {
                     onClick={() => {
                       setSelectedInterviewId(interview.id)
                       setSelectedSegmentId(interview.segments[0]?.id || "")
+                      setManualSelection("")
                     }}
                     className={`w-full rounded-xl border px-3 py-3 text-left text-sm ${
                       interview.id === selectedInterviewId
@@ -331,58 +407,99 @@ export default function OpenCodingWorkspacePage() {
             </Panel>
           </aside>
 
-          <section className="rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.05] p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-xl font-black">Transcript Segments</h2>
-              <input
-                className="field max-w-xs"
-                placeholder="Search transcript or codes"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
+          <section className="space-y-4">
+            <Panel title="3. Manual Segmentation">
+              {selectedInterview ? (
+                <>
+                  <p className="text-sm leading-6 text-[#B8AA96]">
+                    Highlight text in the transcript below, click “Use Highlighted Text,” then create a segment.
+                  </p>
 
-            <div className="max-h-[720px] space-y-3 overflow-y-auto pr-2">
-              {filteredSegments.map((segment, index) => (
-                <button
-                  key={segment.id}
-                  onClick={() => setSelectedSegmentId(segment.id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition ${
-                    segment.id === selectedSegmentId
-                      ? "border-yellow-300/50 bg-yellow-400/10"
-                      : "border-white/10 bg-[#111111] hover:bg-[#181818]"
-                  }`}
-                >
-                  <div className="mb-2 flex justify-between gap-3">
-                    <div className="font-black">{index + 1}. {segment.speaker}</div>
-                    <div className="text-xs text-[#8E8170]">
-                      {segment.codeIds.length} codes · {segment.memo ? "memo" : "no memo"}
+                  <div className="max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-6 text-[#B8AA96] whitespace-pre-wrap">
+                    {selectedInterview.transcript || "No transcript saved."}
+                  </div>
+
+                  <button className="button-secondary w-full" onClick={useHighlightedText}>Use Highlighted Text</button>
+
+                  <textarea
+                    className="field h-28"
+                    placeholder="Selected excerpt appears here. You can also paste/edit your chosen segment manually."
+                    value={manualSelection}
+                    onChange={(e) => setManualSelection(e.target.value)}
+                  />
+
+                  <button className="button w-full" onClick={addManualSegment}>Create Segment From Selection</button>
+                </>
+              ) : (
+                <p className="text-sm text-[#B8AA96]">Create or select an interview first.</p>
+              )}
+            </Panel>
+
+            <section className="rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.05] p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-xl font-black">Transcript Segments</h2>
+                <input className="field max-w-xs" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+
+              <div className="max-h-[520px] space-y-3 overflow-y-auto pr-2">
+                {filteredSegments.map((segment, index) => (
+                  <button
+                    key={segment.id}
+                    onClick={() => {
+                      setSelectedSegmentId(segment.id)
+                      setSuggestions([])
+                    }}
+                    className={`w-full rounded-2xl border p-4 text-left transition ${
+                      segment.id === selectedSegmentId
+                        ? "border-yellow-300/50 bg-yellow-400/10"
+                        : "border-white/10 bg-[#111111] hover:bg-[#181818]"
+                    }`}
+                  >
+                    <div className="mb-2 flex justify-between gap-3">
+                      <div className="font-black">{index + 1}. {segment.speaker}</div>
+                      <div className="text-xs text-[#8E8170]">{segment.codeIds.length} codes · {segment.memo ? "memo" : "no memo"}</div>
                     </div>
-                  </div>
-                  <p className="line-clamp-4 text-sm leading-6 text-[#B8AA96]">{segment.text}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {segment.codeIds.map((cid) => {
-                      const code = codes.find((c) => c.id === cid)
-                      return code ? <span key={cid} className={`rounded-full border px-2 py-1 text-xs ${code.color}`}>{code.name}</span> : null
-                    })}
-                  </div>
-                </button>
-              ))}
-            </div>
+                    <p className="line-clamp-4 text-sm leading-6 text-[#B8AA96]">{segment.text}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
           </section>
 
           <aside className="space-y-4">
-            <Panel title="Selected Segment">
+            <Panel title="4. Selected Segment">
               {selectedSegment ? (
                 <>
                   <div className="text-sm font-black text-yellow-200">{selectedSegment.speaker}</div>
-                  <p className="mt-3 max-h-60 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-[#B8AA96]">
+                  <p className="mt-3 max-h-52 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-[#B8AA96]">
                     {selectedSegment.text}
                   </p>
                 </>
               ) : (
                 <p className="text-sm text-[#B8AA96]">Select a segment to code.</p>
               )}
+            </Panel>
+
+            <Panel title="5. AI Assist">
+              <button className="button w-full" onClick={suggestCodes} disabled={!selectedSegment || suggesting}>
+                {suggesting ? "Suggesting..." : "Suggest Codes"}
+              </button>
+              {aiError ? <div className="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-100">{aiError}</div> : null}
+              <div className="space-y-3">
+                {suggestions.map((s, index) => (
+                  <div key={`${s.name}-${index}`} className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3">
+                    <div className="font-black text-cyan-100">{s.name}</div>
+                    <div className="mt-1 text-xs text-[#B8AA96]">{s.definition}</div>
+                    <div className="mt-2 text-xs text-[#8E8170]">{s.rationale}</div>
+                    <button
+                      className="mt-3 rounded-lg bg-cyan-300 px-3 py-2 text-xs font-black text-black"
+                      onClick={() => createCodeFromValues(s.name, s.type || "Open Code", s.definition || "", true)}
+                    >
+                      Apply This Code
+                    </button>
+                  </div>
+                ))}
+              </div>
             </Panel>
 
             <Panel title="Applied Codes">
@@ -423,7 +540,7 @@ export default function OpenCodingWorkspacePage() {
             <Panel title="Analytic Memo">
               <textarea
                 className="field h-40"
-                placeholder="Write analytic memo for this segment..."
+                placeholder="Write analytic memo..."
                 value={selectedSegment?.memo || ""}
                 onChange={(e) => updateSelectedSegment({ memo: e.target.value })}
               />
@@ -458,6 +575,14 @@ export default function OpenCodingWorkspacePage() {
           background: #d5ad55;
           padding: 0.85rem 1rem;
           color: black;
+          font-weight: 900;
+        }
+        .button-secondary {
+          border-radius: 0.9rem;
+          border: 1px solid rgba(250,204,21,0.25);
+          background: rgba(250,204,21,0.08);
+          padding: 0.85rem 1rem;
+          color: #F4EFE6;
           font-weight: 900;
         }
       `}</style>
