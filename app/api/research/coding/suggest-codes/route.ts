@@ -87,6 +87,10 @@ Return this exact JSON shape:
     }
 
     const textOut = extractText(json)
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim()
 
     try {
       const parsed = JSON.parse(textOut)
