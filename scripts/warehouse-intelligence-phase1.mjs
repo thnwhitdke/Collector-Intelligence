@@ -3,42 +3,19 @@ dotenv.config({ path: ".env.local" });
 
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-if (!supabaseUrl || !serviceRoleKey) {
-  console.error("Missing Supabase env vars");
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-const BATCH_SIZE = Number(process.env.BATCH_SIZE || 5000);
+const BATCH_SIZE = Number(process.env.BATCH_SIZE || 1000);
 const START_OFFSET = Number(process.env.START_OFFSET || 0);
 
-function scoreRarity(artistCount, labelCount, countryCount) {
-  let score = 100;
-
-  score -= Math.min(artistCount || 0, 1000) * 0.03;
-  score -= Math.min(labelCount || 0, 1000) * 0.02;
-  score -= Math.min(countryCount || 0, 500) * 0.02;
-
-  return Math.max(1, Math.min(100, Math.round(score)));
-}
-
-function grade(score) {
-  if (score >= 90) return "Elite";
-  if (score >= 75) return "Very Rare";
-  if (score >= 60) return "Rare";
-  if (score >= 40) return "Uncommon";
-  return "Common";
-}
-
-console.log("WAREHOUSE INTELLIGENCE PHASE 1", { BATCH_SIZE, START_OFFSET });
+console.log("FAST WAREHOUSE INTELLIGENCE PHASE 1", { BATCH_SIZE, START_OFFSET });
 
 const { data: rows, error } = await supabase
-  .from("release_reference_vinyl")
-  .select("id, release_id, artist, title, label, country, released_year")
+  .from("discogs_master_reference")
+  .select("*")
   .range(START_OFFSET, START_OFFSET + BATCH_SIZE - 1);
 
 if (error) {
@@ -51,57 +28,36 @@ if (!rows?.length) {
   process.exit(0);
 }
 
-const artists = [...new Set(rows.map(r => r.artist).filter(Boolean))];
-const labels = [...new Set(rows.map(r => r.label).filter(Boolean))];
-const countries = [...new Set(rows.map(r => r.country).filter(Boolean))];
-
-const artistCounts = new Map();
-const labelCounts = new Map();
-const countryCounts = new Map();
-
-for (const artist of artists) {
-  const { count } = await supabase
-    .from("release_reference_vinyl")
-    .select("*", { count: "exact", head: true })
-    .eq("artist", artist);
-  artistCounts.set(artist, count || 0);
-}
-
-for (const label of labels) {
-  const { count } = await supabase
-    .from("release_reference_vinyl")
-    .select("*", { count: "exact", head: true })
-    .eq("label", label);
-  labelCounts.set(label, count || 0);
-}
-
-for (const country of countries) {
-  const { count } = await supabase
-    .from("release_reference_vinyl")
-    .select("*", { count: "exact", head: true })
-    .eq("country", country);
-  countryCounts.set(country, count || 0);
-}
-
 const payload = rows.map((r, i) => {
-  const artistCount = artistCounts.get(r.artist) || 0;
-  const labelCount = labelCounts.get(r.label) || 0;
-  const countryCount = countryCounts.get(r.country) || 0;
-  const rarity = scoreRarity(artistCount, labelCount, countryCount);
+  const artist = r.artist || r.master_artist || r.artists || null;
+  const title = r.title || r.master_title || null;
+  const label = r.label || r.labels || null;
+  const country = r.country || null;
+  const year = r.released_year || r.year || null;
+
+  const rarityScore =
+    artist && title ? 70 :
+    title ? 55 :
+    40;
 
   return {
-    warehouse_release_id: r.release_id || r.id,
-    artist: r.artist,
-    title: r.title,
-    label: r.label,
-    country: r.country,
-    released_year: r.released_year,
-    warehouse_rarity_score: rarity,
-    artist_release_count: artistCount,
-    label_release_count: labelCount,
-    country_release_count: countryCount,
+    warehouse_release_id: r.release_id || r.master_id || r.id || START_OFFSET + i + 1,
+    artist,
+    title,
+    label,
+    country,
+    released_year: year,
+    warehouse_rarity_score: rarityScore,
+    artist_release_count: null,
+    label_release_count: null,
+    country_release_count: null,
     global_rank: START_OFFSET + i + 1,
-    collector_grade: grade(rarity),
+    collector_grade:
+      rarityScore >= 90 ? "Elite" :
+      rarityScore >= 75 ? "Very Rare" :
+      rarityScore >= 60 ? "Rare" :
+      rarityScore >= 40 ? "Uncommon" :
+      "Common",
     computed_at: new Date().toISOString()
   };
 });

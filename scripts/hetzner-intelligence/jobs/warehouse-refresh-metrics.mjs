@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 
 console.log("\n▶ Warehouse Metrics Refresh");
+
 const result = spawnSync("npm", ["run", "warehouse:refresh-metrics"], {
   stdio: "inherit",
   shell: false,

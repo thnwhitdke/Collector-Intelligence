@@ -12,7 +12,8 @@
     "lint": "eslint",
     "hetzner:intelligence": "node scripts/hetzner-intelligence/run-all.mjs",
     "warehouse:intelligence": "node scripts/warehouse-intelligence-phase1.mjs",
-    "warehouse:refresh-metrics": "node scripts/refresh-warehouse-metrics.mjs"
+    "warehouse:refresh-metrics": "node scripts/refresh-warehouse-metrics.mjs",
+    "warehouse:intelligence:v2": "node scripts/warehouse-intelligence-v2.mjs"
   },
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",

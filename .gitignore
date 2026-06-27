@@ -38,3 +38,5 @@ logs/
 *.bak
 *.backup*
 *.bad-user-bug
+# Hetzner / runtime logs
+*.bak-*

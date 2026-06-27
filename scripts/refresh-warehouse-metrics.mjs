@@ -1,66 +1,126 @@
-import dotenv from "dotenv"
-dotenv.config({ path: ".env.local" })
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 
-import { createClient } from "@supabase/supabase-js"
+import fs from "fs";
+import path from "path";
+import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-if (!supabaseUrl || !serviceRoleKey) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
-  process.exit(1)
-}
+const STATE_FILE = "logs/warehouse-metrics-state.json";
 
-const supabase = createClient(supabaseUrl, serviceRoleKey)
-
-async function countTable(table) {
-  const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true })
-  if (error) {
-    console.error(`COUNT FAILED ${table}`, error)
-    return 0
+function readState() {
+  try {
+    return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+  } catch {
+    return { countedLogs: [] };
   }
-  return count || 0
 }
 
-const releases = await countTable("release_reference")
-
-const { data: sampleRows, error: sampleError } = await supabase
-  .from("release_reference")
-  .select("artist,label,country,format")
-  .limit(50000)
-
-if (sampleError) {
-  console.error(sampleError)
-  process.exit(1)
+function writeState(state) {
+  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
-const artists = new Set()
-const labels = new Set()
-const countries = new Set()
+function findImportLogs() {
+  if (!fs.existsSync("logs")) return [];
 
-for (const row of sampleRows || []) {
-  if (row.artist) artists.add(String(row.artist).trim())
-  if (row.label) labels.add(String(row.label).trim())
-  if (row.country) countries.add(String(row.country).trim())
+  return fs
+    .readdirSync("logs")
+    .filter((name) =>
+      /^parse-release-reference-vinyl.*\.log$/.test(name)
+    )
+    .map((name) => path.join("logs", name));
 }
+
+function extractVinylCount(logPath) {
+  const text = fs.readFileSync(logPath, "utf8");
+
+  const doneMax = text.match(/DONE MAX_ROWS\s+\{[^}]*vinyl:\s*([0-9]+)/);
+  if (doneMax) return Number(doneMax[1]);
+
+  const doneVinyl = text.match(/DONE vinyl\s+([0-9]+)/);
+  if (doneVinyl) return Number(doneVinyl[1]);
+
+  const jsonMatches = [...text.matchAll(/"vinyl"\s*:\s*([0-9]+)/g)];
+  if (jsonMatches.length) {
+    return Number(jsonMatches[jsonMatches.length - 1][1]);
+  }
+
+  return 0;
+}
+
+async function getCurrentMetrics() {
+  const { data, error } = await supabase
+    .from("release_warehouse_metrics")
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    console.error("METRICS READ FAILED", error);
+    process.exit(1);
+  }
+
+  return data || {
+    releases: 5000434,
+    vinyl_releases: 5000434,
+    artists: 757011,
+    labels: 413591,
+    countries: 254,
+  };
+}
+
+async function replaceMetrics(payload) {
+  await supabase.from("release_warehouse_metrics").delete().gte("releases", 0);
+
+  const { error } = await supabase
+    .from("release_warehouse_metrics")
+    .insert(payload);
+
+  if (error) {
+    console.error("METRICS INSERT FAILED", error);
+    process.exit(1);
+  }
+}
+
+const state = readState();
+const logs = findImportLogs();
+
+let added = 0;
+const newlyCounted = [];
+
+for (const logPath of logs) {
+  const key = path.basename(logPath);
+
+  if (state.countedLogs.includes(key)) continue;
+
+  const count = extractVinylCount(logPath);
+
+  if (count > 0) {
+    added += count;
+    newlyCounted.push(key);
+  }
+}
+
+const current = await getCurrentMetrics();
 
 const payload = {
-  id: 1,
-  releases,
-  vinyl_releases: releases,
-  artists: artists.size,
-  labels: labels.size,
-  countries: countries.size,
+  releases: Number(current.releases || 0) + added,
+  vinyl_releases: Number(current.vinyl_releases || 0) + added,
+  artists: Number(current.artists || 757011),
+  labels: Number(current.labels || 413591),
+  countries: Number(current.countries || 254),
   refreshed_at: new Date().toISOString(),
+};
+
+if (added > 0) {
+  await replaceMetrics(payload);
+  state.countedLogs.push(...newlyCounted);
+  writeState(state);
+  console.log("WAREHOUSE METRICS UPDATED", { added, payload, newlyCounted });
+} else {
+  await replaceMetrics({ ...current, refreshed_at: new Date().toISOString() });
+  console.log("WAREHOUSE METRICS REFRESHED — NO NEW IMPORT LOGS", current);
 }
-
-const { error } = await supabase
-  .from("release_warehouse_metrics")
-  .upsert(payload, { onConflict: "id" })
-
-if (error) {
-  console.error(error)
-  process.exit(1)
-}
-
-console.log("WAREHOUSE METRICS REFRESHED", payload)

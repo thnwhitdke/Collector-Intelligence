@@ -8,7 +8,9 @@ const jobs = [
   'ownership-intelligence.mjs',
   'recommendations.mjs',
   'anomaly-detection.mjs',
-  'want-monitoring.mjs'
+  'want-monitoring.mjs',
+  'warehouse-intelligence-v2.mjs',
+  'warehouse-refresh-metrics.mjs'
 ];
 
 console.log('\n🧠 COLLECTOR INTELLIGENCE — HETZNER ENGINE\n');
