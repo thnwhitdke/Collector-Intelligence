@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { stripe } from "@/src/lib/stripe/server";
+import { getStripe } from "@/src/lib/stripe/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = getStripe().webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err: any) {
     console.error("Webhook signature verification failed:", err.message);
     return NextResponse.json({ error: "Invalid webhook signature" }, { status: 400 });
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
 
     if (session.subscription) {
-      const subscription = await stripe.subscriptions.retrieve(String(session.subscription));
+      const subscription = await getStripe().subscriptions.retrieve(String(session.subscription));
       await updateProfileFromSubscription(subscription);
     }
   }

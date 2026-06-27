@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/src/lib/stripe/server";
+import { getStripe } from "@/src/lib/stripe/server";
 import { createClient } from "@/src/lib/supabase/server";
 
 export async function POST() {
@@ -23,7 +23,7 @@ export async function POST() {
     return NextResponse.json({ error: "No Stripe customer found." }, { status: 400 });
   }
 
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripe().billingPortal.sessions.create({
     customer: profile.stripe_customer_id,
     return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/account`,
   });
