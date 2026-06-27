@@ -89,8 +89,8 @@ export default async function EnrichmentOperationsPage() {
     admin.from("value_history").select("snapshot_date, created_at").order("created_at", { ascending: false }).limit(5),
   ])
 
-  const actualWarehouse = warehouseCount.count || 0
   const metricWarehouse = Number(warehouseMetrics.data?.releases || 0)
+  const actualWarehouse = warehouseCount.count || metricWarehouse || 0
   const warehouseTarget = 10_000_000
   const records = recordsCount.count || 0
   const valueHistory = valueHistoryCount.count || 0
