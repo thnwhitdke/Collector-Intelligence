@@ -239,7 +239,7 @@ export default function CollectionPage() {
 
       const { data, error } = await supabase.rpc("search_collection_fast", {
         search_text: searchTerm.trim(),
-        result_limit: searchTerm.trim() ? 500 : 250,
+        result_limit: searchTerm.trim() ? 1000 : 250,
         current_user_id: currentUserId || userId,
       });
 
