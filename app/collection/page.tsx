@@ -237,41 +237,10 @@ export default function CollectionPage() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from("records_clean_safe")
-        .select(
-          `
-          id,
-          artist,
-          artist_canonical,
-          title,
-          year,
-          year_released,
-          label,
-          country,
-          catalogue_number,
-          discogs_release_id,
-          discogs_url,
-          estimated_value,
-          market_consensus_value,
-          discogs_median_price,
-          discogs_image_url,
-          discogs_thumbnail_url,
-          cover_url,
-          market_momentum,
-          demand_score,
-          supply_pressure,
-          volatility_score,
-          collector_iq_score,
-          format,
-          notes,
-          search_text
-          `,
-          { count: "exact" },
-        )
-        .eq("user_id", currentUserId || userId)
-        .order("id", { ascending: false })
-        .limit(5000);
+      const { data, error } = await supabase.rpc("search_collection_fast", {
+        search_text: searchTerm.trim(),
+        result_limit: searchTerm.trim() ? 100 : 250,
+      });
 
       if (error) {
         console.error(error);
