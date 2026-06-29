@@ -297,39 +297,7 @@ export default function CollectionPage() {
         };
       });
 
-      const cleaned = searchTerm.trim().toLowerCase();
-
-      if (!cleaned) {
-        setCollectionRecords(rows);
-      } else {
-        const terms = cleaned.split(/\s+/).filter(Boolean);
-
-        const matched = rows.filter((record: any) => {
-          const haystack = [
-            record.id,
-            record.artist,
-            record.artist_canonical,
-            record.title,
-            record.year,
-            record.year_released,
-            record.label,
-            record.country,
-            record.catalogue_number,
-            record.discogs_release_id,
-            record.discogs_url,
-            record.format,
-            record.notes,
-            record.search_text,
-          ]
-            .filter((value) => value !== null && value !== undefined)
-            .join(" ")
-            .toLowerCase();
-
-          return terms.every((term) => haystack.includes(term));
-        });
-
-        setCollectionRecords(matched);
-      }
+      setCollectionRecords(rows);
 
       setLastRefresh(new Date());
     } catch (e) {
