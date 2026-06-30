@@ -323,7 +323,8 @@ export default function CollectionPage() {
 
       await loadCollectionMetrics(user.id);
 
-      const savedQuery = sessionStorage.getItem("collector-search-query");
+      sessionStorage.removeItem("collector-search-query");
+      const savedQuery = "";
       const savedRecent = sessionStorage.getItem("collector-search-history");
 
       if (savedRecent) {
@@ -435,6 +436,11 @@ export default function CollectionPage() {
     () => displayedRecords.reduce((sum, r) => sum + consensusValue(r), 0),
     [displayedRecords],
   );
+
+  const hasActiveCollectionView =
+    Boolean(searchQuery.trim()) ||
+    signalFilter !== "all" ||
+    showDuplicatesOnly;
 
   const visibleRecordCount = displayedRecords.length;
 
@@ -660,12 +666,12 @@ export default function CollectionPage() {
 
         <section className="mt-8 grid gap-4 md:grid-cols-4">
           <MetricCard
-            label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Result Count" : "Archive Size"}
-            value={String(searchQuery || signalFilter !== "all" || showDuplicatesOnly ? visibleRecordCount : collectionCount)}
+            label={hasActiveCollectionView ? "Result Count" : "Archive Size"}
+            value={String(hasActiveCollectionView ? visibleRecordCount : collectionCount)}
           />
-          <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Result Value" : "Portfolio Value"} value={money(searchQuery || signalFilter !== "all" || showDuplicatesOnly ? visiblePortfolioValue : portfolioValue)} accent />
+          <MetricCard label={hasActiveCollectionView ? "Result Value" : "Portfolio Value"} value={money(hasActiveCollectionView ? visiblePortfolioValue : portfolioValue)} accent />
           <MetricCard label="Cover Intelligence" value={`${enrichmentCoverage}%`} />
-          <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Avg Result Value" : "Avg Record Value"} value={money(avgValue)} />
+          <MetricCard label={hasActiveCollectionView ? "Avg Result Value" : "Avg Record Value"} value={money(avgValue)} />
         </section>
 
         <section className="mt-8 rounded-[34px] border border-[#2E251B] bg-[linear-gradient(135deg,_#12100C,_#0A0907)] p-5 shadow-2xl">
