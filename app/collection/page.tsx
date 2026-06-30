@@ -659,7 +659,10 @@ export default function CollectionPage() {
         </section>
 
         <section className="mt-8 grid gap-4 md:grid-cols-4">
-          <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Result Count" : "Archive Size"} value={String(visibleRecordCount)} />
+          <MetricCard
+            label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Result Count" : "Archive Size"}
+            value={String(searchQuery || signalFilter !== "all" || showDuplicatesOnly ? visibleRecordCount : collectionCount)}
+          />
           <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Result Value" : "Portfolio Value"} value={money(searchQuery || signalFilter !== "all" || showDuplicatesOnly ? visiblePortfolioValue : portfolioValue)} accent />
           <MetricCard label="Cover Intelligence" value={`${enrichmentCoverage}%`} />
           <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Avg Result Value" : "Avg Record Value"} value={money(avgValue)} />
