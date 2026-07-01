@@ -13,10 +13,10 @@ export default async function AuctionIntelligencePage() {
   const supabase = createAdminClient();
 
   const { data: candidates } = await supabase
-    .from("external_market_comp_candidates")
+    .from("market_evidence_review_queue")
     .select("*")
-    .eq("review_status", "unreviewed")
-    .order("variant_score", { ascending: false })
+    
+    .order("amount_usd", { ascending: false })
     .limit(100);
 
   return (

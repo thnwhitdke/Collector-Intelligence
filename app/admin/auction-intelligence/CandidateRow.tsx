@@ -3,60 +3,61 @@
 import { useTransition } from "react";
 import { reviewAuctionCandidate } from "./actions";
 
+function money(value: unknown) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
 export default function CandidateRow({ candidate }: { candidate: any }) {
   const [pending, startTransition] = useTransition();
 
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-      <div className="flex justify-between gap-6">
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div className="flex-1">
-          <div className="text-sm text-gray-400">
+          <div className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
             Record #{candidate.record_id}
           </div>
 
-          <div className="mt-2 text-xl font-bold">
-            {candidate.auction_title ?? "Untitled Auction"}
+          <div className="mt-1 text-sm text-[#B8AA96]">
+            {candidate.artist} — {candidate.record_title}
           </div>
 
-          <div className="mt-2 text-sm text-gray-400 break-all">
-            {candidate.source_record_url}
+          <div className="mt-1 text-xs text-[#8E8170]">
+            {candidate.label ?? "No label"} · {candidate.catalogue_number ?? "No catalog #"} · Discogs {candidate.discogs_release_id ?? "—"}
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
-            <span className="rounded bg-white/10 px-2 py-1">
-              Score {candidate.variant_score}
-            </span>
+          <h2 className="mt-4 text-xl font-black text-white">
+            {candidate.auction_title ?? "Untitled auction"}
+          </h2>
 
-            {candidate.catalog_match && (
-              <span className="rounded bg-green-700 px-2 py-1">Catalog</span>
-            )}
+          <a
+            href={candidate.source_url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 block break-all text-sm font-bold text-[#F4CD68] hover:underline"
+          >
+            Open evidence source
+          </a>
 
-            {candidate.demo_match && (
-              <span className="rounded bg-green-700 px-2 py-1">Demo</span>
-            )}
-
-            {candidate.reissue_flag && (
-              <span className="rounded bg-red-700 px-2 py-1">Reissue</span>
-            )}
-
-            {candidate.without_center_flag && (
-              <span className="rounded bg-red-700 px-2 py-1">
-                Without Center
-              </span>
-            )}
-          </div>
+          {candidate.notes ? (
+            <p className="mt-3 text-sm leading-6 text-[#B8AA96]">
+              {candidate.notes}
+            </p>
+          ) : null}
         </div>
 
-        <div className="text-right">
-          <div className="text-2xl font-bold text-yellow-300">
-            ${Number(candidate.sale_price_usd ?? candidate.sale_price).toLocaleString()}
+        <div className="min-w-[220px] text-left md:text-right">
+          <div className="text-3xl font-black text-[#F4CD68]">
+            {money(candidate.amount_usd ?? candidate.amount)}
           </div>
 
-          <div className="text-xs text-gray-400">
-            {candidate.original_currency} {candidate.original_sale_price}
+          <div className="mt-1 text-xs text-[#8E8170]">
+            original {candidate.currency ?? "—"} {Number(candidate.amount ?? 0).toLocaleString()}
           </div>
 
-          <div className="mt-6 flex gap-2">
+          <div className="mt-6 flex gap-2 md:justify-end">
             <button
               disabled={pending}
               onClick={() =>
@@ -64,9 +65,9 @@ export default function CandidateRow({ candidate }: { candidate: any }) {
                   reviewAuctionCandidate(candidate.id, "accepted")
                 )
               }
-              className="rounded bg-green-700 px-4 py-2 font-bold hover:bg-green-600"
+              className="rounded-xl bg-emerald-700 px-4 py-2 font-black text-white hover:bg-emerald-600 disabled:opacity-50"
             >
-              ✓ Accept
+              ✓ Approve
             </button>
 
             <button
@@ -76,7 +77,7 @@ export default function CandidateRow({ candidate }: { candidate: any }) {
                   reviewAuctionCandidate(candidate.id, "rejected")
                 )
               }
-              className="rounded bg-red-700 px-4 py-2 font-bold hover:bg-red-600"
+              className="rounded-xl bg-red-700 px-4 py-2 font-black text-white hover:bg-red-600 disabled:opacity-50"
             >
               ✕ Reject
             </button>

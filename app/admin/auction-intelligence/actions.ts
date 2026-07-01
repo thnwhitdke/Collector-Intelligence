@@ -9,12 +9,22 @@ export async function reviewAuctionCandidate(
 ) {
   const supabase = createAdminClient();
 
+  const accepted = decision === "accepted";
+
   await supabase
-    .from("external_market_comp_candidates")
+    .from("market_evidence")
     .update({
-      review_status: decision,
-      accepted_at: decision === "accepted" ? new Date().toISOString() : null,
-      rejected_at: decision === "rejected" ? new Date().toISOString() : null,
+      evidence_type: accepted ? "verified_auction_sale" : "excluded_variant_sale",
+      evidence_strength: accepted ? "gold" : "excluded",
+      appraisal_eligible: accepted,
+      notes: accepted
+        ? "User approved this evidence as appraisal-eligible."
+        : "User rejected this evidence as not appraisal-eligible.",
+      metadata: {
+        review_status: decision,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: "admin_review_queue",
+      },
     })
     .eq("id", id);
 
