@@ -379,11 +379,20 @@ export default async function RecordDetailPage({
 
   const { data: recentAuctionComps } = await supabase
     .from("external_market_comps")
-    .select("auction_title, sale_price, sale_price_usd, original_sale_price, original_currency, currency, auction_date, source_record_url")
+    .select("auction_title, sale_price, sale_price_usd, original_sale_price, original_currency, currency, auction_date, source_record_url, variant_match_notes, confidence")
     .eq("record_id", Number(id))
     .eq("source", "popsike")
     .not("sale_price", "is", null)
     .neq("variant_match_status", "rejected")
+    .order("auction_date", { ascending: false })
+    .limit(5);
+
+  const { data: rejectedAuctionComps } = await supabase
+    .from("external_market_comps")
+    .select("auction_title, sale_price, sale_price_usd, original_sale_price, original_currency, currency, auction_date, source_record_url, variant_match_notes, confidence")
+    .eq("record_id", Number(id))
+    .eq("source", "popsike")
+    .eq("variant_match_status", "rejected")
     .order("auction_date", { ascending: false })
     .limit(5);
 
@@ -1066,7 +1075,7 @@ export default async function RecordDetailPage({
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Valuation method: {marketSource.includes("popsike") ? `Marketplace benchmark + ${auctionCount} auction sales` : displayConsensusSourceLabel}
+                    Valuation method: {hasAuctionComps ? `Verified auction evidence · ${auctionCount} accepted sale${auctionCount === 1 ? "" : "s"}` : displayConsensusSourceLabel}
                     {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
                         ✓ Popsike auction support included
@@ -1096,13 +1105,13 @@ export default async function RecordDetailPage({
 
                 <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
-                    {isBlockedMarket ? "Discogs Reference Only" : "Marketplace Benchmark"}
+                    "Discogs Variant Warning"
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
                     {discogsBenchmark}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    {isBlockedMarket ? "Suppressed from consensus for this copy" : "Discogs marketplace median reference"}
+                    "Discogs value may mix variants, reissues, and non-comparable copies. Used only as a weak reference."
                   </p>
                 </div>
               </div>
@@ -1198,13 +1207,13 @@ export default async function RecordDetailPage({
               <div className="mb-6 grid gap-4 md:grid-cols-3">
                 <div className="rounded-3xl border border-[#D8B65A]/20 bg-[#D8B65A]/10 p-5">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#F4CD68]">
-                    Collector Intelligence Consensus
+                    Collector Intelligence Value
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
                     {ciConsensusValue}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    Valuation method: {marketSource.includes("popsike") ? `Marketplace benchmark + ${auctionCount} auction sales` : displayConsensusSourceLabel}
+                    Valuation method: {hasAuctionComps ? `Verified auction evidence · ${auctionCount} accepted sale${auctionCount === 1 ? "" : "s"}` : displayConsensusSourceLabel}
                     {marketSource?.includes("popsike") || hasAuctionComps ? (
                       <span className="mt-2 block font-bold text-[#F4CD68]">
                         ✓ Popsike auction support included
@@ -1241,7 +1250,7 @@ export default async function RecordDetailPage({
 
                 <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
-                    {isBlockedMarket ? "Discogs Reference Only" : "Marketplace Benchmark"}
+                    "Discogs Variant Warning"
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
                     {discogsBenchmark}
@@ -1321,22 +1330,27 @@ export default async function RecordDetailPage({
                   {recentAuctionComps && recentAuctionComps.length > 0 ? (
                     <div className="mt-5 border-t border-white/10 pt-4">
                       <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
-                        Recent Matched Sales
+                        Accepted Auction Evidence
                       </p>
 
                       <div className="space-y-3">
                         {recentAuctionComps.map((comp, index) => (
                           <div
                             key={`${comp.source_record_url ?? comp.auction_title}-${index}`}
-                            className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3 md:flex-row md:items-center md:justify-between"
+                            className="flex flex-col gap-2 rounded-2xl border border-emerald-300/20 bg-emerald-300/[0.06] p-3 md:flex-row md:items-center md:justify-between"
                           >
                             <div>
                               <p className="text-sm font-bold text-white">
-                                {comp.auction_title}
+                                {comp.auction_title ?? "Verified Popsike auction"}
                               </p>
                               <p className="mt-1 text-xs text-[#8E8170]">
                                 {formatDate(comp.auction_date)}
                               </p>
+                              {comp.variant_match_notes ? (
+                                <p className="mt-1 text-xs text-emerald-200">
+                                  Accepted: {comp.variant_match_notes}
+                                </p>
+                              ) : null}
                             </div>
 
                             <p className="text-lg font-black text-[#F4CD68]">
@@ -1353,8 +1367,46 @@ export default async function RecordDetailPage({
                     </div>
                   ) : null}
 
+                  {rejectedAuctionComps && rejectedAuctionComps.length > 0 ? (
+                    <div className="mt-5 border-t border-white/10 pt-4">
+                      <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-[#8E8170]">
+                        Excluded Variant Evidence
+                      </p>
+
+                      <div className="space-y-3">
+                        {rejectedAuctionComps.map((comp, index) => (
+                          <div
+                            key={`${comp.source_record_url ?? comp.auction_title}-rejected-${index}`}
+                            className="flex flex-col gap-2 rounded-2xl border border-red-300/20 bg-red-300/[0.05] p-3 md:flex-row md:items-center md:justify-between"
+                          >
+                            <div>
+                              <p className="text-sm font-bold text-white">
+                                {comp.auction_title ?? "Rejected Popsike auction"}
+                              </p>
+                              <p className="mt-1 text-xs text-[#8E8170]">
+                                {formatDate(comp.auction_date)}
+                              </p>
+                              <p className="mt-1 text-xs text-red-200">
+                                Excluded from valuation: {comp.variant_match_notes ?? comp.confidence ?? "Variant mismatch"}
+                              </p>
+                            </div>
+
+                            <p className="text-lg font-black text-red-200">
+                              {money(comp.sale_price_usd ?? comp.sale_price)}
+                              {comp.original_sale_price && comp.original_currency ? (
+                                <span className="ml-2 text-xs font-bold text-[#8E8170]">
+                                  original {comp.original_currency} {Number(comp.original_sale_price).toLocaleString()}
+                                </span>
+                              ) : null}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <p className="mt-4 text-xs leading-6 text-[#8E8170]">
-                    Valuation-grade auction history is blended with marketplace benchmarks to produce the Collector Intelligence consensus.
+                    Accepted auction evidence is prioritized for rare variants. Rejected variant evidence is excluded from valuation.
                   </p>
                 </div>
               ) : null}
