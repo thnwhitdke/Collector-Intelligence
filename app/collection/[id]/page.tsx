@@ -433,6 +433,16 @@ export default async function RecordDetailPage({
   const auctionPremiumPercent =
     consensusV2?.auction_premium_percent;
 
+  const discogsExactSalesStatus = String(consensusV2?.discogs_exact_sales_status ?? "unknown");
+  const discogsExactSalesCount = Number(consensusV2?.discogs_exact_sales_count ?? 0);
+  const discogsAppraisalEligible = Boolean(consensusV2?.discogs_value_appraisal_eligible);
+  const discogsExactSaleDisplay =
+    discogsExactSalesStatus === "never_sold"
+      ? "Never sold"
+      : discogsExactSalesCount > 0
+        ? `${discogsExactSalesCount} confirmed sale${discogsExactSalesCount === 1 ? "" : "s"}`
+        : "No confirmed sales";
+
   const hasValuationConflict = Boolean(valuationConflict);
   const valuationConflictDirection =
     valuationConflict?.conflict_type === "auction_far_above_estimate"
@@ -1108,10 +1118,10 @@ export default async function RecordDetailPage({
                     "Discogs Variant Warning"
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
-                    {hasAuctionComps ? "No confirmed sales" : discogsBenchmark}
+                    {discogsAppraisalEligible ? discogsBenchmark : discogsExactSaleDisplay}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    "This exact variant has no confirmed Discogs sale history. Mixed Discogs values are excluded from appraisal."
+                    "Discogs exact-release sales are tracked separately. Mixed Discogs marketplace values are excluded from appraisal unless exact-release sales are confirmed."
                   </p>
                 </div>
               </div>
@@ -1253,7 +1263,7 @@ export default async function RecordDetailPage({
                     "Discogs Variant Warning"
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
-                    {hasAuctionComps ? "No confirmed sales" : discogsBenchmark}
+                    {discogsAppraisalEligible ? discogsBenchmark : discogsExactSaleDisplay}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
                     {isBlockedMarket ? "Suppressed from consensus for this copy" : `Legacy / imported estimate: ${estimatedValue}`}
