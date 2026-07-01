@@ -379,7 +379,7 @@ export default async function RecordDetailPage({
 
   const { data: recentAuctionComps } = await supabase
     .from("external_market_comps")
-    .select("auction_title, sale_price, currency, auction_date, source_record_url")
+    .select("auction_title, sale_price, sale_price_usd, original_sale_price, original_currency, currency, auction_date, source_record_url")
     .eq("record_id", Number(id))
     .eq("source", "popsike")
     .not("sale_price", "is", null)
@@ -1340,7 +1340,12 @@ export default async function RecordDetailPage({
                             </div>
 
                             <p className="text-lg font-black text-[#F4CD68]">
-                              {money(comp.sale_price)}
+                              {money(comp.sale_price_usd ?? comp.sale_price)}
+                              {comp.original_sale_price && comp.original_currency ? (
+                                <span className="ml-2 text-xs font-bold text-[#8E8170]">
+                                  original {comp.original_currency} {Number(comp.original_sale_price).toLocaleString()}
+                                </span>
+                              ) : null}
                             </p>
                           </div>
                         ))}

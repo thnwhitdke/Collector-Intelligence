@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { scoreAuctionCandidate } from "@/src/lib/auction-intelligence";
 
 const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 150;
@@ -216,6 +217,22 @@ function parsePopsikeDetail(html: string, record: any, searchQuery: string, href
     "UNKNOWN";
 
   const matchQuality = scorePopsikeMatch(record, auctionTitle);
+  const sourceRecordUrl = `https://www.popsike.com${href}`;
+  const variantScore = scoreAuctionCandidate({
+    auctionTitle,
+    sourceRecordUrl,
+    recordTitle: record.title,
+    recordArtist: record.artist,
+    catalogNumber: record.catalogue_number,
+    label: record.label,
+    year: record.year,
+  });
+
+  const salePriceUsd =
+    currency === "USD" ? salePrice :
+    currency === "GBP" ? Math.round(salePrice * 1.27 * 100) / 100 :
+    currency === "EUR" ? Math.round(salePrice * 1.08 * 100) / 100 :
+    salePrice;
 
   return {
     record_id: record.id,
@@ -226,8 +243,24 @@ function parsePopsikeDetail(html: string, record: any, searchQuery: string, href
     auction_date: parseAuctionDate(soldDateMatch?.[1] ?? null),
     sale_price: salePrice,
     currency,
-    source_record_url: `https://www.popsike.com${href}`,
+    sale_price_usd: salePriceUsd,
+    original_sale_price: salePrice,
+    original_currency: currency,
+    fx_rate_to_usd:
+      currency === "USD" ? 1 :
+      currency === "GBP" ? 1.27 :
+      currency === "EUR" ? 1.08 :
+      1,
+    fx_rate_date: new Date().toISOString().slice(0, 10),
+    source_record_url: sourceRecordUrl,
     confidence: matchQuality.confidence,
+    variant_match_score: variantScore.score,
+    variant_match_status:
+      variantScore.recommendation === "accept" ? "accepted" :
+      variantScore.recommendation === "reject" ? "rejected" :
+      "unreviewed",
+    variant_match_notes: [...variantScore.reasons, ...variantScore.flags].join("; "),
+    manually_verified: false,
     raw_payload: {
       article_no: articleNo,
       search: searchQuery,
@@ -235,6 +268,10 @@ function parsePopsikeDetail(html: string, record: any, searchQuery: string, href
       catalogue_number: record.catalogue_number ?? null,
       match_quality: matchQuality.match_quality,
       valuation_eligible: matchQuality.valuation_eligible,
+      variant_score: variantScore.score,
+      variant_recommendation: variantScore.recommendation,
+      variant_reasons: variantScore.reasons,
+      variant_flags: variantScore.flags,
       parsed_from: "popsike_detail_page"
     }
   };
