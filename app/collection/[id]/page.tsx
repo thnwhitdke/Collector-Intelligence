@@ -383,6 +383,7 @@ export default async function RecordDetailPage({
     .eq("record_id", Number(id))
     .eq("source", "popsike")
     .not("sale_price", "is", null)
+    .neq("variant_match_status", "rejected")
     .order("auction_date", { ascending: false })
     .limit(5);
 
@@ -409,10 +410,10 @@ export default async function RecordDetailPage({
     Boolean(getValue(record, "discogs_sale_blocked"));
 
   const ciConsensusValue =
-    getValue(record, "market_consensus_value") != null
-      ? money(getValue(record, "market_consensus_value"))
-      : consensusV2?.consensus_value_v2 != null
-        ? money(consensusV2.consensus_value_v2)
+    consensusV2?.consensus_value_v2 != null
+      ? money(consensusV2.consensus_value_v2)
+      : getValue(record, "market_consensus_value") != null
+        ? money(getValue(record, "market_consensus_value"))
         : marketConsensus.display;
 
   const ciConsensusConfidence =
