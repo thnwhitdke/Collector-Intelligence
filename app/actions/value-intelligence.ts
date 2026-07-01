@@ -63,7 +63,7 @@ export async function refreshValueIntelligence(recordId: string) {
     .maybeSingle();
 
   const { data: auctionSummary } = await supabase
-    .from("external_market_comp_summary")
+    .from("external_market_comp_summary_safe")
     .select(`
       median_price,
       avg_price,
