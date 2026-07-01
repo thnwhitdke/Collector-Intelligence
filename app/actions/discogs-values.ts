@@ -207,11 +207,12 @@ const { data: candidates, error } = await supabase
       const { error: updateError } = await supabase
         .from("records_clean_safe")
         .update({
-          discogs_low_price: result.low,
-          discogs_median_price: result.median,
-          discogs_high_price: result.high,
-          estimated_value: estimatedValue,
-          value_source: "discogs_price_suggestions",
+          discogs_price_suggestion_low: result.low,
+          discogs_price_suggestion_median: result.median,
+          discogs_price_suggestion_high: result.high,
+          // estimated_value intentionally not updated from Discogs price suggestions,
+          // because price suggestions are reference evidence, not appraisal evidence.
+          value_source: "discogs_price_suggestions_reference_only",
           value_last_updated: new Date().toISOString(),
           discogs_sale_blocked: false,
           discogs_sale_blocked_reason: null,

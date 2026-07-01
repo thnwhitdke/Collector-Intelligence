@@ -529,10 +529,10 @@ const collectorIQScore =
   const { error: updateError } = await supabase
     .from("records_clean_safe")
     .update({
-      discogs_low_price: low,
-      discogs_median_price: median,
-      discogs_high_price: high,
-      value_source: "Discogs single-record pull",
+      discogs_price_suggestion_low: low,
+      discogs_price_suggestion_median: median,
+      discogs_price_suggestion_high: high,
+      value_source: "Discogs reference evidence",
       value_last_updated: now,
       discogs_for_sale: forSale,
       discogs_last_sold_date: lastSoldDate,
@@ -552,6 +552,9 @@ const collectorIQScore =
 
 collector_velocity: collectorVelocity,
       next_refresh_due_at: nextRefreshDueAt.toISOString(),
+      discogs_value_appraisal_eligible: false,
+      discogs_value_evidence_class: "price_suggestion_reference_only",
+      discogs_value_notes: "Discogs price suggestions are stored as reference evidence only and are excluded from appraisal unless exact release sales are confirmed.",
       value_pull_status: "pulled_successfully",
       value_pull_note: "Discogs single-record value pull completed successfully.",
       value_pull_last_attempted_at: now,
@@ -565,9 +568,9 @@ const { data: historyData, error: historyError } = await supabase
   .insert({
     record_id: id,
 
-    discogs_low_price: low,
-    discogs_median_price: median,
-    discogs_high_price: high,
+    discogs_price_suggestion_low: low,
+    discogs_price_suggestion_median: median,
+    discogs_price_suggestion_high: high,
 
     discogs_for_sale: forSale,
 
