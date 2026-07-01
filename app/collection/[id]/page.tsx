@@ -1108,10 +1108,10 @@ export default async function RecordDetailPage({
                     "Discogs Variant Warning"
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
-                    {discogsBenchmark}
+                    {hasAuctionComps ? "No confirmed sales" : discogsBenchmark}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
-                    "Discogs value may mix variants, reissues, and non-comparable copies. Used only as a weak reference."
+                    "This exact variant has no confirmed Discogs sale history. Mixed Discogs values are excluded from appraisal."
                   </p>
                 </div>
               </div>
@@ -1253,7 +1253,7 @@ export default async function RecordDetailPage({
                     "Discogs Variant Warning"
                   </p>
                   <p className="mt-2 text-3xl font-black text-white">
-                    {discogsBenchmark}
+                    {hasAuctionComps ? "No confirmed sales" : discogsBenchmark}
                   </p>
                   <p className="mt-2 text-xs leading-6 text-[#B8AA96]">
                     {isBlockedMarket ? "Suppressed from consensus for this copy" : `Legacy / imported estimate: ${estimatedValue}`}
