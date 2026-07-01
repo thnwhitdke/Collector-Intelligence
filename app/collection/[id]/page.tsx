@@ -1275,7 +1275,7 @@ export default async function RecordDetailPage({
                         {auctionCount} matched auction results · Median sale
                       </p>
                       <p className="mt-1 text-xs font-bold text-[#F4CD68]">
-                        Source: Popsike auction history · 30% consensus weight
+                        Source: verified Popsike auction evidence · mixed Discogs values excluded
                       </p>
                     </div>
 
