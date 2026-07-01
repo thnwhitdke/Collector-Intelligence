@@ -157,6 +157,14 @@ export function calculateValueIntelligence(
     baseWeight: number;
   }[] = [];
 
+  const hasSingleVerifiedAuction =
+    salesValue !== null &&
+    salesMatchedCount !== null &&
+    salesMatchedCount === 1 &&
+    discogsValue !== null &&
+    discogsValue > 0 &&
+    salesValue / discogsValue >= 10;
+
   if (salesValue !== null) {
     const salesWeight =
       salesMatchedCount !== null && salesMatchedCount >= 10
@@ -165,6 +173,8 @@ export function calculateValueIntelligence(
         ? 60
         : salesMatchedCount !== null && salesMatchedCount >= 2
         ? 45
+        : hasSingleVerifiedAuction
+        ? 100
         : 30;
 
     sources.push({
@@ -174,7 +184,7 @@ export function calculateValueIntelligence(
     });
   }
 
-  if (discogsValue !== null) {
+  if (discogsValue !== null && !hasSingleVerifiedAuction) {
     const discogsWeight =
       salesMatchedCount !== null && salesMatchedCount >= 10
         ? 20
@@ -246,7 +256,7 @@ export function calculateValueIntelligence(
       confidenceScore += 8;
       badges.push("Sales Comp Supported");
     } else {
-      badges.push("Single Sales Comp");
+      badges.push(hasSingleVerifiedAuction ? "Single Verified Auction" : "Single Sales Comp");
     }
 
     if (salesConfidenceScore !== null && salesConfidenceScore >= 80) {
