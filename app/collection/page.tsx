@@ -239,7 +239,7 @@ export default function CollectionPage() {
 
       const { data, error } = await supabase.rpc("search_collection_fast", {
         search_text: searchTerm.trim(),
-        result_limit: searchTerm.trim() ? 1000 : 5000,
+        result_limit: searchTerm.trim() ? 1000 : 250,
         current_user_id: currentUserId || userId,
       });
 
@@ -297,7 +297,39 @@ export default function CollectionPage() {
         };
       });
 
-      setCollectionRecords(rows);
+      const cleaned = searchTerm.trim().toLowerCase();
+
+      if (!cleaned) {
+        setCollectionRecords(rows);
+      } else {
+        const terms = cleaned.split(/\s+/).filter(Boolean);
+
+        const matched = rows.filter((record: any) => {
+          const haystack = [
+            record.id,
+            record.artist,
+            record.artist_canonical,
+            record.title,
+            record.year,
+            record.year_released,
+            record.label,
+            record.country,
+            record.catalogue_number,
+            record.discogs_release_id,
+            record.discogs_url,
+            record.format,
+            record.notes,
+            record.search_text,
+          ]
+            .filter((value) => value !== null && value !== undefined)
+            .join(" ")
+            .toLowerCase();
+
+          return terms.every((term) => haystack.includes(term));
+        });
+
+        setCollectionRecords(matched);
+      }
 
       setLastRefresh(new Date());
     } catch (e) {
@@ -323,8 +355,7 @@ export default function CollectionPage() {
 
       await loadCollectionMetrics(user.id);
 
-      sessionStorage.removeItem("collector-search-query");
-      const savedQuery = "";
+      const savedQuery = sessionStorage.getItem("collector-search-query");
       const savedRecent = sessionStorage.getItem("collector-search-history");
 
       if (savedRecent) {
@@ -436,11 +467,6 @@ export default function CollectionPage() {
     () => displayedRecords.reduce((sum, r) => sum + consensusValue(r), 0),
     [displayedRecords],
   );
-
-  const hasActiveCollectionView =
-    Boolean(searchQuery.trim()) ||
-    signalFilter !== "all" ||
-    showDuplicatesOnly;
 
   const visibleRecordCount = displayedRecords.length;
 
@@ -665,13 +691,10 @@ export default function CollectionPage() {
         </section>
 
         <section className="mt-8 grid gap-4 md:grid-cols-4">
-          <MetricCard
-            label={hasActiveCollectionView ? "Result Count" : "Archive Size"}
-            value={String(hasActiveCollectionView ? visibleRecordCount : collectionCount)}
-          />
-          <MetricCard label={hasActiveCollectionView ? "Result Value" : "Portfolio Value"} value={money(hasActiveCollectionView ? visiblePortfolioValue : portfolioValue)} accent />
+          <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Result Count" : "Archive Size"} value={String(visibleRecordCount)} />
+          <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Result Value" : "Portfolio Value"} value={money(searchQuery || signalFilter !== "all" || showDuplicatesOnly ? visiblePortfolioValue : portfolioValue)} accent />
           <MetricCard label="Cover Intelligence" value={`${enrichmentCoverage}%`} />
-          <MetricCard label={hasActiveCollectionView ? "Avg Result Value" : "Avg Record Value"} value={money(avgValue)} />
+          <MetricCard label={searchQuery || signalFilter !== "all" || showDuplicatesOnly ? "Avg Result Value" : "Avg Record Value"} value={money(avgValue)} />
         </section>
 
         <section className="mt-8 rounded-[34px] border border-[#2E251B] bg-[linear-gradient(135deg,_#12100C,_#0A0907)] p-5 shadow-2xl">
@@ -694,11 +717,20 @@ export default function CollectionPage() {
               </p>
             </div>
 
-            <AddRecordSlideOver
-              showDuplicatesOnly={showDuplicatesOnly}
-              setShowDuplicatesOnly={setShowDuplicatesOnly}
-              duplicateCount={duplicateCount}
-            />
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/collection/release-explorer"
+                className="rounded-2xl border border-cyan-400/25 bg-cyan-400/10 px-5 py-3 text-sm font-black text-cyan-200 transition hover:bg-cyan-400/20"
+              >
+                Release Explorer
+              </Link>
+
+              <AddRecordSlideOver
+                showDuplicatesOnly={showDuplicatesOnly}
+                setShowDuplicatesOnly={setShowDuplicatesOnly}
+                duplicateCount={duplicateCount}
+              />
+            </div>
           </div>
 
           <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_auto]">

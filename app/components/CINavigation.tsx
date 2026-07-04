@@ -20,6 +20,7 @@ const navGroups: NavGroup[] = [
       { href: '/research/coding', label: 'Research Coding' },
       { href: '/collection/daily-briefing', label: 'Briefing' },
       { href: '/collection', label: 'Collection' },
+      { href: '/collection/release-explorer', label: 'Release Explorer' },
       { href: '/collection/intelligence', label: 'Intelligence' },
       { href: '/collection/want-list', label: 'Want List' },
       { href: '/collection/acquisition-radar', label: 'Acquisition' },
